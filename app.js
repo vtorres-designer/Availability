@@ -75,7 +75,7 @@
   // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
   // live in a repository variable that only the owner's key can read.
   const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0, feedback: "" });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, days: {} });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -213,18 +213,55 @@
     return null;
   }
 
+  // "Every week" days: a shift he works (or a day he keeps busy) on the same weekday every week, until he turns it off.
+  // A day marked on the calendar or pasted from a schedule wins over the weekly setting for that date.
+  function cleanRule(r, pickup) {
+    if (!r || typeof r !== "object") return null;
+    const d = parseInt(r.d, 10);
+    if (!(d >= 0 && d <= 6)) return null;
+    const rec = cleanPrivRec({ s: r.s, start: r.start, end: r.end, hours: r.hours }, pickup);
+    if (!rec || (rec.s !== "work" && rec.s !== "busy")) return null;
+    return Object.assign({ d }, rec);
+  }
+  function cleanWeekly(list, pickup) {
+    const out = [];
+    if (Array.isArray(list)) {
+      for (const r of list) {
+        const c = cleanRule(r, pickup);
+        if (c && !out.some((x) => x.d === c.d)) out.push(c);
+      }
+    }
+    return out.sort((a, b) => a.d - b.d);
+  }
+  const ruleOn = (k, v) => (v.weekly || []).filter((r) => r.d === dateOf(k).getDay())[0] || null;
+  // The record that counts for a day: what's marked on it, or else its every-week setting.
+  function dayRec(k, v) {
+    if (v.days[k]) return v.days[k];
+    const r = ruleOn(k, v);
+    if (!r) return null;
+    const out = Object.assign({}, r, { weekly: true });
+    delete out.d;
+    return out;
+  }
+  // Supervisors only learn which weekdays are red every week, never the times.
+  const weeklyPublic = (v) => (v.weekly || []).map((r) => r.d);
+  const cleanDows = (list) => (Array.isArray(list) ? [0, 1, 2, 3, 4, 5, 6].filter((d) => list.indexOf(d) >= 0) : []);
+
   function normalizePriv(raw) {
     const r = raw && typeof raw === "object" ? raw : {};
     const d = defaultPriv();
     if (typeof r.rev === "string") d.rev = r.rev;
     if (Number(r.otAfter) > 0) d.otAfter = Number(r.otAfter);
     if (Number(r.pickup) > 0 && Number(r.pickup) <= 24) d.pickup = Number(r.pickup);
+    d.weekly = cleanWeekly(r.weekly, d.pickup);
     if (r.days && typeof r.days === "object") {
       for (const [k, v] of Object.entries(r.days)) {
         const rec = isKey(k) ? cleanPrivRec(v, d.pickup) : null;
         if (rec) d.days[k] = rec;
       }
     }
+    // Settings a newer version of the site added are kept, so saving from here doesn't erase them.
+    for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev") d[k] = r[k];
     return d;
   }
 
@@ -249,8 +286,9 @@
   }
 
   // Rebuilds what the owner can from the public file alone (used if the private variable is missing).
-  function privFromPublicDays(days) {
+  function privFromPublicDays(days, weekly) {
     const priv = defaultPriv();
+    priv.weekly = cleanWeekly((weekly || []).map((d) => ({ d, s: "busy" })), priv.pickup);
     for (const [k, v] of Object.entries(days)) {
       if (v.s === "busy") priv.days[k] = { s: "busy" };
       else priv.days[k] = cleanPrivRec({ s: "open", w: v.w }, priv.pickup);
@@ -270,9 +308,9 @@
   }
 
   function readPublicFile(raw) {
-    if (raw && raw.v === 2) return { pub: normalizePub(raw, true), days: normalizePublicDays(raw.days), updated: raw.updated || null };
+    if (raw && raw.v === 2) return { pub: normalizePub(raw, true), days: normalizePublicDays(raw.days), weekly: cleanDows(raw.weekly), updated: raw.updated || null };
     const m = migrateV1(raw);
-    return { pub: m.pub, days: derivePublic(m.pub, m.priv), updated: (raw && raw.updated) || null, migrated: m };
+    return { pub: m.pub, days: derivePublic(m.pub, m.priv), weekly: [], updated: (raw && raw.updated) || null, migrated: m };
   }
 
   const weekStartOf = (k, ws) => addDays(k, -((dateOf(k).getDay() - ws + 7) % 7));
@@ -287,7 +325,7 @@
     let total = 0;
     for (let i = -1; i < 7; i++) {
       const k = addDays(weekStartKey, i);
-      const rec = v.days[k];
+      const rec = dayRec(k, v);
       if (!rec || rec.s !== "work") continue;
       const paid = Number(rec.hours) || 0;
       if (rec.start && rec.end) {
@@ -344,6 +382,7 @@
   let pub = defaultPub();
   let priv = defaultPriv();
   let pubDays = {}; // what the public page shows
+  let pubWeekly = []; // weekdays that are red every week
   let updated = null;
   let saved = null; // owner: {pub, priv} as last saved
   let pubSha = null;
@@ -426,7 +465,7 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup"]) if (priv[f] !== saved.priv[f]) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup", "weekly"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     return d;
   }
   const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length;
@@ -455,6 +494,8 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
+    const wk = d.priv && d.priv.weekly;
+    if (wk && take(wk, priv.weekly)) priv.weekly = cleanWeekly(wk.to, priv.pickup);
     return { applied, skipped };
   }
 
@@ -519,6 +560,11 @@
   function applyBrush(k) {
     if (busy) return;
     const cur = priv.days[k];
+    const rule = cur ? null : ruleOn(k, priv);
+    if (rule && rule.s === brush) {
+      toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to edit.`, 5000);
+      return;
+    }
     if (brush === "work") setDay(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
     else if (brush === "busy") setDay(k, cur && cur.s === "busy" ? null : { s: "busy" });
     else if (brush === "open") setDay(k, cur && cur.s === "open" ? null : { s: "open" });
@@ -527,9 +573,9 @@
 
   // ---------- day info ----------
   function ownerInfo(k) {
-    const rec = priv.days[k] || null;
+    const rec = dayRec(k, priv);
     const booked = weekHours(k, priv, pub.weekStart);
-    const base = { past: k < todayKey(), booked, rec };
+    const base = { past: k < todayKey(), booked, rec, weekly: !!(rec && rec.weekly) };
     if (!rec) return Object.assign(base, { kind: "unset" });
     if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
     if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
@@ -538,7 +584,8 @@
 
   function publicInfo(k) {
     const rec = pubDays[k];
-    return { past: k < todayKey(), kind: rec ? rec.s : "unset", w: rec && rec.w ? rec.w : null };
+    const kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
+    return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null };
   }
 
   function publicStatusText(kind) {
@@ -573,7 +620,7 @@
 
   function render() {
     const asOwner = ownerView();
-    if (owner && preview) pubDays = derivePublic(pub, priv);
+    if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); }
     $("#title").textContent = pub.name ? `${possessive(pub.name)} availability` : "Shift availability";
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
@@ -604,7 +651,7 @@
         const k = addDays(ws, i);
         const d = dateOf(k);
         const showMonth = d.getDate() === 1 || (wi === 0 && i === 0);
-        let cls, tag, label, disabled = false;
+        let cls, tag, label, disabled = false, weekly = false;
         if (asOwner) {
           const info = ownerInfo(k);
           cls = ["day", info.kind];
@@ -612,6 +659,8 @@
           if (info.past) cls.push("past");
           tag = OWNER_TAG[info.kind];
           label = info.kind === "work" ? "Working" : info.kind === "busy" ? "Busy" : publicStatusText(info.kind);
+          weekly = info.weekly;
+          if (weekly) label += `, every ${DOW_LONG[d.getDay()]}`;
         } else {
           const info = publicInfo(k);
           disabled = info.past;
@@ -624,7 +673,8 @@
         days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null },
           h("span", { class: "mon", text: showMonth ? fmt(k, { month: "short" }) : "" }),
           h("span", { class: "num", text: d.getDate() }),
-          h("span", { class: "tag", text: tag })));
+          h("span", { class: "tag", text: tag }),
+          weekly ? h("span", { class: "rep", "aria-hidden": "true", text: "↻" }) : null));
       }
       const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
       if (asOwner) {
@@ -666,6 +716,7 @@
     } else {
       hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow shows up on its own when a shift would be overtime.");
     }
+    if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
     if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
 
     const c = changes();
@@ -1137,16 +1188,31 @@
     return line;
   }
 
+  function ruleText(r) {
+    const when = r.s === "work" && r.start ? `, ${fmtTime(r.start)} – ${fmtTime(r.end)}` : "";
+    return `${r.s === "work" ? "Working" : "Busy"} every ${DOW_LONG[r.d]}${when}`;
+  }
+
   function fillEdit(fillInputs) {
     const k = editKey;
     const rec = priv.days[k];
+    const rule = ruleOn(k, priv);
     const st = rec ? rec.s : "unset";
     $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
     for (const [id, s] of [["#editWork", "work"], ["#editBusy", "busy"], ["#editOpen", "open"], ["#editUnset", "unset"]]) $(id).hidden = st !== s;
+    // On an every-week day, "Not set" means "follow the weekly setting".
+    $("#stUnsetText").textContent = rule ? "Every week" : "Not set";
+    $("#stUnsetDot").className = rule ? `dot busy${rule.s === "busy" ? " hatch" : ""}` : "dot none";
+    $("#editUnsetText").textContent = rule
+      ? `${ruleText(rule)} (from Settings). Supervisors see red. Pick another option to change only this date.`
+      : "Shows gray to supervisors.";
+    $("#editRuleNote").hidden = !(rule && rec);
+    $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every week to go back to: ${ruleText(rule)}.` : "";
     if (fillInputs) {
-      $("#workStart").value = rec && rec.s === "work" && rec.start ? rec.start : "";
-      $("#workEnd").value = rec && rec.s === "work" && rec.end ? rec.end : "";
-      $("#workHours").value = rec && rec.s === "work" ? num(rec.hours) : num(priv.pickup);
+      const src = rec && rec.s === "work" ? rec : !rec && rule && rule.s === "work" ? rule : null;
+      $("#workStart").value = src && src.start ? src.start : "";
+      $("#workEnd").value = src && src.end ? src.end : "";
+      $("#workHours").value = src ? num(src.hours) : num(priv.pickup);
       $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
       $("#busyNote").value = rec && rec.s === "busy" && rec.note ? rec.note : "";
     }
@@ -1209,15 +1275,17 @@
     const keys = [...final.keys()].sort();
     if (keys.length > 1) {
       for (let k = keys[0]; k <= keys[keys.length - 1]; k = addDays(k, 1)) {
-        if (!final.has(k) && !priv.days[k] && !skipped.has(k)) gaps.push(k);
+        if (!final.has(k) && !dayRec(k, priv) && !skipped.has(k)) gaps.push(k);
       }
     }
     if (gaps.length > 200) gaps = [];
-    const replaced = [...final.entries()].filter(([k, rec]) => priv.days[k] && rec.s !== "clear" && priv.days[k].s !== rec.s).length;
+    const replaced = [...final.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
+    // Every-week days the paste would turn green: worth a second look, since they're usually worked.
+    const freed = [...final.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
     const workLines = new Map();
     for (const it of result.items) if (it.rec.s === "work") for (const k of it.keys) workLines.set(k, (workLines.get(k) || 0) + 1);
     const doubled = [...workLines.entries()].filter(([, n]) => n > 1).map(([k]) => k).sort();
-    return { final, gaps, replaced, doubled };
+    return { final, gaps, replaced, doubled, freed };
   }
 
   function renderImport() {
@@ -1240,7 +1308,7 @@
         h("span", { class: `dot ${dotFor(it.rec.s)}` }),
         h("span", { class: "pv-text" },
           h("b", { text: describeKeys(it) }),
-          h("span", { text: describeRec(it.rec) }),
+          h("span", { text: it.rec.s === "clear" && it.keys.some((k) => ruleOn(k, priv)) ? "Clear (back to your every-week setting where you have one, gray elsewhere)" : describeRec(it.rec) }),
           it.warn ? h("span", { class: "pv-warn strong", text: it.warn }) : null,
           it.ignored ? h("span", { class: "pv-warn", text: `Ignored: "${it.ignored}"` }) : null)) });
     }
@@ -1257,6 +1325,9 @@
     box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }));
     if (plan.doubled.length) {
       box.append(h("p", { class: "pv-sum warn", text: `${plan.doubled.map(shortDay).join(", ")} ${plan.doubled.length === 1 ? "is" : "are"} on more than one work line. Only the last line counts. For a double shift, write one line with the total hours, like 10/7 work 16h.` }));
+    }
+    if (plan.freed.length) {
+      box.append(h("p", { class: "pv-sum warn", text: `${plan.freed.map(shortDay).join(", ")} ${plan.freed.length === 1 ? "is an every-week day" : "are every-week days"} in Settings. Adding ${plan.freed.length === 1 ? "it" : "them"} as available changes only ${plan.freed.length === 1 ? "that date" : "those dates"}; the weekly setting stays on.` }));
     }
     box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
@@ -1306,6 +1377,60 @@
     return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks. A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
   }
 
+  // ---------- owner: every-week days ----------
+  let weeklyAtOpen = [];
+  function renderWeekly() {
+    const box = $("#setWeekly");
+    box.replaceChildren();
+    for (let i = 0; i < 7; i++) {
+      const d = (pub.weekStart + i) % 7;
+      const r = priv.weekly.filter((x) => x.d === d)[0] || null;
+      const cb = h("input", { type: "checkbox", id: `wk-${d}`, "data-f": "on" });
+      cb.checked = !!r;
+      const sel = h("select", { "data-f": "s" }, h("option", { value: "work", text: "Working" }), h("option", { value: "busy", text: "Busy (not working)" }));
+      sel.value = r ? r.s : "work";
+      const input = (f, attrs, value) => { const el = h("input", Object.assign({ "data-f": f }, attrs)); el.value = value; return el; };
+      const work = h("div", { class: "wk-work" },
+        h("label", { class: "field" }, h("span", { class: "label", text: "Starts (optional)" }), input("start", { type: "time" }, r && r.start ? r.start : "")),
+        h("label", { class: "field" }, h("span", { class: "label", text: "Ends (optional)" }), input("end", { type: "time" }, r && r.end ? r.end : "")),
+        h("label", { class: "field" }, h("span", { class: "label", text: "Paid hours" }),
+          input("hours", { type: "number", min: "0.25", max: "24", step: "any", inputmode: "decimal" }, num(r && r.s === "work" ? r.hours : priv.pickup))));
+      const fields = h("div", { class: "wk-fields" }, h("label", { class: "field" }, h("span", { class: "label", text: `Every ${DOW_LONG[d]} I'm` }), sel), work);
+      fields.hidden = !r;
+      work.hidden = !r || r.s !== "work";
+      box.append(h("div", { class: "wk-row", "data-d": String(d) }, h("label", { class: "check", for: `wk-${d}` }, cb, h("span", { text: DOW_LONG[d] })), fields));
+    }
+  }
+
+  function readWeekly(t) {
+    const row = t.closest(".wk-row");
+    const val = (r, f) => r.querySelector(`[data-f="${f}"]`).value;
+    if (row && (t.dataset.f === "start" || t.dataset.f === "end")) {
+      const s = val(row, "start"), e = val(row, "end");
+      if (isTime(s) && isTime(e) && s !== e) row.querySelector('[data-f="hours"]').value = num(spanHours(s, e));
+    }
+    const rules = [];
+    for (const r of document.querySelectorAll("#setWeekly .wk-row")) {
+      const on = r.querySelector('[data-f="on"]').checked, s = val(r, "s");
+      r.querySelector(".wk-fields").hidden = !on;
+      r.querySelector(".wk-work").hidden = !on || s !== "work";
+      if (on) rules.push({ d: Number(r.dataset.d), s, start: val(r, "start"), end: val(r, "end"), hours: val(r, "hours") });
+    }
+    const next = cleanWeekly(rules, priv.pickup);
+    // Turning a day off means it stops from now on: days already past in this pay week keep it,
+    // so this week's hours (and the yellow days) stay right.
+    const today = todayKey();
+    for (let k = weekStartOf(today, pub.weekStart); k < today; k = addDays(k, 1)) {
+      const dow = dateOf(k).getDay();
+      const was = weeklyAtOpen.filter((r) => r.d === dow)[0];
+      if (!was || priv.days[k] || next.some((r) => r.d === dow)) continue;
+      const rec = Object.assign({}, was);
+      delete rec.d;
+      priv.days[k] = rec;
+    }
+    priv.weekly = next;
+  }
+
   let fbAtOpen = "";
   function openSettings() {
     $("#setNote").value = pub.note;
@@ -1323,6 +1448,8 @@
     $("#setPickup").value = num(priv.pickup);
     $("#otExplain").textContent = otExplain();
     $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
+    weeklyAtOpen = clone(priv.weekly);
+    renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     $("#settingsSheet").showModal();
   }
@@ -1340,7 +1467,8 @@
       // While the box doesn't hold a whole address, keep the one from when Settings opened, never a half-typed one.
       pub.feedback = !typed ? "" : id || fbAtOpen;
     }
-    else if (t.id === "setWeekEnd") pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7;
+    else if (t.id === "setWeekEnd") { pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7; renderWeekly(); }
+    else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
@@ -1357,15 +1485,15 @@
     if (privRes.status === 200) {
       let parsed = null;
       try { parsed = JSON.parse(privRes.value); } catch { /* unreadable: rebuild below */ }
-      v = parsed ? normalizePriv(parsed) : file.migrated ? file.migrated.priv : privFromPublicDays(file.days);
+      v = parsed ? normalizePriv(parsed) : file.migrated ? file.migrated.priv : privFromPublicDays(file.days, file.weekly);
     } else {
-      v = file.migrated ? file.migrated.priv : privFromPublicDays(file.days);
+      v = file.migrated ? file.migrated.priv : privFromPublicDays(file.days, file.weekly);
     }
     const today = todayKey();
     const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
     // The private schedule is the source of truth and the public file is built from it. If they differ
     // (a save stopped after storing the hours), the public file just needs publishing again.
-    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v));
+    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v)) || !same(file.weekly, weeklyPublic(v));
     return { pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
   }
 
@@ -1489,7 +1617,7 @@
   function privatePayload(v, ws) {
     const today = todayKey();
     for (const cutoff of [addDays(today, -60), addDays(today, -14), weekStartOf(today, ws)]) {
-      const out = { v: 2, rev: "", otAfter: v.otAfter, pickup: v.pickup, days: {} };
+      const out = Object.assign({}, v, { v: 2, rev: "", days: {} });
       for (const k of Object.keys(v.days).sort()) if (k >= cutoff) out.days[k] = v.days[k];
       const text = JSON.stringify(out);
       if (byteLength(text) <= VAR_LIMIT) return { text, priv: normalizePriv(out), cutoff };
@@ -1533,7 +1661,7 @@
     renderOwnerBits();
     const stamp = new Date().toISOString();
     const rev = `${stamp}~${Math.random().toString(36).slice(2, 6)}`;
-    const pubOut = Object.assign({ v: 2 }, snapPub, { days: derivePublic(snapPub, payload.priv), updated: stamp, rev });
+    const pubOut = Object.assign({ v: 2 }, snapPub, { days: derivePublic(snapPub, payload.priv), weekly: weeklyPublic(payload.priv), updated: stamp, rev });
     const privText = JSON.stringify(Object.assign(JSON.parse(payload.text), { rev }));
     let stage = "check";
     try {
@@ -1757,6 +1885,7 @@
       const file = readPublicFile(await r.json());
       pub = file.pub;
       pubDays = file.days;
+      pubWeekly = file.weekly;
       updated = file.updated;
     } catch {
       loadError = true;
