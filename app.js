@@ -164,12 +164,13 @@
     const m = s.match(/^(?:https?:\/\/)?(?:www\.)?formsubmit\.co\/(?:ajax\/)?([^/?#\s]+)\/?$/i);
     if (m) s = m[1];
     if (s.length > 120) return "";
-    return isEmail(s) || /^[A-Za-z0-9]{16,64}$/.test(s) ? s : "";
+    return isEmail(s) || /^(?=.*\d)[A-Za-z0-9]{20,64}$/.test(s) ? s : "";
   }
   const cleanWilling = (w) => (Array.isArray(w) ? SHIFT_KEYS.filter((k) => w.includes(k)) : null);
   const cleanNote = (n) => (typeof n === "string" ? n.trim().slice(0, 100) : "");
 
-  function normalizePub(raw) {
+  // keepExtra: carry over simple fields a newer version of the site added, so saving from here doesn't erase them.
+  function normalizePub(raw, keepExtra) {
     const r = raw && typeof raw === "object" ? raw : {};
     const d = defaultPub();
     if (typeof r.name === "string") d.name = r.name.trim().slice(0, 40);
@@ -180,6 +181,13 @@
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
+    if (keepExtra) {
+      for (const k of Object.keys(r)) {
+        const v = r[k];
+        if (k in d || ["v", "days", "updated", "rev"].includes(k) || k.length > 40) continue;
+        if ((typeof v === "string" && v.length <= 500) || typeof v === "number" || typeof v === "boolean") d[k] = v;
+      }
+    }
     return d;
   }
 
@@ -262,7 +270,7 @@
   }
 
   function readPublicFile(raw) {
-    if (raw && raw.v === 2) return { pub: normalizePub(raw), days: normalizePublicDays(raw.days), updated: raw.updated || null };
+    if (raw && raw.v === 2) return { pub: normalizePub(raw, true), days: normalizePublicDays(raw.days), updated: raw.updated || null };
     const m = migrateV1(raw);
     return { pub: m.pub, days: derivePublic(m.pub, m.priv), updated: (raw && raw.updated) || null, migrated: m };
   }
@@ -442,7 +450,7 @@
     }
     const next = Object.assign({}, pub);
     for (const [f, e] of Object.entries(d.pub || {})) if (f in next && take(e, pub[f])) next[f] = e.to;
-    pub = normalizePub(next);
+    pub = normalizePub(next, true);
     for (const f of ["otAfter", "pickup"]) {
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
@@ -946,7 +954,7 @@
       credInfo = { sha: res.content.sha, size: res.content.size || file.size };
       credUrl = credLinkFor(res.content.sha.slice(0, 12));
       credFromApi = true;
-      toast("PDF uploaded. Supervisors can open it in a minute or two.", 4200);
+      toast("PDF uploaded. The See my credentials link shows it in a minute or two, for you too. To check it now, tap Open it in Settings.", 6000);
     } catch (e) {
       msg = e.notPdf ? "That file isn't a PDF. Pick a .pdf file."
         : e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
@@ -980,7 +988,7 @@
       credInfo = null;
       credUrl = null;
       credFromApi = true;
-      toast("PDF removed.");
+      toast("PDF removed. The link disappears for supervisors in a minute or two.", 4200);
     } catch (e) {
       msg = e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
         : e.status === 403 ? "Your GitHub key can't change files. Set its Contents permission to Read and write."
@@ -1063,6 +1071,7 @@
         $("#fbMsg").value = "";
         $("#fbFields").hidden = true;
         $("#fbDone").hidden = false;
+        $("#fbClose").focus();
       } else {
         throw new Error(r.msg || "rejected");
       }
@@ -1073,6 +1082,7 @@
       fbSending = false;
       btn.disabled = false;
       btn.textContent = "Submit Feedback";
+      if (!err.hidden) btn.focus(); // disabling it dropped the focus; put it back for keyboards and screen readers
     }
   }
 
@@ -1088,7 +1098,9 @@
       const r = await sendFeedback(to, Object.assign({ Message: "This is a test from Settings. Bug reports from supervisors will look like this." }, deviceInfo()),
         "Test: bug reports from your availability calendar");
       out.textContent = r.ok
-        ? `Sent. Check ${isEmail(to) ? to : "your inbox"} (and the spam folder). If it's there, bug reports work.${!saved || saved.pub.feedback !== to ? " Tap Save so supervisors can use it." : ""}`
+        ? `Sent. Check ${isEmail(to) ? to : "your inbox"} (and the spam folder). If it's there, bug reports work.`
+          + (isEmail(to) ? " To keep your email out of the public file, paste the random code from FormSubmit's activation email here instead." : "")
+          + (!saved || saved.pub.feedback !== to ? " Then tap Save so supervisors can use it." : "")
         : r.activate
           ? `Almost done. FormSubmit emailed ${isEmail(to) ? to : "you"} an Activate Form link. Open it and tap Activate Form, then send another test.`
           : `FormSubmit didn't accept it${r.msg ? `: ${r.msg}` : "."}`;
@@ -1294,12 +1306,14 @@
     return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks. A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
   }
 
+  let fbAtOpen = "";
   function openSettings() {
     $("#setNote").value = pub.note;
     $("#setName").value = pub.name;
     $("#setEmpId").value = pub.empId;
     $("#setPhone").value = pub.phone;
     $("#setFeedback").value = pub.feedback;
+    fbAtOpen = pub.feedback;
     $("#setFeedbackError").hidden = true;
     $("#fbTestResult").hidden = true;
     renderCred();
@@ -1321,10 +1335,10 @@
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
     else if (t.id === "setFeedback") {
       const typed = t.value.trim(), id = feedbackId(typed);
-      $("#setFeedbackError").textContent = "That doesn't look like an email address. Check it for typos.";
+      $("#setFeedbackError").textContent = "That doesn't look like an email address. Until it's fixed, the address you had stays.";
       $("#setFeedbackError").hidden = !typed || !!id;
-      if (typed && !id) return; // keep the last good address until this one is fixed
-      pub.feedback = id;
+      // While the box doesn't hold a whole address, keep the one from when Settings opened, never a half-typed one.
+      pub.feedback = !typed ? "" : id || fbAtOpen;
     }
     else if (t.id === "setWeekEnd") pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7;
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
@@ -1672,14 +1686,25 @@
     });
     $("#ownerLink").addEventListener("click", () => (token ? enterOwner() : openUnlock()));
     $("#credLink").addEventListener("click", (e) => {
-      if (credUrl) return;
-      e.preventDefault();
-      toast("No PDF yet. Upload one in Settings.");
+      if (!credUrl) {
+        e.preventDefault();
+        toast("No PDF yet. Upload one in Settings.");
+        return;
+      }
+      // The owner's link follows GitHub, which can be a minute ahead of the public site, so skip any cached copy.
+      if (credFromApi) e.currentTarget.href = `${credUrl}&t=${Date.now()}`;
     });
     $("#feedbackLink").addEventListener("click", openFeedback);
     $("#feedbackForm").addEventListener("submit", onFeedback);
     $("#fbClose").addEventListener("click", () => $("#feedbackSheet").close(""));
-    $("#credFile").addEventListener("change", (e) => uploadCred(e.target.files && e.target.files[0]));
+    $("#credFile").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = ""; // so picking the same file again (after fixing it) still counts as a new pick
+      uploadCred(file);
+    });
+    $("#settingsSheet").addEventListener("close", () => {
+      if (!$("#setFeedbackError").hidden) toast("Your bug-report email didn't change, because the new one wasn't a full email address.", 5000);
+    });
     $("#credRemove").addEventListener("click", removeCred);
     $("#fbTest").addEventListener("click", onFeedbackTest);
     $("#unlockForm").addEventListener("submit", onUnlock);

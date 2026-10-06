@@ -113,11 +113,11 @@
         <input type="text" id="fbContact" maxlength="80" autocomplete="email" autocapitalize="off" spellcheck="false"></label>
       <label class="hp" aria-hidden="true">Leave this empty <input type="text" id="fbHoney" tabindex="-1" autocomplete="off"></label>
       <p class="muted small">Your device and browser type are included, to help fix bugs.</p>
-      <p class="error" id="fbError" hidden></p>
+      <p class="error" id="fbError" role="alert" hidden></p>
       <button type="submit" class="btn primary wide" id="fbSend">Submit Feedback</button>
     </div>
     <div class="stack" id="fbDone" hidden>
-      <p class="status-line">Thanks! Your feedback was sent.</p>
+      <p class="status-line" role="status">Thanks! Your feedback was sent.</p>
       <button type="button" class="btn primary wide" id="fbClose">Close</button>
     </div>
   </form>
@@ -250,14 +250,14 @@ Thu 10/15 2300-0700</pre>
         <label class="btn ghost sm file-btn" id="credPick"><span id="credPickText">Upload PDF</span><input type="file" id="credFile" accept="application/pdf,.pdf"></label>
         <button type="button" class="btn ghost sm" id="credRemove" hidden>Remove PDF</button>
       </div>
-      <p class="muted small">Uploads right away. You don't need to tap Save. Supervisors see the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
+      <p class="muted small">Uploads right away. You don't need to tap Save. The See my credentials link shows the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
     </div>
 
     <div class="group">
       <label class="field"><span class="label">Email for bug reports</span>
         <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
       <p class="error" id="setFeedbackError" hidden></p>
-      <p class="muted small">FormSubmit, a free service, forwards reports to this address. The first report sends you an email from FormSubmit: open it and tap <b>Activate Form</b>, or reports won't arrive. Tap <b>Send a test</b> to do that now. This address is saved in your public calendar file. To hide it, paste the random code FormSubmit emails you after activation instead.</p>
+      <p class="muted small">FormSubmit, a free service, forwards reports here. Tap <b>Send a test</b> first: FormSubmit emails you an <b>Activate Form</b> link, and reports only arrive after you tap it. What you save here is public, and stays in your calendar's history on GitHub even if you change it later. To keep your email private, paste the random code from FormSubmit's activation email here instead, before you tap Save.</p>
       <div class="row-btns"><button type="button" class="btn ghost sm" id="fbTest">Send a test</button></div>
       <p class="small" id="fbTestResult" hidden></p>
     </div>

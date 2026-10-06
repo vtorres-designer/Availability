@@ -55,7 +55,7 @@ body {
 }
 body.owner { padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
@@ -406,6 +406,7 @@ dialog:not([open]) { display: none; }
 .file-btn { position: relative; overflow: hidden; }
 .file-btn input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
 .file-btn.disabled { opacity: 0.55; pointer-events: none; }
+.file-btn:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* Bug reports: a field only bots fill in. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

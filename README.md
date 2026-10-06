@@ -105,14 +105,15 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - The shifts you'll usually pick up. Supervisors see the names only.
 - Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under your name), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
-- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a test** to do that right away. Reports sent before you activate are delivered once you do.
+- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow. A day turns yellow when one more usual-length shift would go past 40 in its pay week. On the last day of a pay week, an overnight pickup also counts toward the next week, since most of it is paid there.
 
 ## Privacy notes
 
 - Anyone with the link can see your name, employee ID, cell number, calendar colors and credentials PDF. The page tells search engines not to list it.
-- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it. To keep it private, paste the random code FormSubmit emails you after activation in place of your email.
+- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
+- After you publish a new version of the site, reload any calendar tab you left open on your phone or computer before editing there. An old tab doesn't know about newer settings.
 - A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
 - Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop editing on this device**, or delete the token on GitHub.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.
