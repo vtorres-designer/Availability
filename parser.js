@@ -15,12 +15,17 @@
   const HOURS_WORD = "(?:h|[Hh][Rr][Ss]?|[Hh][Oo][Uu][Rr][Ss]?)\\b";
   // A bare day may be followed by ':' or '.' only as punctuation ("Oct 12-16: off").
   const DAY_ONLY_GUARD = "(?![\\d]|[:.](?!\\s|$)|h\\b|\\s*(?:[ap]\\.?m?\\b|" + HOURS_WORD + "))";
+  // "noshift" is what "no shift" / "not scheduled" become before parsing (see NO_SHIFT).
+  // "off" is its own status: it could mean either, so the line is flagged and he picks.
   const STATUS_WORDS = [
     ["clear", /^(?:clear|reset|unset|gr[ae]y|blank|remove)$/i],
-    ["busy", /^(?:off|busy|blocked|block|unavailable|unavail|n\/a|pto|vacation)$/i],
-    ["open", /^(?:open|available|avail|free)$/i],
+    ["busy", /^(?:busy|blocked|block|unavailable|unavail|n\/a|pto|vacation)$/i],
+    ["open", /^(?:noshift|none|unscheduled|open|available|avail|free)$/i],
     ["work", /^(?:work|working|scheduled|shift)$/i],
+    ["off", /^(?:off|dayoff)$/i],
   ];
+  const NO_SHIFT = /\b(?:no\s+shifts?(?:\s+scheduled)?|not\s+scheduled|nothing\s+scheduled|no\s+work)\b/gi;
+  const DAY_OFF = /\bday\s+off\b/gi;
   const SHIFT_WORDS = [
     [/\b(?:overnights?|nights?|graveyards?|graves?)\b/i, "overnight"],
     [/\b(?:swings?|evenings?)\b/i, "swing"],
@@ -55,9 +60,10 @@
   const spanHours = (start, end) => { let m = toMin(end) - toMin(start); if (m <= 0) m += 1440; return m / 60; };
   const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
   const statusOf = (w) => { for (const [name, re] of STATUS_WORDS) if (re.test(w)) return name; return null; };
+  const STATUS_NAME = { open: "available (no shift)", busy: "busy", clear: "cleared", off: "off", work: "working" };
   // Words that may follow a bare day number for it to count as a date ("Oct 12 - 16 vacation").
   // Not "shift": in "10/8 - 3rd shift" the number is a shift name.
-  const STATUS_FOLLOW = "(?:off|busy|blocked?|unavailable|unavail|n/a|pto|vacation|open|available|avail|free|work|working|clear|reset|unset|gr[ae]y|blank|remove)\\b";
+  const STATUS_FOLLOW = "(?:noshift|none|unscheduled|dayoff|off|busy|blocked?|unavailable|unavail|n/a|pto|vacation|open|available|avail|free|work|working|clear|reset|unset|gr[ae]y|blank|remove)\\b";
   // Words that make a line with times unclear: is the shift still on?
   const DOUBT_WORDS = /\b(?:cancell?ed|called\s+off|swapp?ed|dropped|covered)\b/i;
 
@@ -380,6 +386,7 @@
   function parseLine(raw, today) {
     let s = String(raw).replace(/[‐‑‒−]/g, "-").replace(/\s+/g, " ").trim();
     if (!s) return null;
+    s = s.replace(NO_SHIFT, "noshift").replace(DAY_OFF, "dayoff");
 
     // A day name before the date ("Tue 10/7", "Tuesday, October 7") is checked against it.
     let leadDow = null;
@@ -420,15 +427,15 @@
       // A status word between the date and the times ("10/7 open 2300-0700") contradicts them.
       for (const t of tokens(rest.slice(0, times.index))) {
         const st = statusOf(t.w);
-        if (st && st !== "work") return fail(`"${t.raw}" before the times reads as ${st === "busy" ? "off" : st}, but times mean working. If it's part of the site name, put the site after the times.`);
+        if (st && st !== "work") return fail(`"${t.raw}" before the times reads as ${STATUS_NAME[st]}, but times mean working. If it's part of the site name, put the site after the times.`);
         if (st === "work") cut(t.index, t.length);
       }
       cut(times.index, times.length);
       const after = tokens(rest.slice(times.index));
       const last = after.length && statusOf(after[after.length - 1].w);
-      if (last && last !== "work") return fail(`"${after[after.length - 1].raw}" after the times contradicts them. Times mean working. To mark the day ${last === "busy" ? "off" : last}, leave out the times.`);
-      if (NEGATION.test(rest.slice(times.index)) && after.some((t) => statusOf(t.w))) return fail("I can't read \"not\" next to a shift. Leave the times out and use off, open or clear.");
-      if (DOUBT_WORDS.test(rest)) return fail("I can't tell if this shift is still on. If it was cancelled, mark the day open or clear instead.");
+      if (last && last !== "work") return fail(`"${after[after.length - 1].raw}" after the times contradicts them. Times mean working. To mark the day ${STATUS_NAME[last]}, leave out the times.`);
+      if (NEGATION.test(rest.slice(times.index)) && after.some((t) => statusOf(t.w))) return fail("I can't read \"not\" next to a shift. Leave the times out and write no shift, busy or clear.");
+      if (DOUBT_WORDS.test(rest)) return fail("I can't tell if this shift is still on. If it was cancelled, write no shift instead of the times.");
     }
     if (/(?:^|[\s-])\d{1,2}\/\d{1,2}(?:st|nd|rd|th)?(?:\/\d{2,4})?(?=\s|$|[,.;:])/i.test(rest) || new RegExp("\\b" + MONTH + "\\s*\\d{1,2}\\b", "i").test(rest)) {
       return fail("Put each date (or date range) at the start of its own line.");
@@ -456,16 +463,18 @@
     if (times) {
       status = "work";
     } else {
-      if (NEGATION.test(rest)) return fail("I can't read \"not\", \"no\" or \"except\". Say what the day is (open, off, work or clear), and list only the shifts you'd take.");
+      if (NEGATION.test(rest)) return fail("I can't read \"not\", \"no\" or \"except\" here. Write what the day is (no shift, busy, work or clear), and list only the shifts you'd take.");
       const toks = tokens(rest);
       const found = toks.map((t) => ({ t, st: statusOf(t.w) })).filter((x) => x.st);
-      if (new Set(found.map((x) => x.st)).size > 1) return fail(`"${found.map((x) => x.t.raw).join(" ")}" disagree. Use just one of: open, off, work or clear.`);
+      const shown = (x) => (x.t.w === "noshift" ? "no shift" : x.t.w === "dayoff" ? "day off" : x.t.raw);
+      if (new Set(found.map((x) => x.st)).size > 1) return fail(`"${found.map(shown).join(" ")}" disagree. Use just one of: no shift, busy, work or clear.`);
       if (found.length) { status = found[0].st; for (const x of found) cut(x.t.index, x.t.length); }
       else if (hours != null) status = "work";
       if (!status) {
-        if (/\d{3,4}|\d[:.]\d{2}|\d\s*[ap]\.?m\b/i.test(rest)) return fail("I couldn't read the times. Write them like 2300-0700 or 11pm-7am.");
-        return fail("Add work times (2300-0700) or one word: open, off, work or clear.");
+        if (/\d{3,4}|\d[:.]\d{2}|\d\s*[ap]\.?m\b/i.test(rest)) return fail("I couldn't read the times. Write them like 2300-0700.");
+        return fail("Add the shift times (like 2300-0700), or write no shift, busy, work or clear.");
       }
+      if (status === "off") return fail("\"Off\" could mean two things. Write no shift if you aren't scheduled (shows as available), or busy if you don't want to work that day.");
       if ((hours != null || rejectedHours) && status !== "work") return fail("Paid hours only go with working days.");
       if (status === "work" && hours == null && rejectedHours) return fail(`Put the paid hours at the end of the line (like 10/7 work ${rejectedHours.replace(/\s+/g, "")}), or leave them out.`);
     }
@@ -526,7 +535,14 @@
     return { items, errors };
   }
 
-  const api = { parse, parseLine, spanHours };
+  // For a typed shift like "2300-0700" or "11:00PM to 7:00AM": {start, end, twelveHour} or null if unclear.
+  function readShift(text) {
+    const t = readTimes(" " + String(text || "").replace(/[\u2010\u2011\u2012\u2212]/g, "-") + " ");
+    if (!t || t.error || t.others.length) return null;
+    return { start: t.start, end: t.end, twelveHour: /\d\s*[ap]\.?m?\b/i.test(text) };
+  }
+
+  const api = { parse, parseLine, spanHours, readShift };
   root.ScheduleParser = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

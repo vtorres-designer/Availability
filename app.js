@@ -3,7 +3,8 @@
   const SHIFT_KEYS = ["overnight", "swing", "morning"];
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", brush: "sa.brush", importText: "sa.import" };
+  const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
@@ -11,7 +12,7 @@
 
   // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
   // live in a repository variable that only the owner's key can read.
-  const defaultPub = () => ({ name: "Vincent", phone: "", note: "", willing: ["overnight"], weekStart: 0 });
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0 });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, days: {} });
 
   // ---------- small helpers ----------
@@ -96,6 +97,7 @@
     const r = raw && typeof raw === "object" ? raw : {};
     const d = defaultPub();
     if (typeof r.name === "string") d.name = r.name.trim().slice(0, 40);
+    if (typeof r.empId === "string") d.empId = r.empId.trim().slice(0, 20);
     if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
     if (typeof r.note === "string") d.note = r.note.slice(0, 140);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
@@ -190,14 +192,41 @@
 
   const weekStartOf = (k, ws) => addDays(k, -((dateOf(k).getDay() - ws + 7) % 7));
 
-  function weekHours(k, priv, ws) {
-    const start = weekStartOf(k, ws);
+  // Paid hours that fall inside one pay week. The week starts at midnight, so a shift that crosses the
+  // cutoff (Thu 2300 - Fri 0700) counts 1 hour in one week and 7 in the next. Unpaid time (paid hours
+  // shorter than the shift) is spread evenly. A shift without times counts on the day it's listed.
+  const dayNumber = (k) => { const [y, m, d] = k.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+  const minutesOf = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  function hoursInWeek(weekStartKey, v) {
+    const from = dayNumber(weekStartKey) * 1440, to = from + 7 * 1440;
     let total = 0;
-    for (let i = 0; i < 7; i++) {
-      const rec = priv.days[addDays(start, i)];
-      if (rec && rec.s === "work") total += Number(rec.hours) || 0;
+    for (let i = -1; i < 7; i++) {
+      const k = addDays(weekStartKey, i);
+      const rec = v.days[k];
+      if (!rec || rec.s !== "work") continue;
+      const paid = Number(rec.hours) || 0;
+      if (rec.start && rec.end) {
+        const start = dayNumber(k) * 1440 + minutesOf(rec.start);
+        let len = minutesOf(rec.end) - minutesOf(rec.start);
+        if (len <= 0) len += 1440;
+        const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
+        total += (paid * inside) / len;
+      } else if (i >= 0) {
+        total += paid;
+      }
     }
-    return total;
+    return Math.round(total * 100) / 100;
+  }
+  const weekHours = (k, v, ws) => hoursInWeek(weekStartOf(k, ws), v);
+
+  // Would picking up one more usual-length shift on day k go past the overtime line?
+  // An overnight shift picked up on the last day of a pay week is paid mostly in the next week, so that week counts too.
+  function wouldBeOT(k, v, p, rec) {
+    const ws = weekStartOf(k, p.weekStart);
+    if (hoursInWeek(ws, v) + v.pickup > v.otAfter) return true;
+    const shifts = rec && rec.w ? rec.w : p.willing;
+    const next = addDays(ws, 7);
+    return addDays(k, 1) === next && shifts.includes("overnight") && hoursInWeek(next, v) + v.pickup > v.otAfter;
   }
 
   // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
@@ -210,7 +239,7 @@
       const rec = v.days[k];
       if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
       if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
-      const ot = weekHours(k, v, p.weekStart) + v.pickup > v.otAfter;
+      const ot = wouldBeOT(k, v, p, rec);
       out[k] = rec.w ? { s: ot ? "ot" : "open", w: rec.w } : { s: ot ? "ot" : "open" };
     }
     return out;
@@ -418,7 +447,7 @@
     if (!rec) return Object.assign(base, { kind: "unset" });
     if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
     if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
-    return Object.assign(base, { kind: booked + priv.pickup > priv.otAfter ? "ot" : "open" });
+    return Object.assign(base, { kind: wouldBeOT(k, priv, pub, rec) ? "ot" : "open" });
   }
 
   function publicInfo(k) {
@@ -459,8 +488,12 @@
   function render() {
     const asOwner = ownerView();
     if (owner && preview) pubDays = derivePublic(pub, priv);
-    $("#title").textContent = `${possessive(pub.name)} availability`;
-    document.title = `${possessive(pub.name)} Shift Availability`;
+    $("#title").textContent = pub.name ? `${possessive(pub.name)} availability` : "Shift availability";
+    document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
+    $("#empId").hidden = !pub.empId;
+    $("#empIdValue").textContent = pub.empId;
+    $("#ownerLink").textContent = firstName() ? `${firstName()}? Edit calendar` : "Edit calendar";
+    $("#unlockWho").textContent = firstName() ? `For ${firstName()} only` : "For the calendar's owner";
     $("#note").hidden = !pub.note;
     $("#note").textContent = pub.note;
     $("#updated").textContent = loadError
@@ -566,19 +599,99 @@
   }
   const apple = () => /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent);
 
-  function smsBody(k, sk, who) {
-    let ask;
-    if (sk) {
-      const label = SHIFT_LABEL[sk].toLowerCase();
-      const article = /^[aeiou]/.test(label) ? "an" : "a";
-      ask = sk === "overnight" ? `${article} ${label} shift on the night of ${shortDay(k)}?` : `${article} ${label} shift on ${shortDay(k)}?`;
-    } else {
-      ask = `a shift on ${shortDay(k)}?`;
-    }
-    const hi = pub.name ? `Hi ${pub.name}` : "Hi";
-    return who ? `${hi}, it's ${who}. Can you cover ${ask}` : `${hi}, can you cover ${ask}`;
-  }
+  const firstName = () => (pub.name.split(/\s+/)[0] || "");
   const smsHref = (body) => `sms:${smsNumber()}${apple() ? "&" : "?"}body=${encodeURIComponent(body)}`;
+  const hhmm24 = (t) => t.replace(":", "");
+
+  // The text a supervisor sends. Some sentences are always there; the rest appear only when that box is filled.
+  function composeMessage(k, f) {
+    const first = firstName();
+    const out = [first ? `Hi ${first}.` : "Hi."];
+    if (f.who) out.push(`This is ${f.who}.`);
+    const label = f.type ? SHIFT_LABEL[f.type].toLowerCase() : "";
+    const shift = f.type ? `${/^[aeiou]/.test(label) ? "an" : "a"} ${label} shift` : "a shift";
+    const day = fmt(k, { weekday: "long", month: "short", day: "numeric" });
+    const when = f.type === "overnight" ? `on the night of ${day}` : `on ${day}`;
+    const t = f.time ? window.ScheduleParser.readShift(f.time) : null;
+    const twelve = (x) => { const [hh, mm] = x.split(":").map(Number); return `${hh % 12 || 12}:${pad(mm)} ${hh < 12 ? "AM" : "PM"}`; };
+    const from = t ? (t.twelveHour ? `, from ${twelve(t.start)} to ${twelve(t.end)}` : `, from ${hhmm24(t.start)} to ${hhmm24(t.end)}`) : "";
+    out.push(`Are you available to cover ${shift} ${when}${from}?`);
+    if (f.time && !t) out.push(`The shift time is ${f.time}.`);
+    if (f.site && f.addr) out.push(`It's at ${f.site}, ${f.addr}.`);
+    else if (f.site) out.push(`It's at ${f.site}.`);
+    else if (f.addr) out.push(`The address is ${f.addr}.`);
+    out.push("Let me know. Thanks!");
+    return out.join(" ");
+  }
+
+  function textForm(k, info) {
+    const shifts = info.w || pub.willing;
+    const remembered = (key) => store.get(key) || "";
+    const field = (id, label, attrs, value) => {
+      const input = h("input", Object.assign({ type: "text", id }, attrs));
+      input.value = value || "";
+      return { input, el: h("label", { class: "field" }, h("span", { class: "label", text: label }), input) };
+    };
+    const who = field("txWho", "Your name", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
+    const time = field("txTime", "Shift time", { maxlength: "40", placeholder: "2300-0700 or 11:00PM to 7:00AM", autocomplete: "off" });
+    const site = field("txSite", "Site name", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
+    const addr = field("txAddr", "Site address", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
+    const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
+    // Shift type: preset when he takes only one kind; otherwise the supervisor may pick one.
+    let type = shifts.length === 1 ? shifts[0] : null;
+    const typeButtons = shifts.length > 1 ? shifts.map((sk) => h("button", { type: "button", class: "pick", "aria-pressed": "false", "data-type": sk, text: SHIFT_LABEL[sk] })) : [];
+    const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
+    const reset = h("button", { type: "button", class: "linkish", text: "Undo my edits", hidden: true });
+    const send = h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` }, h("span", { text: "Open in Messages" }),
+      info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime for me" }) : null);
+    const copyMsg = h("button", { type: "button", class: "btn ghost sm", text: "Copy message" });
+    let edited = false;
+    const values = () => ({ who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), type });
+    const refresh = () => {
+      const v = values();
+      if (!edited) msg.value = composeMessage(k, v);
+      send.href = smsHref(msg.value);
+      const t = v.time ? window.ScheduleParser.readShift(v.time) : null;
+      timeHint.textContent = !v.time ? "Optional. Either format works." : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.` : "Couldn't read that as a time. It will be sent as you typed it.";
+    };
+    for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [time, null]]) {
+      f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
+    }
+    for (const b of typeButtons) {
+      b.addEventListener("click", () => {
+        type = type === b.dataset.type ? null : b.dataset.type;
+        for (const o of typeButtons) o.setAttribute("aria-pressed", String(o.dataset.type === type));
+        refresh();
+      });
+    }
+    msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); });
+    reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
+    copyMsg.addEventListener("click", async () => {
+      const ok = await copyText(msg.value);
+      copyMsg.textContent = ok ? "Copied" : "Press and hold the message to copy";
+      setTimeout(() => { copyMsg.textContent = "Copy message"; }, 2500);
+    });
+    const copyNum = h("button", { type: "button", class: "btn ghost sm", text: "Copy number" });
+    copyNum.addEventListener("click", async () => {
+      const ok = await copyText(prettyPhone());
+      copyNum.textContent = ok ? "Copied" : "Press and hold the number";
+      setTimeout(() => { copyNum.textContent = "Copy number"; }, 2500);
+    });
+    refresh();
+    return [
+      h("p", { class: "muted small", text: "Every box is optional. What you fill in is added to the message." }),
+      who.el,
+      typeButtons.length ? h("div", { class: "field" }, h("span", { class: "label", text: "Shift" }), h("div", { class: "picks" }, typeButtons)) : null,
+      h("div", { class: "field" }, time.el, timeHint),
+      site.el,
+      addr.el,
+      h("label", { class: "field" }, h("span", { class: "label", text: "Message (you can edit it)" }), msg),
+      reset,
+      send,
+      h("div", { class: "row-btns" }, copyMsg),
+      h("p", { class: "contact" }, h("span", { text: "Or text" }), h("b", { text: prettyPhone() }), copyNum),
+    ];
+  }
 
   function openDay(k) {
     const info = publicInfo(k);
@@ -592,41 +705,11 @@
       unset: "Not set yet",
     }[info.kind];
     const wrap = h("div", { class: "stack" }, h("p", { class: "status-line" }, h("span", { class: `sw ${sw}` }), headline));
-
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
     } else if (info.kind === "open" || info.kind === "ot") {
-      if (!smsNumber()) {
-        wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
-      } else {
-        const whoInput = h("input", { type: "text", id: "who", maxlength: "40", autocomplete: "name", placeholder: "So I know who's asking" });
-        whoInput.value = store.get(LS.who) || "";
-        const shifts = info.w || pub.willing;
-        const links = (shifts.length ? shifts : [null]).map((sk) => ({
-          sk,
-          a: h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` },
-            h("span", { text: sk ? `Text me about ${SHIFT_LABEL[sk]}` : "Text me about this day" }),
-            info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime" }) : null),
-        }));
-        const refresh = () => {
-          const who = whoInput.value.trim();
-          for (const { a, sk } of links) a.href = smsHref(smsBody(k, sk, who));
-        };
-        whoInput.addEventListener("input", () => { store.set(LS.who, whoInput.value.trim()); refresh(); });
-        refresh();
-        const copyBtn = h("button", { type: "button", class: "btn ghost sm", text: "Copy number" });
-        copyBtn.addEventListener("click", async () => {
-          const ok = await copyText(prettyPhone());
-          copyBtn.textContent = ok ? "Copied" : "Press and hold the number";
-          setTimeout(() => { copyBtn.textContent = "Copy number"; }, 2500);
-        });
-        wrap.append(
-          h("label", { class: "field" }, h("span", { class: "label", text: "Your name (optional)" }), whoInput),
-          h("div", { class: "options" }, links.map((l) => l.a)),
-          h("p", { class: "muted small", text: "Opens your texting app with the message filled in. Add the site and times, then hit send." }),
-          h("p", { class: "contact" }, h("span", { text: "Or text" }), h("b", { text: prettyPhone() }), copyBtn)
-        );
-      }
+      if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
+      else wrap.append(...textForm(k, info).filter(Boolean));
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").showModal();
@@ -822,14 +905,16 @@
 
   // ---------- owner: settings ----------
   function otExplain() {
-    return `A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push that pay week past ${num(priv.otAfter)} hours.`;
+    const end = DOW_LONG[(pub.weekStart + 6) % 7];
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks. A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
   }
 
   function openSettings() {
     $("#setNote").value = pub.note;
     $("#setName").value = pub.name;
+    $("#setEmpId").value = pub.empId;
     $("#setPhone").value = pub.phone;
-    $("#setWeekStart").value = String(pub.weekStart);
+    $("#setWeekEnd").value = String((pub.weekStart + 6) % 7);
     $("#setOt").value = num(priv.otAfter);
     $("#setPickup").value = num(priv.pickup);
     $("#otExplain").textContent = otExplain();
@@ -842,8 +927,9 @@
     const t = e.target;
     if (t.id === "setNote") pub.note = t.value.slice(0, 140);
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
+    else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
-    else if (t.id === "setWeekStart") pub.weekStart = parseInt(t.value, 10) || 0;
+    else if (t.id === "setWeekEnd") pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7;
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
@@ -1161,6 +1247,12 @@
   // ---------- wiring ----------
   function wire() {
     for (const el of document.querySelectorAll(".repo-name")) el.textContent = REPO.name;
+    $("#empIdCopy").addEventListener("click", async () => {
+      const b = $("#empIdCopy");
+      const ok = await copyText(pub.empId);
+      b.textContent = ok ? "Copied" : "Press and hold to copy";
+      setTimeout(() => { b.textContent = "Copy"; }, 2500);
+    });
     for (const x of document.querySelectorAll(".sheet .x")) {
       x.type = "button";
       x.addEventListener("click", () => x.closest("dialog").close(""));
