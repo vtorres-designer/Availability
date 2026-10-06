@@ -195,6 +195,8 @@ h2 { font-size: 28px; line-height: 1.05; }
   border: 2px solid var(--ink); border-radius: 13px; pointer-events: none;
 }
 .day .rep { position: absolute; top: 4px; left: 5px; font: 700 11px/1 var(--font-body); opacity: 0.9; }
+.day .rep.alt { left: auto; right: 5px; } /* the month label is on top: move the mark out of its way */
+.nb { font-weight: inherit; }
 .day.pending::before {
   content: ""; position: absolute; top: 5px; right: 5px;
   width: 7px; height: 7px; border-radius: 50%;
