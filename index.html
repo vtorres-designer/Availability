@@ -4,42 +4,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vincent's Shift Availability</title>
-<meta name="description" content="Green nights I can cover. Tap one to text me.">
+<meta name="description" content="Green days I can cover. Tap one to text me.">
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:title" content="Vincent's Shift Availability">
-<meta property="og:description" content="Green nights I can cover. Tap one to text me.">
+<meta property="og:description" content="Green days I can cover. Tap one to text me.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1220" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=3">
 </head>
 <body>
 <main class="page">
   <header class="top">
     <p class="eyebrow">Shift coverage</p>
     <h1 id="title">Vincent's availability</h1>
-    <p class="lede" id="lede">Tap a green or yellow night to text me about covering it.</p>
+    <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
-    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>.</p>
-    <p id="throughLine"></p>
+    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>, and they only see colors: never your times, hours or notes.</p>
+    <p id="ownerHints"></p>
+    <div class="row-btns">
+      <button type="button" class="btn ghost sm" id="previewBtn">See what supervisors see</button>
+    </div>
   </section>
 
   <section class="key" aria-label="Color key">
     <ul class="legend">
       <li><span class="sw open"></span>Available</li>
       <li><span class="sw ot"></span>Available, but overtime</li>
-      <li><span class="sw busy"></span>Working or unavailable</li>
+      <li><span class="sw busy"></span>Not available</li>
       <li><span class="sw none"></span>Not set yet</li>
     </ul>
     <div class="willing" id="willing"></div>
-    <p class="fine">A night is listed under the day it starts. Tue means Tue night into Wed morning.</p>
+    <p class="fine">A night shift is listed under the day it starts. Tue means Tue night into Wed morning.</p>
   </section>
 
   <section class="cal" aria-label="Calendar">
@@ -57,16 +60,23 @@
   <div class="brushes" role="radiogroup" aria-label="What a tap does">
     <button type="button" role="radio" data-brush="edit" aria-checked="true">Tap to edit</button>
     <button type="button" role="radio" data-brush="work" aria-checked="false"><span class="dot busy"></span>Working</button>
-    <button type="button" role="radio" data-brush="off" aria-checked="false"><span class="dot busy hatch"></span>Busy</button>
-    <button type="button" role="radio" data-brush="open" aria-checked="false"><span class="dot open"></span>Open</button>
+    <button type="button" role="radio" data-brush="busy" aria-checked="false"><span class="dot busy hatch"></span>Busy</button>
+    <button type="button" role="radio" data-brush="open" aria-checked="false"><span class="dot open"></span>Available</button>
   </div>
   <div class="actions">
+    <button type="button" class="btn ghost" id="importBtn">Add schedule</button>
     <button type="button" class="btn ghost" id="settingsBtn">Settings</button>
     <button type="button" class="btn primary" id="saveBtn" disabled>Saved</button>
   </div>
 </nav>
 
-<!-- Supervisor: a night's details -->
+<!-- Owner: previewing the supervisor view -->
+<div class="preview-bar" id="previewBar" hidden>
+  <span>This is what supervisors see.</span>
+  <button type="button" class="btn primary sm" id="previewExit">Back to editing</button>
+</div>
+
+<!-- Supervisor: a day's details -->
 <dialog class="sheet" id="daySheet" aria-labelledby="dayTitle">
   <form method="dialog" class="sheet-in">
     <div class="sheet-head">
@@ -80,44 +90,98 @@
   </form>
 </dialog>
 
-<!-- Owner: edit a night -->
+<!-- Owner: edit a day -->
 <dialog class="sheet" id="editSheet" aria-labelledby="editTitle">
-  <form method="dialog" class="sheet-in" id="editForm">
+  <form method="dialog" class="sheet-in" id="editForm" novalidate>
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">Edit night</p>
+        <p class="eyebrow">Edit day</p>
         <h2 id="editTitle"></h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <fieldset class="seg" id="editStatus">
-      <legend class="label">This night I am</legend>
+      <legend class="label">This day is</legend>
+      <label><input type="radio" name="st" value="unset" id="stUnset"><span><i class="dot none"></i>Not set</span></label>
       <label><input type="radio" name="st" value="open" id="stOpen"><span><i class="dot open"></i>Available</span></label>
       <label><input type="radio" name="st" value="work" id="stWork"><span><i class="dot busy"></i>Working</span></label>
-      <label><input type="radio" name="st" value="off" id="stOff"><span><i class="dot busy hatch"></i>Busy</span></label>
+      <label><input type="radio" name="st" value="busy" id="stBusy"><span><i class="dot busy hatch"></i>Busy</span></label>
     </fieldset>
     <div id="editWork" class="stack" hidden>
-      <label class="field"><span class="label">Shift</span>
-        <select id="workShift"></select></label>
+      <div class="two">
+        <label class="field"><span class="label">Starts (optional)</span>
+          <input type="time" id="workStart"></label>
+        <label class="field"><span class="label">Ends (optional)</span>
+          <input type="time" id="workEnd"></label>
+      </div>
       <label class="field"><span class="label">Paid hours</span>
-        <input type="number" id="workHours" min="1" max="24" step="0.25" inputmode="decimal"></label>
+        <input type="number" id="workHours" min="0.25" max="24" step="any" inputmode="decimal"></label>
+      <label class="field"><span class="label">Note, like the site (only you see it)</span>
+        <input type="text" id="workNote" maxlength="100"></label>
+    </div>
+    <div id="editBusy" class="stack" hidden>
+      <p class="muted">Shows red to supervisors, the same as a day you're working.</p>
+      <label class="field"><span class="label">Note (only you see it)</span>
+        <input type="text" id="busyNote" maxlength="100"></label>
     </div>
     <div id="editOpen" class="stack" hidden>
-      <span class="label">Shifts I'll pick up this night</span>
+      <span class="label">Shifts I'll pick up this day</span>
       <div class="checks" id="editWilling"></div>
       <button type="button" class="linkish" id="useUsual">Use my usual shifts</button>
     </div>
-    <div id="editOff" class="stack" hidden>
-      <p class="muted">Shows red to supervisors as unavailable. Use it for plans, appointments or nights you want off.</p>
+    <div id="editUnset" class="stack" hidden>
+      <p class="muted">Shows gray to supervisors.</p>
     </div>
     <p class="muted small" id="editWeek"></p>
     <button class="btn primary wide" value="done">Done</button>
   </form>
 </dialog>
 
+<!-- Owner: paste a schedule -->
+<dialog class="sheet" id="importSheet" aria-labelledby="importTitle">
+  <form method="dialog" class="sheet-in" id="importForm">
+    <div class="sheet-head">
+      <div>
+        <p class="eyebrow">Add schedule</p>
+        <h2 id="importTitle">Paste your schedule</h2>
+      </div>
+      <button class="x" value="close" aria-label="Close">×</button>
+    </div>
+    <p>One line per day or date range. Lines further down win if two lines cover the same day.</p>
+    <details class="help" id="importHelp">
+      <summary>How to write each line</summary>
+      <pre class="example">10/7 2300-0700
+10/8 11pm-7am Site B
+10/9, 10/10 2300-0700
+10/12-10/14 off
+Oct 20-24 open
+Oct 25 open overnight swing
+10/26 work 8h
+10/27 clear</pre>
+      <ul class="rules">
+        <li><b>Date first:</b> 10/7, Oct 7, 2026-10-07, a range (10/12-10/14) or a list (10/9, 10/10). A day name before the date is checked against it.</li>
+        <li><b>Pick days in a range</b> with day names: <i>10/12-10/25 Mon Wed Fri 2300-0700</i>. <i>weekdays</i> and <i>weekends</i> work too.</li>
+        <li><b>Times mean you're working:</b> 2300-0700, 23:00-07:00 or 11pm-7am. Hours are worked out from the times. One shift per line.</li>
+        <li><b>Or one word:</b> <i>off</i> or <i>busy</i> (red), <i>open</i> (green), <i>work</i> (red, with your usual shift length), <i>clear</i> (back to gray).</li>
+        <li><b>Extras:</b> <i>8h</i> sets paid hours. After <i>open</i>, add <i>overnight</i>, <i>swing</i> or <i>morning</i> to limit which shifts you'll take.</li>
+        <li><b>Anything else</b>, like the site name, is saved as a private note. Supervisors never see it.</li>
+      </ul>
+    </details>
+    <label class="field"><span class="label">Your schedule</span>
+      <textarea id="importText" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="10/7 2300-0700&#10;10/8 2300-0700&#10;10/12-10/14 off"></textarea></label>
+    <div id="importPreview" class="preview" aria-live="polite"></div>
+    <fieldset class="gapfill" id="gapBox" hidden>
+      <legend class="label" id="gapLegend"></legend>
+      <label class="check" for="gapGray"><input type="radio" name="gap" id="gapGray" value="gray" checked><span>Leave them gray</span></label>
+      <label class="check" for="gapOpen"><input type="radio" name="gap" id="gapOpen" value="open"><span>Mark them Available</span></label>
+    </fieldset>
+    <button type="button" class="btn primary wide" id="importApply" disabled>Add to calendar</button>
+  </form>
+</dialog>
+
 <!-- Owner: settings -->
 <dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
-  <form method="dialog" class="sheet-in" id="settingsForm">
+  <form method="dialog" class="sheet-in" id="settingsForm" novalidate>
     <div class="sheet-head">
       <div>
         <p class="eyebrow">Settings</p>
@@ -127,17 +191,7 @@
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Schedule is entered through</span>
-        <input type="date" id="setThrough"></label>
-      <div class="row-btns">
-        <button type="button" class="btn ghost sm" data-through="1">+1 week</button>
-        <button type="button" class="btn ghost sm" data-through="2">+2 weeks</button>
-      </div>
-      <p class="muted small">Nights after this date show grey ("Not set yet") unless you marked them. Move it forward each time you copy your schedule from LISA.</p>
-    </div>
-
-    <div class="group">
-      <span class="label">Shifts I'll usually pick up</span>
+      <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
       <div class="checks" id="setWilling"></div>
     </div>
 
@@ -153,22 +207,21 @@
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
     </div>
 
-    <div class="group">
-      <span class="label">Shift times</span>
-      <div class="shift-times" id="setShifts"></div>
-    </div>
-
     <div class="group two">
-      <label class="field"><span class="label">Work week starts</span>
+      <label class="field"><span class="label">Pay week starts</span>
         <select id="setWeekStart">
           <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
           <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
           <option value="6">Saturday</option>
         </select></label>
       <label class="field"><span class="label">Overtime after (hrs/week)</span>
-        <input type="number" id="setOt" min="1" max="80" step="1" inputmode="numeric"></label>
+        <input type="number" id="setOt" min="1" max="80" step="any" inputmode="decimal"></label>
     </div>
-    <p class="muted small">Use the same week start as your paycheck. A night turns yellow when that shift would push the week past the overtime line.</p>
+    <div class="group">
+      <label class="field"><span class="label">Usual shift length (hrs)</span>
+        <input type="number" id="setPickup" min="1" max="24" step="any" inputmode="decimal"></label>
+      <p class="muted small" id="otExplain"></p>
+    </div>
 
     <div class="group">
       <p class="muted small" id="repoLine"></p>
@@ -193,14 +246,36 @@
     <ol class="steps">
       <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
       <li>Name it <b>Availability calendar</b>. Pick the longest expiration offered.</li>
-      <li>Repository access: <b>Only select repositories</b> → <b id="repoName">availability</b>.</li>
-      <li>Permissions → Repository permissions → <b>Contents</b> → <b>Read and write</b>.</li>
+      <li>Repository access: <b>Only select repositories</b> → <b class="repo-name">Availability</b>.</li>
+      <li>Permissions → Repository permissions: set <b>Contents</b> to <b>Read and write</b>, and <b>Variables</b> to <b>Read and write</b>. Variables is where your hours are kept private.</li>
       <li>Tap <b>Generate token</b>, copy it, and paste it below.</li>
     </ol>
     <label class="field"><span class="label">GitHub token</span>
       <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
     <p class="error" id="unlockError" hidden></p>
     <button type="submit" class="btn primary wide" id="unlockBtn" value="connect">Connect</button>
+  </form>
+</dialog>
+
+<!-- Owner: token needs the Variables permission -->
+<dialog class="sheet" id="keySheet" aria-labelledby="keyTitle">
+  <form method="dialog" class="sheet-in">
+    <div class="sheet-head">
+      <div>
+        <p class="eyebrow">One more step</p>
+        <h2 id="keyTitle">Keep your hours private</h2>
+      </div>
+      <button class="x" value="close" aria-label="Close">×</button>
+    </div>
+    <p>Your times, hours and notes are now saved in a private spot in your repository instead of the public calendar file. Your GitHub key needs one more permission to use it. You don't need to paste the key again.</p>
+    <ol class="steps">
+      <li>Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub → Fine-grained tokens</a> and tap <b>Availability calendar</b>.</li>
+      <li>Tap <b>Edit</b>. Under Repository permissions, set <b>Variables</b> to <b>Read and write</b>.</li>
+      <li>Tap <b>Update</b>, come back here, and tap <b>Try again</b>.</li>
+    </ol>
+    <div class="row-btns">
+      <button class="btn primary" value="retry">Try again</button>
+    </div>
   </form>
 </dialog>
 
@@ -218,6 +293,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js"></script>
+<script src="parser.js?v=3"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
