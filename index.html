@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=9">
+<link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
 <main class="page">
@@ -52,7 +52,9 @@
   </section>
 
   <footer class="foot">
-    <button type="button" class="linkish" id="ownerLink">Edit calendar</button>
+    <a class="linkish" id="credLink" href="credentials.pdf" target="_blank" rel="noopener" hidden>See my credentials</a>
+    <button type="button" class="linkish" id="feedbackLink" hidden>Report Bugs</button>
+    <button type="button" class="linkish" id="ownerLink">Admin Login</button>
   </footer>
 </main>
 
@@ -88,6 +90,36 @@
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <div id="dayBody"></div>
+  </form>
+</dialog>
+
+<!-- Anyone: report a bug or suggest a fix -->
+<dialog class="sheet" id="feedbackSheet" aria-labelledby="feedbackTitle">
+  <form method="dialog" class="sheet-in" id="feedbackForm" novalidate>
+    <div class="sheet-head">
+      <div>
+        <p class="eyebrow">Report bugs</p>
+        <h2 id="feedbackTitle">Something not working?</h2>
+      </div>
+      <button class="x" value="close" aria-label="Close">×</button>
+    </div>
+    <div class="stack" id="fbFields">
+      <p>Tell me what went wrong, or suggest a fix. It goes straight to my email.</p>
+      <label class="field"><span class="label">What happened, or what should change?</span>
+        <textarea id="fbMsg" rows="5" maxlength="2000"></textarea></label>
+      <label class="field"><span class="label">Your name (optional)</span>
+        <input type="text" id="fbName" maxlength="60" autocomplete="name"></label>
+      <label class="field"><span class="label">Email or phone, if you'd like a reply (optional)</span>
+        <input type="text" id="fbContact" maxlength="80" autocomplete="email" autocapitalize="off" spellcheck="false"></label>
+      <label class="hp" aria-hidden="true">Leave this empty <input type="text" id="fbHoney" tabindex="-1" autocomplete="off"></label>
+      <p class="muted small">Your device and browser type are included, to help fix bugs.</p>
+      <p class="error" id="fbError" hidden></p>
+      <button type="submit" class="btn primary wide" id="fbSend">Submit Feedback</button>
+    </div>
+    <div class="stack" id="fbDone" hidden>
+      <p class="status-line">Thanks! Your feedback was sent.</p>
+      <button type="button" class="btn primary wide" id="fbClose">Close</button>
+    </div>
   </form>
 </dialog>
 
@@ -203,12 +235,31 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Your name (shown at the top; texts greet the first name)</span>
+      <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
         <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
       <label class="field"><span class="label">Employee ID (shown under your name)</span>
         <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
       <label class="field"><span class="label">Cell number (texts come here)</span>
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
+    </div>
+
+    <div class="group">
+      <span class="label">Credentials PDF (anyone with the link can open it)</span>
+      <p class="small" id="credStatus">Checking…</p>
+      <div class="row-btns">
+        <label class="btn ghost sm file-btn" id="credPick"><span id="credPickText">Upload PDF</span><input type="file" id="credFile" accept="application/pdf,.pdf"></label>
+        <button type="button" class="btn ghost sm" id="credRemove" hidden>Remove PDF</button>
+      </div>
+      <p class="muted small">Uploads right away. You don't need to tap Save. Supervisors see the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
+    </div>
+
+    <div class="group">
+      <label class="field"><span class="label">Email for bug reports</span>
+        <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
+      <p class="error" id="setFeedbackError" hidden></p>
+      <p class="muted small">FormSubmit, a free service, forwards reports to this address. The first report sends you an email from FormSubmit: open it and tap <b>Activate Form</b>, or reports won't arrive. Tap <b>Send a test</b> to do that now. This address is saved in your public calendar file. To hide it, paste the random code FormSubmit emails you after activation instead.</p>
+      <div class="row-btns"><button type="button" class="btn ghost sm" id="fbTest">Send a test</button></div>
+      <p class="small" id="fbTestResult" hidden></p>
     </div>
 
     <div class="group two">
@@ -241,7 +292,7 @@ Thu 10/15 2300-0700</pre>
   <form method="dialog" class="sheet-in" id="unlockForm">
     <div class="sheet-head">
       <div>
-        <p class="eyebrow" id="unlockWho">For the calendar's owner</p>
+        <p class="eyebrow">Admin login</p>
         <h2 id="unlockTitle">Edit your calendar</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
@@ -304,7 +355,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="parser.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
