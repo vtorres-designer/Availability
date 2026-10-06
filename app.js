@@ -1,5 +1,67 @@
 "use strict";
 (() => {
+  // ---------- older browsers ----------
+  // replaceChildren arrived in Safari 14 / Chrome 86 / Firefox 78.
+  if (!Element.prototype.replaceChildren) {
+    Element.prototype.replaceChildren = function () {
+      while (this.firstChild) this.removeChild(this.firstChild);
+      this.append.apply(this, arguments);
+    };
+  }
+  // <dialog> arrived in Safari 15.4 / Firefox 98. Older browsers get a small stand-in with the same
+  // calls (showModal, close, returnValue) and events (close, cancel), so every sheet still works.
+  if (typeof HTMLDialogElement === "undefined" || !HTMLDialogElement.prototype.showModal) {
+    document.documentElement.classList.add("no-dialog");
+    const backdrop = document.createElement("div");
+    backdrop.className = "shim-backdrop";
+    backdrop.hidden = true;
+    const openOnes = () => Array.prototype.filter.call(document.querySelectorAll("dialog"), (d) => d.hasAttribute("open"));
+    const shim = (d) => {
+      if (d.showModal) return;
+      d.returnValue = "";
+      Object.defineProperty(d, "open", { get() { return this.hasAttribute("open"); } });
+      d.showModal = function () {
+        if (!backdrop.parentNode) document.body.appendChild(backdrop);
+        this.setAttribute("open", "");
+        backdrop.hidden = false;
+        const f = this.querySelector("input, select, textarea, button");
+        if (f) try { f.focus(); } catch (e) { /* ignore */ }
+      };
+      d.close = function (value) {
+        if (!this.hasAttribute("open")) return;
+        if (value !== undefined) this.returnValue = value;
+        this.removeAttribute("open");
+        if (!openOnes().length) backdrop.hidden = true;
+        this.dispatchEvent(new Event("close"));
+      };
+    };
+    const shimAll = () => Array.prototype.forEach.call(document.querySelectorAll("dialog"), shim);
+    shimAll();
+    document.addEventListener("DOMContentLoaded", shimAll);
+    // A button press inside a method="dialog" form closes its sheet with the button's value.
+    let lastButton = null;
+    document.addEventListener("click", (e) => { lastButton = e.target.closest ? e.target.closest("button") : null; }, true);
+    // This runs after the page's own submit handlers, so a handler that cancels the submit keeps the sheet open,
+    // the same as with a real <dialog>.
+    document.addEventListener("submit", (e) => {
+      const form = e.target;
+      const d = form.closest && form.closest("dialog");
+      if (!d || (form.getAttribute("method") || "").toLowerCase() !== "dialog") return;
+      const handled = e.defaultPrevented;
+      e.preventDefault();
+      if (!handled) d.close(lastButton && form.contains(lastButton) ? lastButton.value || "" : "");
+    });
+    backdrop.addEventListener("click", () => { const o = openOnes(); if (o.length) o[o.length - 1].close(""); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const o = openOnes();
+      if (!o.length) return;
+      const d = o[o.length - 1];
+      d.dispatchEvent(new Event("cancel"));
+      d.close("");
+    });
+  }
+
   const SHIFT_KEYS = ["overnight", "swing", "morning"];
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -55,7 +117,11 @@
       else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
       else el.setAttribute(k, v === true ? "" : v);
     }
-    for (const c of kids.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+    const add = (c) => {
+      if (Array.isArray(c)) c.forEach(add);
+      else if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+    };
+    kids.forEach(add);
     return el;
   }
 
@@ -327,7 +393,8 @@
   function changes() {
     if (!saved) return { days: new Set(), settings: false, publish: false };
     const keys = new Set([...Object.keys(priv.days), ...Object.keys(saved.priv.days)]);
-    const days = new Set([...keys].filter((k) => JSON.stringify(priv.days[k] ?? null) !== JSON.stringify(saved.priv.days[k] ?? null)));
+    const orNull = (x) => (x === undefined ? null : x);
+    const days = new Set([...keys].filter((k) => JSON.stringify(orNull(priv.days[k])) !== JSON.stringify(orNull(saved.priv.days[k]))));
     const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null }));
     return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
   }
@@ -600,6 +667,35 @@
   const apple = () => /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent);
 
   const firstName = () => (pub.name.split(/\s+/)[0] || "");
+
+  // Phones and tablets can open a texting app from the page. On a computer that often does nothing,
+  // so a QR code lets the supervisor send the same text from their phone.
+  const isPhone = () => /Android|iPhone|iPad|iPod|Mobile|Windows Phone|IEMobile|Opera Mini|Silk|Kindle/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  let qrLoading = null;
+  function loadQr() {
+    if (window.qrcode) return Promise.resolve(window.qrcode);
+    if (!qrLoading) {
+      qrLoading = new Promise((resolve, reject) => {
+        const tag = document.createElement("script");
+        tag.src = "vendor/qrcode.js?v=1";
+        tag.onload = () => (window.qrcode ? resolve(window.qrcode) : reject(new Error("no qrcode")));
+        tag.onerror = () => { qrLoading = null; reject(new Error("load failed")); };
+        document.head.appendChild(tag);
+      });
+    }
+    return qrLoading;
+  }
+  // "SMSTO:number:message" is the QR format iPhone and Android cameras open as a ready-to-send text.
+  function qrSvg(lib, text) {
+    lib.stringToBytes = lib.stringToBytesFuncs["UTF-8"];
+    const q = lib(0, "M");
+    q.addData(`SMSTO:${smsNumber()}:${text}`, "Byte");
+    q.make();
+    // At least 3 screen pixels per square so a phone camera can read a long message from a monitor.
+    return { svg: q.createSvgTag({ cellSize: 4, margin: 16, scalable: true, alt: "QR code that opens this text on a phone" }),
+      size: Math.max(200, (q.getModuleCount() + 8) * 3) };
+  }
   const smsHref = (body) => `sms:${smsNumber()}${apple() ? "&" : "?"}body=${encodeURIComponent(body)}`;
   const hhmm24 = (t) => t.replace(":", "");
 
@@ -645,12 +741,33 @@
     const send = h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` }, h("span", { text: "Open in Messages" }),
       info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime for me" }) : null);
     const copyMsg = h("button", { type: "button", class: "btn ghost sm", text: "Copy message" });
+    const qrBox = isPhone() ? null : h("div", { class: "qr" },
+      h("div", { class: "qr-code", "aria-hidden": "true" }),
+      h("p", { class: "small", text: "On a computer? Point your phone's camera at this code to open the text, ready to send." }));
+    let qrTimer = 0;
+    const drawQr = () => {
+      if (!qrBox) return;
+      clearTimeout(qrTimer);
+      qrTimer = setTimeout(() => {
+        loadQr().then((lib) => {
+          // A very long message can be too big for a QR code. Hide it until the text fits again.
+          try {
+            const qr = qrSvg(lib, msg.value), box = qrBox.firstChild;
+            box.innerHTML = qr.svg;
+            const room = qrBox.clientWidth - 24; // the box's padding
+            box.firstChild.style.width = box.firstChild.style.height = `${room > 0 ? Math.min(qr.size, room) : qr.size}px`;
+            qrBox.hidden = false;
+          } catch (e) { qrBox.hidden = true; }
+        }).catch(() => { qrBox.hidden = true; });
+      }, 250);
+    };
     let edited = false;
     const values = () => ({ who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), type });
     const refresh = () => {
       const v = values();
       if (!edited) msg.value = composeMessage(k, v);
       send.href = smsHref(msg.value);
+      drawQr();
       const t = v.time ? window.ScheduleParser.readShift(v.time) : null;
       timeHint.textContent = !v.time ? "Optional. Either format works." : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.` : "Couldn't read that as a time. It will be sent as you typed it.";
     };
@@ -664,7 +781,7 @@
         refresh();
       });
     }
-    msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); });
+    msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); drawQr(); });
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
     copyMsg.addEventListener("click", async () => {
       const ok = await copyText(msg.value);
@@ -688,6 +805,7 @@
       h("label", { class: "field" }, h("span", { class: "label", text: "Message (you can edit it)" }), msg),
       reset,
       send,
+      qrBox,
       h("div", { class: "row-btns" }, copyMsg),
       h("p", { class: "contact" }, h("span", { text: "Or text" }), h("b", { text: prettyPhone() }), copyNum),
     ];
