@@ -357,7 +357,9 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   background: var(--ink); color: var(--bg);
   padding: 10px 16px; border-radius: 12px; font-size: 15px; font-weight: 700;
   box-shadow: var(--shadow);
+  pointer-events: none; /* never blocks the button underneath */
 }
+dialog .toast { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); }
 body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 
 @media (max-width: 360px) {

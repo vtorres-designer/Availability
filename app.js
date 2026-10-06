@@ -74,12 +74,13 @@
 
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back */ }
-    const ta = h("textarea", { style: "position:fixed;opacity:0;top:0;left:0" });
+    const ta = h("textarea", { readonly: true, style: "position:fixed;opacity:0;top:0;left:0" });
     ta.value = text;
-    document.body.append(ta);
+    (document.querySelector("dialog[open]") || document.body).append(ta); // outside an open sheet, the page is inert
     ta.select();
+    ta.setSelectionRange(0, text.length);
     let ok = false;
-    try { ok = document.execCommand("copy"); } catch { /* ignore */ }
+    try { ok = document.execCommand("copy") && ta.selectionEnd - ta.selectionStart === text.length; } catch { /* ignore */ }
     ta.remove();
     return ok;
   }
@@ -238,7 +239,9 @@
   let saving = false;
   let loadError = false;
   let needsPublish = false; // the public file is behind the saved private schedule (or still in the old format)
-  let lastPrivText = null; // what this device last wrote to the private variable
+  let lastPrivText = null; // what this device last sent to the private variable
+  let lastPubSent = null; // what this device last sent as data.json (without the timestamp)
+  let standIn = false; // the private schedule couldn't be read (key lacks Variables), so priv is rebuilt from the public file
 
   const ownerView = () => owner && !preview;
 
@@ -296,7 +299,7 @@
   }
 
   function persistDraft() {
-    if (!privAccess) return; // edits on top of a stand-in schedule must never replace the real one
+    if (standIn) return; // edits on a stand-in schedule must never replace the real one
     const c = changes();
     if (c.days.size || c.settings) store.set(LS.draft, JSON.stringify({ pubSha, privAt, pub, priv }));
     else store.del(LS.draft);
@@ -442,8 +445,8 @@
     const hints = $("#ownerHints");
     hints.replaceChildren();
     if (!privAccess) {
-      hints.append(h("b", { text: "One more step before you can save. " }),
-        h("button", { type: "button", class: "linkish", text: "Fix my GitHub key", onclick: () => showSheet("#keySheet") }));
+      hints.append(h("b", { text: standIn ? "Fix your GitHub key to see and edit your hours. " : "Fix your GitHub key to save. " }),
+        h("button", { type: "button", class: "linkish", text: "Show me how", onclick: () => showSheet("#keySheet") }));
     } else if (!Object.keys(priv.days).length) {
       hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
     } else {
@@ -645,7 +648,10 @@
     }
     if (gaps.length > 200) gaps = [];
     const replaced = [...final.entries()].filter(([k, rec]) => priv.days[k] && rec.s !== "clear" && priv.days[k].s !== rec.s).length;
-    return { final, gaps, replaced };
+    const workLines = new Map();
+    for (const it of result.items) if (it.rec.s === "work") for (const k of it.keys) workLines.set(k, (workLines.get(k) || 0) + 1);
+    const doubled = [...workLines.entries()].filter(([, n]) => n > 1).map(([k]) => k).sort();
+    return { final, gaps, replaced, doubled };
   }
 
   function renderImport() {
@@ -682,10 +688,16 @@
     const summary = [`${n} day${n === 1 ? "" : "s"} ready`];
     if (plan.replaced) summary.push(`${plan.replaced} already marked will change`);
     if (errors.length) summary.push(`${errors.length} line${errors.length === 1 ? "" : "s"} skipped (fix or delete ${errors.length === 1 ? "it" : "them"})`);
-    box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }), h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
+    box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }));
+    if (plan.doubled.length) {
+      box.append(h("p", { class: "pv-sum warn", text: `${plan.doubled.map(shortDay).join(", ")} ${plan.doubled.length === 1 ? "is" : "are"} on more than one work line. Only the last line counts. For a double shift, write one line with the total hours, like 10/7 work 16h.` }));
+    }
+    box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
+    // Filling gaps waits until every line reads cleanly, so a skipped line's days are never turned green.
     const gapBox = $("#gapBox");
-    gapBox.hidden = !plan.gaps.length;
+    gapBox.hidden = !plan.gaps.length || errors.length > 0;
+    if (plan.gaps.length && errors.length) box.append(h("p", { class: "muted small", text: "Fix the skipped lines to fill in the gray days between your dates." }));
     if (plan.gaps.length) {
       $("#gapLegend").textContent = `${plan.gaps.length} gray day${plan.gaps.length === 1 ? "" : "s"} between ${shortDay(plan.final.size ? [...plan.final.keys()].sort()[0] : plan.gaps[0])} and ${shortDay([...plan.final.keys()].sort().pop())} aren't in your list.`;
     }
@@ -782,6 +794,7 @@
       privAt = st.privAt;
       privExists = st.privExists;
       privAccess = st.privAccess;
+      standIn = !st.privAccess;
       needsPublish = st.behind;
       updated = st.updated;
       pub = clone(st.pub);
@@ -791,13 +804,14 @@
         // An unsaved draft from the first version of the site is converted, not dropped.
         const old = JSON.parse(store.get(LS.oldDraft) || "null");
         if (old && old.data && !store.get(LS.draft)) {
+          // The old site had no private store; today's files are the base this draft applies to.
           const m = migrateV1(old.data);
-          store.set(LS.draft, JSON.stringify({ pubSha: old.baseSha || null, privAt: null, pub: m.pub, priv: m.priv }));
+          store.set(LS.draft, JSON.stringify({ pubSha: st.pubSha, privAt: st.privAt, pub: m.pub, priv: m.priv }));
         }
       } catch { /* unreadable old draft */ }
       store.del(LS.oldDraft);
       try {
-        const d = privAccess ? JSON.parse(store.get(LS.draft) || "null") : null;
+        const d = standIn ? null : JSON.parse(store.get(LS.draft) || "null");
         if (d && d.pub && d.priv) {
           pub = normalizePub(d.pub);
           priv = normalizePriv(d.priv);
@@ -808,10 +822,18 @@
         }
       } catch { /* bad draft */ }
       loadError = false;
-      render();
       const c = changes();
-      if (restored && (c.days.size || c.settings)) toast("Restored changes you hadn't saved yet");
+      if (restored && !c.days.size && !c.settings) {
+        // The draft matches what's saved (e.g. the tab closed mid-save): use the fresh versions.
+        pubSha = st.pubSha;
+        privAt = st.privAt;
+        store.del(LS.draft);
+        restored = false;
+      }
+      render();
+      if (restored) toast("Restored changes you hadn't saved yet");
       if (!privAccess) showSheet("#keySheet");
+      return { restored };
     } catch (e) {
       owner = false;
       if (e.status === 401) {
@@ -823,6 +845,7 @@
         render();
         toast("Couldn't reach GitHub, so editing is off for now. Refresh to try again.", 5000);
       }
+      return { restored: false };
     }
   }
 
@@ -830,6 +853,7 @@
     for (const el of document.querySelectorAll(".repo-name")) el.textContent = REPO.name;
     $("#unlockError").hidden = !msg;
     $("#unlockError").textContent = msg || "";
+    $("#unlockDraft").hidden = !(store.get(LS.draft) || store.get(LS.importText));
     $("#unlockSheet").showModal();
   }
 
@@ -849,7 +873,7 @@
       $("#tokenInput").value = "";
       $("#unlockSheet").close();
       await enterOwner();
-      if (owner) toast("Connected. You can edit now.");
+      if (owner && privAccess) toast("Connected. You can edit now.");
     } catch (x) {
       err.hidden = false;
       err.textContent = x.status === 401
@@ -882,6 +906,7 @@
   async function writePrivate(text, force) {
     const patch = () => gh("PATCH", `/actions/variables/${PRIVATE_VAR}`, { name: PRIVATE_VAR, value: text });
     const post = () => gh("POST", "/actions/variables", { name: PRIVATE_VAR, value: text });
+    lastPrivText = text;
     if (privExists) {
       try { await patch(); } catch (e) { if (e.status !== 404) throw e; await post(); } // deleted on GitHub: create it again
     } else {
@@ -898,6 +923,8 @@
       if (after.status === 200) privAt = after.updatedAt;
     } catch { /* the next save matches on lastPrivText instead */ }
   }
+
+  const publicCore = (o) => o && JSON.stringify(Object.assign({}, o, { updated: null }));
 
   async function save(force) {
     if (saving) return;
@@ -917,33 +944,39 @@
       const remotePriv = await getPrivateRemote(token);
       if (remotePriv.status === 403) { privAccess = false; throw Object.assign(new Error("key"), { key: true }); }
       if (!force) {
-        if (remotePub.sha !== pubSha) throw conflictError();
-        if (remotePriv.status === 200 && remotePriv.updatedAt !== privAt && remotePriv.value !== lastPrivText) throw conflictError();
+        // A version that only differs because this device's own earlier write went through is not a conflict.
+        const ownPub = publicCore(remotePub.raw) === lastPubSent || publicCore(remotePub.raw) === publicCore(pubOut);
+        const ownPriv = remotePriv.status === 200 && (remotePriv.value === lastPrivText || remotePriv.value === payload.text);
+        if (remotePub.sha !== pubSha && !ownPub) throw conflictError();
+        if (remotePriv.status === 200 && remotePriv.updatedAt !== privAt && !ownPriv) throw conflictError();
         if (remotePriv.status === 404 && privExists) throw conflictError(); // deleted elsewhere: let him choose
       }
       pubSha = remotePub.sha;
       privExists = remotePriv.status === 200;
       if (privExists) privAt = remotePriv.updatedAt;
-      stage = "private";
-      await writePrivate(payload.text, force);
+      // The public file goes first: its version check is atomic, so a stale device stops here before touching anything.
       stage = "public";
+      lastPubSent = publicCore(pubOut);
       const res = await gh("PUT", "/contents/data.json", {
         message: `Update availability (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})`,
         content: b64encode(JSON.stringify(pubOut, null, 2) + "\n"),
         sha: pubSha,
       });
       pubSha = res.content.sha;
+      updated = stamp;
+      stage = "private";
+      lastPrivText = payload.text;
+      await writePrivate(payload.text, force);
       for (const k of Object.keys(priv.days)) if (k < payload.cutoff) delete priv.days[k];
       saved = { pub: snapPub, priv: payload.priv };
       needsPublish = false;
-      updated = stamp;
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
     } catch (e) {
-      if (stage === "public") needsPublish = true; // hours saved privately, public calendar not yet
       if (e.conflict || e.status === 409 || (stage === "public" && e.status === 422)) showSheet("#conflictSheet");
       else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
       else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop editing, then connect again.", 6000);
-      else if (stage === "private" && e.status === 422) toast("GitHub wouldn't store your hours. Clear some far-off days and try again.", 6000);
+      else if (stage === "private" && e.status === 422) toast("Your calendar was published, but GitHub wouldn't store your hours. Clear some far-off days and tap Save again.", 7000);
+      else if (stage === "private") toast("Your calendar was published, but your hours didn't save. Tap Save again.", 6000);
       else if (stage === "public" && (e.status === 403 || e.status === 404)) toast("Your key can't save the calendar file. On GitHub, set the token's Contents permission to Read and write.", 6000);
       else toast("Couldn't save. Check your connection and tap Save again.", 5000);
     } finally {
@@ -953,9 +986,37 @@
     }
   }
 
+  // Re-applies this device's unsaved changes on top of the newest saved calendar, then saves.
+  async function mergeAndSave() {
+    const c = changes();
+    const mine = { pub: clone(pub), priv: clone(priv) };
+    const base = saved ? clone(saved) : null;
+    let st;
+    try { st = await loadOwnerState(token); } catch { toast("Couldn't reach GitHub. Try Save again in a moment."); return; }
+    const merged = { pub: clone(st.pub), priv: clone(st.priv) };
+    for (const k of c.days) {
+      if (mine.priv.days[k]) merged.priv.days[k] = mine.priv.days[k];
+      else delete merged.priv.days[k];
+    }
+    if (base) {
+      for (const f of Object.keys(mine.pub)) if (JSON.stringify(mine.pub[f]) !== JSON.stringify(base.pub[f])) merged.pub[f] = mine.pub[f];
+      for (const f of ["otAfter", "pickup"]) if (mine.priv[f] !== base.priv[f]) merged.priv[f] = mine.priv[f];
+    }
+    saved = { pub: clone(st.pub), priv: clone(st.priv) };
+    pubSha = st.pubSha;
+    privAt = st.privAt;
+    privExists = st.privExists;
+    needsPublish = st.behind;
+    pub = merged.pub;
+    priv = merged.priv;
+    persistDraft();
+    render();
+    await save(false);
+  }
+
   async function onConflict() {
     const v = $("#conflictSheet").returnValue;
-    if (v === "overwrite") return save(true);
+    if (v === "merge") return mergeAndSave();
     if (v === "reload") {
       store.del(LS.draft);
       await enterOwner();
@@ -963,28 +1024,35 @@
     }
   }
 
+  // Checks that the key can write repository variables, using a throwaway variable.
+  async function canWriteVariables() {
+    const name = "AVAILABILITY_KEY_CHECK";
+    try {
+      await gh("POST", "/actions/variables", { name, value: "ok" });
+    } catch (e) {
+      if (e.status === 403 || e.status === 404) return false;
+      if (e.status !== 409) throw e; // 409: left over from an earlier check, delete it below
+    }
+    try { await gh("DELETE", `/actions/variables/${name}`); } catch (e) { if (e.status === 403) return false; }
+    return true;
+  }
+
   async function onKeyRetry() {
     if ($("#keySheet").returnValue !== "retry") return;
-    let r;
-    try { r = await getPrivateRemote(token); } catch { toast("Couldn't reach GitHub. Try again in a moment."); return; }
-    if (r.status === 403) { toast("Still missing the Variables permission. Check the token's settings on GitHub.", 5000); return; }
-    if (r.status === 200) {
-      // Your saved hours exist: load them instead of the stand-in rebuilt from the public file.
-      // Edits made while the key was missing were never stored; a draft made before that is restored as usual.
-      const hadEdits = (() => { const c = changes(); return c.days.size > 0 || c.settings; })();
-      await enterOwner();
-      if (owner) toast(hadEdits ? "Loaded your saved hours. Redo any changes you just made, then tap Save." : "Your key is set.", 5000);
-      return;
-    }
-    privAccess = true;
-    privExists = false;
-    persistDraft();
-    render();
-    toast("Your key can now read the private store. If Save still fails, set Variables to Read and write.", 5000);
+    let r, writable;
+    try {
+      r = await getPrivateRemote(token);
+      writable = r.status === 403 ? false : await canWriteVariables();
+    } catch { toast("Couldn't reach GitHub. Try again in a moment."); return; }
+    if (r.status === 403) { toast("Your key still can't open Variables. Check both settings in the steps.", 5000); showSheet("#keySheet"); return; }
+    if (!writable) { toast("Variables is set to read-only. Set it to Read and write, then try again.", 5000); showSheet("#keySheet"); return; }
+    const res = await enterOwner(); // loads the real schedule and any draft saved before
+    if (owner && !res.restored) toast("Your key is set.");
   }
 
   // ---------- wiring ----------
   function wire() {
+    for (const el of document.querySelectorAll(".repo-name")) el.textContent = REPO.name;
     for (const x of document.querySelectorAll(".sheet .x")) {
       x.type = "button";
       x.addEventListener("click", () => x.closest("dialog").close(""));
@@ -999,6 +1067,7 @@
       if (!b || b.disabled) return;
       const k = b.dataset.key;
       if (!ownerView()) return openDay(k);
+      if (standIn) return showSheet("#keySheet");
       if (brush === "edit") openEdit(k);
       else applyBrush(k);
     });
@@ -1013,8 +1082,17 @@
       for (const k of [LS.token, LS.draft, LS.oldDraft, LS.importText, LS.brush]) store.del(k);
       location.reload();
     });
-    $("#settingsBtn").addEventListener("click", openSettings);
-    $("#importBtn").addEventListener("click", openImport);
+    $("#settingsBtn").addEventListener("click", () => (standIn ? showSheet("#keySheet") : openSettings()));
+    $("#importBtn").addEventListener("click", () => (standIn ? showSheet("#keySheet") : openImport()));
+    $("#unlockDiscard").addEventListener("click", () => {
+      for (const k of [LS.draft, LS.oldDraft, LS.importText]) store.del(k);
+      $("#unlockDraft").hidden = true;
+      toast("Discarded");
+    });
+    // Two tabs editing at once would overwrite each other's unsaved changes.
+    window.addEventListener("storage", (e) => {
+      if (owner && e.key === LS.draft) toast("Your calendar is also open in another tab. Edit in one tab only.", 5000);
+    });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
     $("#gapBox").addEventListener("change", renderImport);
