@@ -14,36 +14,36 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=13">
+<link rel="stylesheet" href="app.css?v=14">
 </head>
 <body>
 <main class="page">
   <header class="top">
-    <p class="eyebrow">Shift coverage</p>
-    <h1 id="title">Shift availability</h1>
-    <p class="empid" id="empId" hidden><span>Employee ID</span> <b id="empIdValue"></b> <button type="button" class="btn ghost xs" id="empIdCopy">Copy</button></p>
+    <p class="eyebrow">Shift Coverage</p>
+    <h1 id="title">Shift Availability</h1>
+    <p class="shifts-top" id="willing" hidden><span>Shifts I'll Pick Up</span> <b id="willingValue"></b></p>
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
-    <p class="share-row"><button type="button" class="btn ghost sm" id="shareBtn">Share this calendar</button></p>
+    <p class="share-row"><button type="button" class="btn ghost sm" id="shareBtn">Share This Calendar</button></p>
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
     <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>, and they only see colors: never your times, hours or notes.</p>
     <p id="ownerHints"></p>
     <div class="row-btns">
-      <button type="button" class="btn ghost sm" id="previewBtn">See what supervisors see</button>
+      <button type="button" class="btn ghost sm" id="previewBtn">See What Supervisors See</button>
     </div>
   </section>
 
   <section class="key" aria-label="Color key">
     <ul class="legend">
       <li><span class="sw open"></span>Available</li>
-      <li><span class="sw ot"></span>Available, but overtime</li>
-      <li><span class="sw busy"></span>Not available</li>
-      <li><span class="sw none"></span>Not set yet</li>
+      <li><span class="sw ot"></span>Available, but Overtime</li>
+      <li><span class="sw busy"></span>Not Available</li>
+      <li><span class="sw none"></span>Not Set Yet</li>
     </ul>
-    <div class="willing" id="willing"></div>
+    <div class="willing" id="empId" hidden><span class="lbl">Employee ID:</span><span class="chip empid-value" id="empIdValue"></span><button type="button" class="btn ghost xs" id="empIdCopy">Copy</button></div>
     <p class="fine">A night shift is listed under the day it starts. Tue means Tue night into Wed morning.</p>
   </section>
 
@@ -53,7 +53,7 @@
   </section>
 
   <footer class="foot">
-    <a class="linkish" id="credLink" href="credentials.pdf" target="_blank" rel="noopener" hidden>See my credentials</a>
+    <a class="linkish" id="credLink" href="credentials.pdf" target="_blank" rel="noopener" hidden>See My Credentials</a>
     <button type="button" class="linkish" id="feedbackLink" hidden>Report Bugs</button>
     <button type="button" class="linkish" id="ownerLink">Admin Login</button>
   </footer>
@@ -62,13 +62,13 @@
 <!-- Owner toolbar -->
 <nav class="toolbar" id="toolbar" hidden aria-label="Editing tools">
   <div class="brushes" role="radiogroup" aria-label="What a tap does">
-    <button type="button" role="radio" data-brush="edit" aria-checked="true">Tap to edit</button>
+    <button type="button" role="radio" data-brush="edit" aria-checked="true">Tap to Edit</button>
     <button type="button" role="radio" data-brush="work" aria-checked="false"><span class="dot busy"></span>Working</button>
     <button type="button" role="radio" data-brush="busy" aria-checked="false"><span class="dot busy hatch"></span>Busy</button>
     <button type="button" role="radio" data-brush="open" aria-checked="false"><span class="dot open"></span>Available</button>
   </div>
   <div class="actions">
-    <button type="button" class="btn ghost" id="importBtn">Add schedule</button>
+    <button type="button" class="btn ghost" id="importBtn">Add Schedule</button>
     <button type="button" class="btn ghost" id="settingsBtn">Settings</button>
     <button type="button" class="btn primary" id="saveBtn" disabled>Saved</button>
   </div>
@@ -77,7 +77,7 @@
 <!-- Owner: previewing the supervisor view -->
 <div class="preview-bar" id="previewBar" hidden>
   <span>This is what supervisors see.</span>
-  <button type="button" class="btn primary sm" id="previewExit">Back to editing</button>
+  <button type="button" class="btn primary sm" id="previewExit">Back to Editing</button>
 </div>
 
 <!-- Supervisor: a day's details -->
@@ -98,13 +98,13 @@
 <dialog class="sheet" id="shareSheet" aria-labelledby="shareTitle">
   <form method="dialog" class="sheet-in">
     <div class="sheet-head">
-      <h2 id="shareTitle">Share this calendar</h2>
+      <h2 id="shareTitle">Share This Calendar</h2>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <label class="field"><span class="label">Link</span>
       <input type="text" id="shareUrl" readonly></label>
     <div class="row-btns">
-      <button type="button" class="btn primary" id="shareCopy">Copy link</button>
+      <button type="button" class="btn primary" id="shareCopy">Copy Link</button>
       <button type="button" class="btn ghost" id="shareNative" hidden>Share…</button>
     </div>
     <div class="qr" id="shareQr" hidden>
@@ -119,8 +119,8 @@
   <form method="dialog" class="sheet-in" id="feedbackForm" novalidate>
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">Report bugs</p>
-        <h2 id="feedbackTitle">Something not working?</h2>
+        <p class="eyebrow">Report Bugs</p>
+        <h2 id="feedbackTitle">Something Not Working?</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
@@ -149,14 +149,14 @@
   <form method="dialog" class="sheet-in" id="editForm" novalidate>
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">Edit day</p>
+        <p class="eyebrow">Edit Day</p>
         <h2 id="editTitle"></h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <fieldset class="seg" id="editStatus">
       <legend class="label">This day is</legend>
-      <label><input type="radio" name="st" value="unset" id="stUnset"><span><i class="dot none" id="stUnsetDot"></i><b class="nb" id="stUnsetText">Not set</b></span></label>
+      <label><input type="radio" name="st" value="unset" id="stUnset"><span><i class="dot none" id="stUnsetDot"></i><b class="nb" id="stUnsetText">Not Set</b></span></label>
       <label><input type="radio" name="st" value="open" id="stOpen"><span><i class="dot open"></i>Available</span></label>
       <label><input type="radio" name="st" value="work" id="stWork"><span><i class="dot busy"></i>Working</span></label>
       <label><input type="radio" name="st" value="busy" id="stBusy"><span><i class="dot busy hatch"></i>Busy</span></label>
@@ -181,7 +181,7 @@
     <div id="editOpen" class="stack" hidden>
       <span class="label">Shifts I'll pick up this day</span>
       <div class="checks" id="editWilling"></div>
-      <button type="button" class="linkish" id="useUsual">Use my usual shifts</button>
+      <button type="button" class="linkish" id="useUsual">Use My Usual Shifts</button>
     </div>
     <div id="editUnset" class="stack" hidden>
       <p class="muted" id="editUnsetText">Shows gray to supervisors.</p>
@@ -197,14 +197,14 @@
   <form method="dialog" class="sheet-in" id="importForm">
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">Add schedule</p>
-        <h2 id="importTitle">Paste your schedule</h2>
+        <p class="eyebrow">Add Schedule</p>
+        <h2 id="importTitle">Paste Your Schedule</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <p>One line per day or date range. Lines further down win if two lines cover the same day.</p>
     <details class="help" id="importHelp">
-      <summary>How to write each line</summary>
+      <summary>How to Write Each Line</summary>
       <pre class="example">Fri 10/9 2300-0700 "Site B"
 Sat 10/10 2300-0700 "Site B"
 Sun 10/11 no shift
@@ -229,10 +229,10 @@ Thu 10/15 2300-0700</pre>
     <div id="importPreview" class="preview" aria-live="polite"></div>
     <fieldset class="gapfill" id="gapBox" hidden>
       <legend class="label" id="gapLegend"></legend>
-      <label class="check" for="gapGray"><input type="radio" name="gap" id="gapGray" value="gray" checked><span>Leave them gray</span></label>
-      <label class="check" for="gapOpen"><input type="radio" name="gap" id="gapOpen" value="open"><span>Mark them Available</span></label>
+      <label class="check" for="gapGray"><input type="radio" name="gap" id="gapGray" value="gray" checked><span>Leave Them Gray</span></label>
+      <label class="check" for="gapOpen"><input type="radio" name="gap" id="gapOpen" value="open"><span>Mark Them Available</span></label>
     </fieldset>
-    <button type="button" class="btn primary wide" id="importApply" disabled>Add to calendar</button>
+    <button type="button" class="btn primary wide" id="importApply" disabled>Add to Calendar</button>
   </form>
 </dialog>
 
@@ -242,7 +242,7 @@ Thu 10/15 2300-0700</pre>
     <div class="sheet-head">
       <div>
         <p class="eyebrow">Settings</p>
-        <h2 id="settingsTitle">Your calendar</h2>
+        <h2 id="settingsTitle">Your Calendar</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
@@ -253,7 +253,7 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <span class="label">Every week (red until you turn it off)</span>
+      <span class="label">Every Week (red until you turn it off)</span>
       <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so overtime days still turn yellow. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
     </div>
@@ -266,7 +266,7 @@ Thu 10/15 2300-0700</pre>
     <div class="group">
       <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
         <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
-      <label class="field"><span class="label">Employee ID (shown under your name)</span>
+      <label class="field"><span class="label">Employee ID (shown under the color key)</span>
         <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
       <label class="field"><span class="label">Cell number (texts come here)</span>
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
@@ -279,15 +279,15 @@ Thu 10/15 2300-0700</pre>
         <label class="btn ghost sm file-btn" id="credPick"><span id="credPickText">Upload PDF</span><input type="file" id="credFile" accept="application/pdf,.pdf"></label>
         <button type="button" class="btn ghost sm" id="credRemove" hidden>Remove PDF</button>
       </div>
-      <p class="muted small">Uploads right away. You don't need to tap Save. The See my credentials link shows the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
+      <p class="muted small">Uploads right away. You don't need to tap Save. The See My Credentials link shows the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
     </div>
 
     <div class="group">
       <label class="field"><span class="label">Email for bug reports</span>
         <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
       <p class="error" id="setFeedbackError" hidden></p>
-      <p class="muted small">FormSubmit, a free service, forwards reports here. Tap <b>Send a test</b> first: FormSubmit emails you an <b>Activate Form</b> link, and reports only arrive after you tap it. What you save here is public, and stays in your calendar's history on GitHub even if you change it later. To keep your email private, paste the random code from FormSubmit's activation email here instead, before you tap Save.</p>
-      <div class="row-btns"><button type="button" class="btn ghost sm" id="fbTest">Send a test</button></div>
+      <p class="muted small">FormSubmit, a free service, forwards reports here. Tap <b>Send a Test</b> first: FormSubmit emails you an <b>Activate Form</b> link, and reports only arrive after you tap it. What you save here is public, and stays in your calendar's history on GitHub even if you change it later. To keep your email private, paste the random code from FormSubmit's activation email here instead, before you tap Save.</p>
+      <div class="row-btns"><button type="button" class="btn ghost sm" id="fbTest">Send a Test</button></div>
       <p class="small" id="fbTestResult" hidden></p>
     </div>
 
@@ -309,7 +309,7 @@ Thu 10/15 2300-0700</pre>
 
     <div class="group">
       <p class="muted small" id="repoLine"></p>
-      <button type="button" class="btn ghost sm" id="signOut">Stop editing on this device</button>
+      <button type="button" class="btn ghost sm" id="signOut">Stop Editing on This Device</button>
     </div>
 
     <button class="btn primary wide" value="done">Done</button>
@@ -323,13 +323,13 @@ Thu 10/15 2300-0700</pre>
       <h2 id="unlockTitle">Admin Login</h2>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
-    <p><a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub fine-grained tokens</a></p>
+    <p><a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub Fine-Grained Tokens</a></p>
     <label class="field"><span class="label">Token</span>
       <input type="password" id="tokenInput" autocomplete="off" spellcheck="false"></label>
     <p class="error" id="unlockError" hidden></p>
     <div class="stack" id="unlockDraft" hidden>
       <p class="muted small">Changes you hadn't saved are kept on this device. They come back when you connect.</p>
-      <button type="button" class="linkish" id="unlockDiscard">Discard them</button>
+      <button type="button" class="linkish" id="unlockDiscard">Discard Them</button>
     </div>
     <button type="submit" class="btn primary wide" id="unlockBtn" value="connect">Connect</button>
   </form>
@@ -340,21 +340,21 @@ Thu 10/15 2300-0700</pre>
   <form method="dialog" class="sheet-in">
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">One more step</p>
-        <h2 id="keyTitle">Keep your hours private</h2>
+        <p class="eyebrow">One More Step</p>
+        <h2 id="keyTitle">Keep Your Hours Private</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <p>Your times, hours and notes are saved in a private spot in your repository, not in the public calendar file. Your GitHub key needs permission to use it. You don't need to paste the key again.</p>
     <ol class="steps">
-      <li>Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub → Fine-grained tokens</a> and tap <b>Availability calendar</b>.</li>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub → Fine-Grained Tokens</a> and tap <b>Availability calendar</b>.</li>
       <li>Tap <b>Edit</b>. Under Repository access, check that <b class="repo-name">Availability</b> is selected.</li>
       <li>Under Repository permissions, set <b>Variables</b> to <b>Read and write</b> (not Read-only).</li>
-      <li>Tap <b>Update</b>, come back here, and tap <b>Try again</b>.</li>
+      <li>Tap <b>Update</b>, come back here, and tap <b>Try Again</b>.</li>
     </ol>
     <p class="muted small">Until then you can look at your calendar, but you can't change it, so nothing you do here gets lost.</p>
     <div class="row-btns">
-      <button class="btn primary" value="retry">Try again</button>
+      <button class="btn primary" value="retry">Try Again</button>
     </div>
   </form>
 </dialog>
@@ -362,19 +362,19 @@ Thu 10/15 2300-0700</pre>
 <!-- Owner: save conflict -->
 <dialog class="sheet" id="conflictSheet" aria-labelledby="conflictTitle">
   <form method="dialog" class="sheet-in">
-    <h2 id="conflictTitle">Changed on another device</h2>
+    <h2 id="conflictTitle">Changed on Another Device</h2>
     <p>Your calendar was saved from somewhere else after you opened it here.</p>
-    <p class="muted small"><b>Add my changes to it</b> keeps both. Where you changed the same day, your change wins. <b>Load the newer one</b> drops the changes you made here.</p>
+    <p class="muted small"><b>Add My Changes to It</b> keeps both. Where you changed the same day, your change wins. <b>Load the Newer One</b> drops the changes you made here.</p>
     <div class="row-btns">
-      <button class="btn ghost" value="reload">Load the newer one</button>
-      <button class="btn primary" value="merge">Add my changes to it</button>
+      <button class="btn ghost" value="reload">Load the Newer One</button>
+      <button class="btn primary" value="merge">Add My Changes to It</button>
     </div>
   </form>
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="parser.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

@@ -30,11 +30,11 @@ Supervisors can open the link in any current browser on an iPhone, Android phone
 
 ## Sharing
 
-Anyone can tap **Share this calendar** under the title. It shows the link with a **Copy link** button, the device's own share menu (on phones, tablets and most computers), and a QR code someone can scan with a phone camera.
+Anyone can tap **Share This Calendar** under the title. It shows the link with a **Copy Link** button, the device's own share menu (on phones, tablets and most computers), and a QR code someone can scan with a phone camera.
 
 ## Links at the bottom of the page
 
-- **See my credentials** opens your credentials PDF. It shows only after you upload one in Settings.
+- **See My Credentials** opens your credentials PDF. It shows only after you upload one in Settings.
 - **Report Bugs** opens a short form. Supervisors describe the problem or suggest a fix, tap **Submit Feedback**, and it's emailed to you with their device and browser type. It shows only after you add your email in Settings.
 - **Admin Login** is how you get into edit mode.
 
@@ -66,7 +66,7 @@ The Admin Login window only shows a link to GitHub's token page and a box for th
 
 ## Adding your schedule
 
-Tap **Add schedule** and type one line per day, for every day you can see in LISA:
+Tap **Add Schedule** and type one line per day, for every day you can see in LISA:
 
 ```
 Fri 10/9 2300-0700 "Site B"
@@ -95,33 +95,33 @@ Thu 10/15 2300-0700
 - **Anything else** on the line, like the site name, is saved as a private note.
 - If two lines cover the same day, the lower one wins.
 
-The site shows a preview before anything changes. Lines it can't read are listed with the reason, and they stay in the box after you add the rest, so you can fix them. If your list leaves gray days in between, you can choose to mark them Available. Days from a line that couldn't be read are never filled in. Tap **Add to calendar**, check the days, then tap **Save**.
+The site shows a preview before anything changes. Lines it can't read are listed with the reason, and they stay in the box after you add the rest, so you can fix them. If your list leaves gray days in between, you can choose to mark them Available. Days from a line that couldn't be read are never filled in. Tap **Add to Calendar**, check the days, then tap **Save**.
 
 ## Editing single days
 
 Pick what a tap does in the toolbar:
 - **Working**, **Busy** or **Available**: tap a day to mark it. Tap it again to turn it back to gray.
-- **Tap to edit**: opens the day. You can set start and end times, paid hours, a private note, or which shifts you'd take.
+- **Tap to Edit**: opens the day. You can set start and end times, paid hours, a private note, or which shifts you'd take.
 
-**See what supervisors see** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
+**See What Supervisors See** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
 
-Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days you changed are put back. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add my changes to it** keeps both, and your change wins on any day you both edited. **Load the newer one** drops what you changed on this device.
+Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days you changed are put back. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add My Changes to It** keeps both, and your change wins on any day you both edited. **Load the Newer One** drops what you changed on this device.
 
 ## Settings
 
-- **Every week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add schedule). Picking **Every week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
+- **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under your name), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under the color key), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
-- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
+- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow. A day turns yellow when one more usual-length shift would go past 40 in its pay week. On the last day of a pay week, an overnight pickup also counts toward the next week, since most of it is paid there.
 
 ## Privacy notes
 
 - Anyone with the link can see your name, employee ID, cell number, calendar colors and credentials PDF. The page tells search engines not to list it.
-- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
+- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a Test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
 - After you publish a new version of the site, reload any calendar tab you left open on your phone or computer before editing there. An old tab doesn't know about newer settings.
 - A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
-- Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop editing on this device**, or delete the token on GitHub.
+- Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.

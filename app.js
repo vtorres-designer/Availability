@@ -579,7 +579,7 @@
     const cur = priv.days[k];
     const rule = cur ? null : ruleOn(k, priv);
     if (rule && rule.s === brush) {
-      toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to edit.`, 5000);
+      toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to Edit.`, 5000);
       return;
     }
     if (brush === "work") setDay(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
@@ -606,7 +606,7 @@
   }
 
   function publicStatusText(kind) {
-    return { open: "Available", ot: "Available, but it would be overtime", busy: "Not available", unset: "Not set yet" }[kind];
+    return { open: "Available", ot: "Available, but it would be overtime", busy: "Not Available", unset: "Not Set Yet" }[kind];
   }
 
   // ---------- render ----------
@@ -638,7 +638,7 @@
   function render() {
     const asOwner = ownerView();
     if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); }
-    $("#title").textContent = pub.name ? `${possessive(pub.name)} availability` : "Shift availability";
+    $("#title").textContent = pub.name ? `${possessive(pub.name)} Availability` : "Shift Availability";
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
     $("#empIdValue").textContent = pub.empId;
@@ -650,12 +650,8 @@
         ? `Updated ${new Date(updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
         : "";
 
-    const w = $("#willing");
-    w.replaceChildren();
-    if (pub.willing.length) {
-      w.append(h("span", { class: "lbl", text: "Shifts I'll pick up:" }));
-      for (const k of pub.willing) w.append(h("span", { class: "chip", text: SHIFT_LABEL[k] }));
-    }
+    $("#willing").hidden = !pub.willing.length;
+    $("#willingValue").textContent = pub.willing.map((k) => SHIFT_LABEL[k]).join(" · ");
 
     $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
@@ -727,9 +723,9 @@
     hints.replaceChildren();
     if (!privAccess) {
       hints.append(h("b", { text: standIn ? "Fix your GitHub key to see and edit your hours. " : "Fix your GitHub key to save. " }),
-        h("button", { type: "button", class: "linkish", text: "Show me how", onclick: () => showSheet("#keySheet") }));
+        h("button", { type: "button", class: "linkish", text: "Show Me How", onclick: () => showSheet("#keySheet") }));
     } else if (!Object.keys(priv.days).length) {
-      hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
+      hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
     } else {
       hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow shows up on its own when a shift would be overtime.");
     }
@@ -741,7 +737,7 @@
     if (c.publish && !c.days.size && !c.settings) hints.append(h("br"), h("b", { text: "Tap Save to update what supervisors see." }));
     const btn = $("#saveBtn");
     btn.disabled = saving || n === 0;
-    btn.textContent = saving ? "Saving…" : n ? `Save ${n} change${n === 1 ? "" : "s"}` : "Saved";
+    btn.textContent = saving ? "Saving…" : n ? `Save ${n} Change${n === 1 ? "" : "s"}` : "Saved";
     for (const b of document.querySelectorAll(".brushes button")) b.setAttribute("aria-checked", String(b.dataset.brush === brush));
   }
 
@@ -801,7 +797,7 @@
   function openShare() {
     const url = shareUrl();
     $("#shareUrl").value = url;
-    $("#shareCopy").textContent = "Copy link";
+    $("#shareCopy").textContent = "Copy Link";
     $("#shareNative").hidden = typeof navigator.share !== "function";
     const box = $("#shareQr");
     loadQr().then((lib) => {
@@ -818,11 +814,11 @@
     const ok = await copyText($("#shareUrl").value);
     if (!ok) { const i = $("#shareUrl"); i.focus(); i.select(); }
     b.textContent = ok ? "Copied!" : "Press and hold the link to copy it";
-    setTimeout(() => { b.textContent = "Copy link"; }, 2500);
+    setTimeout(() => { b.textContent = "Copy Link"; }, 2500);
   }
   async function onShareNative() {
     try {
-      await navigator.share({ title: document.title, text: pub.name ? `${possessive(pub.name)} shift availability` : "Shift availability", url: shareUrl() });
+      await navigator.share({ title: document.title, text: pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability", url: shareUrl() });
     } catch (e) {
       if (!e || e.name !== "AbortError") onShareCopy(); // couldn't open the share menu: copy instead
     }
@@ -868,10 +864,10 @@
     let type = shifts.length === 1 ? shifts[0] : null;
     const typeButtons = shifts.length > 1 ? shifts.map((sk) => h("button", { type: "button", class: "pick", "aria-pressed": "false", "data-type": sk, text: SHIFT_LABEL[sk] })) : [];
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
-    const reset = h("button", { type: "button", class: "linkish", text: "Undo my edits", hidden: true });
+    const reset = h("button", { type: "button", class: "linkish", text: "Undo My Edits", hidden: true });
     const send = h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` }, h("span", { text: "Open in Messages" }),
       info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime for me" }) : null);
-    const copyMsg = h("button", { type: "button", class: "btn ghost sm", text: "Copy message" });
+    const copyMsg = h("button", { type: "button", class: "btn ghost sm", text: "Copy Message" });
     const qrBox = isPhone() ? null : h("div", { class: "qr" },
       h("div", { class: "qr-code", "aria-hidden": "true" }),
       h("p", { class: "small", text: "On a computer? Point your phone's camera at this code to open the text, ready to send." }));
@@ -917,13 +913,13 @@
     copyMsg.addEventListener("click", async () => {
       const ok = await copyText(msg.value);
       copyMsg.textContent = ok ? "Copied" : "Press and hold the message to copy";
-      setTimeout(() => { copyMsg.textContent = "Copy message"; }, 2500);
+      setTimeout(() => { copyMsg.textContent = "Copy Message"; }, 2500);
     });
-    const copyNum = h("button", { type: "button", class: "btn ghost sm", text: "Copy number" });
+    const copyNum = h("button", { type: "button", class: "btn ghost sm", text: "Copy Number" });
     copyNum.addEventListener("click", async () => {
       const ok = await copyText(prettyPhone());
       copyNum.textContent = ok ? "Copied" : "Press and hold the number";
-      setTimeout(() => { copyNum.textContent = "Copy number"; }, 2500);
+      setTimeout(() => { copyNum.textContent = "Copy Number"; }, 2500);
     });
     refresh();
     return [
@@ -1014,7 +1010,7 @@
     if (status) st.textContent = status;
     else if (credInfo) {
       st.append(`A PDF is uploaded (${sizeText(credInfo.size)}). `,
-        h("a", { href: `https://github.com/${REPO.owner}/${REPO.name}/blob/HEAD/${CRED_FILE}`, target: "_blank", rel: "noopener", text: "Open it" }));
+        h("a", { href: `https://github.com/${REPO.owner}/${REPO.name}/blob/HEAD/${CRED_FILE}`, target: "_blank", rel: "noopener", text: "Open It" }));
     } else if (credInfo === null) st.textContent = "No PDF uploaded yet. Until you add one, supervisors don't see the link.";
     else st.textContent = credError ? "Couldn't check for a PDF. Close Settings and open it again to retry." : "Checking…";
     $("#credPickText").textContent = credInfo ? "Replace PDF" : "Upload PDF";
@@ -1057,10 +1053,10 @@
       credInfo = { sha: res.content.sha, size: res.content.size || file.size };
       credUrl = credLinkFor(res.content.sha.slice(0, 12));
       credFromApi = true;
-      toast("PDF uploaded. The See my credentials link shows it in a minute or two, for you too. To check it now, tap Open it in Settings.", 6000);
+      toast("PDF uploaded. The See My Credentials link shows it in a minute or two, for you too. To check it now, tap Open It in Settings.", 6000);
     } catch (e) {
       msg = e.notPdf ? "That file isn't a PDF. Pick a .pdf file."
-        : e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
+        : e.status === 401 ? "GitHub no longer accepts your key. Tap Stop Editing on This Device below, then connect again."
         : e.status === 403 || e.status === 404 ? "Your GitHub key can't save files. Set its Contents permission to Read and write."
         : e.status === 413 || e.status === 422 ? "GitHub didn't accept the file. Try a smaller copy of the PDF."
         : "Couldn't upload. Check your connection and try again.";
@@ -1093,7 +1089,7 @@
       credFromApi = true;
       toast("PDF removed. The link disappears for supervisors in a minute or two.", 4200);
     } catch (e) {
-      msg = e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
+      msg = e.status === 401 ? "GitHub no longer accepts your key. Tap Stop Editing on This Device below, then connect again."
         : e.status === 403 ? "Your GitHub key can't change files. Set its Contents permission to Read and write."
         : "Couldn't remove it. Check your connection and try again.";
     } finally {
@@ -1211,7 +1207,7 @@
       out.textContent = "Couldn't reach FormSubmit. Check your connection and try again.";
     } finally {
       btn.disabled = false;
-      btn.textContent = "Send a test";
+      btn.textContent = "Send a Test";
     }
   }
 
@@ -1253,13 +1249,13 @@
     $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
     for (const [id, s] of [["#editWork", "work"], ["#editBusy", "busy"], ["#editOpen", "open"], ["#editUnset", "unset"]]) $(id).hidden = st !== s;
     // On an every-week day, "Not set" means "follow the weekly setting".
-    $("#stUnsetText").textContent = rule ? "Every week" : "Not set";
+    $("#stUnsetText").textContent = rule ? "Every Week" : "Not Set";
     $("#stUnsetDot").className = rule ? `dot busy${rule.s === "busy" ? " hatch" : ""}` : "dot none";
     $("#editUnsetText").textContent = rule
       ? `${ruleText(rule)} (from Settings). Supervisors see red. Pick another option to change only this date.`
       : "Shows gray to supervisors.";
     $("#editRuleNote").hidden = !(rule && rec);
-    $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every week to go back to: ${ruleText(rule)}.` : "";
+    $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every Week to go back to: ${ruleText(rule)}.` : "";
     if (fillInputs) {
       const src = rec && rec.s === "work" ? rec : !rec && rule && rule.s === "work" ? rule : null;
       $("#workStart").value = src && src.start ? src.start : "";
@@ -1351,7 +1347,7 @@
     if (!items.length && !errors.length) {
       $("#gapBox").hidden = true;
       $("#importApply").disabled = true;
-      $("#importApply").textContent = "Add to calendar";
+      $("#importApply").textContent = "Add to Calendar";
       return;
     }
     const rows = [];
@@ -1393,7 +1389,7 @@
     const gapOpen = !gapBox.hidden && $("#gapOpen").checked;
     const total = n + (gapOpen ? plan.gaps.length : 0);
     $("#importApply").disabled = total === 0;
-    $("#importApply").textContent = total ? `Add ${total} day${total === 1 ? "" : "s"} to calendar` : "Add to calendar";
+    $("#importApply").textContent = total ? `Add ${total} Day${total === 1 ? "" : "s"} to Calendar` : "Add to Calendar";
   }
 
   function applyImport() {
@@ -1413,7 +1409,7 @@
     if (leftover) store.set(LS.importText, leftover); else store.del(LS.importText);
     $("#importSheet").close();
     afterChange();
-    toast(`Added ${total} day${total === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add schedule." : ""} Check them, then tap Save.`, 5000);
+    toast(`Added ${total} day${total === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""} Check them, then tap Save.`, 5000);
   }
 
   function openImport() {
@@ -1438,7 +1434,7 @@
       const r = priv.weekly.filter((x) => x.d === d)[0] || null;
       const cb = h("input", { type: "checkbox", id: `wk-${d}`, "data-f": "on" });
       cb.checked = !!r;
-      const sel = h("select", { "data-f": "s" }, h("option", { value: "work", text: "Working" }), h("option", { value: "busy", text: "Busy (not working)" }));
+      const sel = h("select", { "data-f": "s" }, h("option", { value: "work", text: "Working" }), h("option", { value: "busy", text: "Busy (Not Working)" }));
       sel.value = r ? r.s : "work";
       const input = (f, attrs, value) => { const el = h("input", Object.assign({ "data-f": f }, attrs)); el.value = value; return el; };
       const work = h("div", { class: "wk-work" },
@@ -1792,7 +1788,7 @@
     } catch (e) {
       if (e.conflict || (stage === "private" && e.status === 409)) showSheet("#conflictSheet");
       else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
-      else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop editing, then connect again.", 6000);
+      else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop Editing on This Device, then connect again.", 6000);
       else if (stage === "private" && e.status === 422) toast("GitHub wouldn't store your hours. Clear some far-off days and tap Save again.", 7000);
       else if (stage === "public" && (e.status === 403 || e.status === 404)) toast("Your hours are saved, but your key can't update the calendar file. On GitHub, set the token's Contents permission to Read and write.", 7000);
       else if (stage === "public") toast("Your hours are saved, but the public calendar didn't update. Tap Save again.", 6000);
