@@ -1,0 +1,33 @@
+{
+  "name": "Vincent",
+  "phone": "",
+  "note": "",
+  "through": "",
+  "weekStart": 0,
+  "otAfter": 40,
+  "willing": [
+    "overnight"
+  ],
+  "shifts": {
+    "overnight": {
+      "label": "Overnight",
+      "start": "22:00",
+      "end": "07:00",
+      "hours": 9
+    },
+    "swing": {
+      "label": "Swing",
+      "start": "14:00",
+      "end": "22:00",
+      "hours": 8
+    },
+    "morning": {
+      "label": "Morning",
+      "start": "06:00",
+      "end": "14:00",
+      "hours": 8
+    }
+  },
+  "days": {},
+  "updated": null
+}
