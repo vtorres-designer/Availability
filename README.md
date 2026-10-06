@@ -28,6 +28,12 @@ Supervisors can open the link in any current browser on an iPhone, Android phone
 - **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code. They point their phone's camera at it, and the text opens on their phone, ready to send.
 - **Copy message** and **Copy number** work everywhere.
 
+## Links at the bottom of the page
+
+- **See my credentials** opens your credentials PDF. It shows only after you upload one in Settings.
+- **Report Bugs** opens a short form. Supervisors describe the problem or suggest a fix, tap **Submit Feedback**, and it's emailed to you with their device and browser type. It shows only after you add your email in Settings.
+- **Admin Login** is how you get into edit mode.
+
 ## What supervisors never see
 
 Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number and your note at the top.
@@ -38,13 +44,14 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 
 - `index.html`, `app.css`, `app.js`: the site.
 - `parser.js`: reads a pasted schedule.
+- `credentials.pdf`: your credentials, if you've uploaded them. Settings adds, replaces and removes it.
 - `vendor/qrcode.js`: draws the QR code for computers. It's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 (MIT license), kept in the repo so the page never loads code from another site.
 - `data.json`: the public calendar. The site rewrites it when you tap **Save**.
 - `.nojekyll`: tells GitHub Pages to serve the files as they are.
 
 ## Connecting a phone or computer for editing
 
-1. Open the site, tap **Vincent? Edit calendar** at the bottom, and follow the steps on screen.
+1. Open the site, tap **Admin Login** at the bottom, and follow the steps on screen.
 2. The GitHub token needs two repository permissions, both set to **Read and write**:
    - **Contents** saves the public calendar.
    - **Variables** keeps your hours private.
@@ -96,12 +103,16 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 ## Settings
 
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under your name), your cell number, and an optional note.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under your name), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
+- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a test** to do that right away. Reports sent before you activate are delivered once you do.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow. A day turns yellow when one more usual-length shift would go past 40 in its pay week. On the last day of a pay week, an overnight pickup also counts toward the next week, since most of it is paid there.
 
 ## Privacy notes
 
-- Anyone with the link can see your first name, cell number and calendar colors. The page tells search engines not to list it.
+- Anyone with the link can see your name, employee ID, cell number, calendar colors and credentials PDF. The page tells search engines not to list it.
+- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it. To keep it private, paste the random code FormSubmit emails you after activation in place of your email.
+- A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
 - Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop editing on this device**, or delete the token on GitHub.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.

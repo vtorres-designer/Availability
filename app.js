@@ -66,7 +66,7 @@
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", fbContact: "sa.fbContact" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
@@ -74,7 +74,7 @@
 
   // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
   // live in a repository variable that only the owner's key can read.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0 });
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0, feedback: "" });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, days: {} });
 
   // ---------- small helpers ----------
@@ -156,6 +156,16 @@
   }
 
   // ---------- data model ----------
+  const isEmail = (s) => /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(s);
+  // Where bug reports go: an email address, or the random code FormSubmit emails after activation
+  // (it keeps the address out of the public file). A pasted FormSubmit link works too. Anything else is "".
+  function feedbackId(raw) {
+    let s = String(raw || "").trim();
+    const m = s.match(/^(?:https?:\/\/)?(?:www\.)?formsubmit\.co\/(?:ajax\/)?([^/?#\s]+)\/?$/i);
+    if (m) s = m[1];
+    if (s.length > 120) return "";
+    return isEmail(s) || /^[A-Za-z0-9]{16,64}$/.test(s) ? s : "";
+  }
   const cleanWilling = (w) => (Array.isArray(w) ? SHIFT_KEYS.filter((k) => w.includes(k)) : null);
   const cleanNote = (n) => (typeof n === "string" ? n.trim().slice(0, 100) : "");
 
@@ -169,6 +179,7 @@
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
+    if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
     return d;
   }
 
@@ -559,8 +570,6 @@
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
     $("#empIdValue").textContent = pub.empId;
-    $("#ownerLink").textContent = firstName() ? `${firstName()}? Edit calendar` : "Edit calendar";
-    $("#unlockWho").textContent = firstName() ? `For ${firstName()} only` : "For the calendar's owner";
     $("#note").hidden = !pub.note;
     $("#note").textContent = pub.note;
     $("#updated").textContent = loadError
@@ -623,8 +632,19 @@
     $("#toolbar").hidden = !asOwner;
     $("#ownerBanner").hidden = !asOwner;
     $("#previewBar").hidden = !(owner && preview);
-    $("#ownerLink").hidden = owner;
+    renderFoot();
     if (asOwner) renderOwnerBits();
+  }
+
+  // Footer links. Supervisors see Credentials and Report Bugs only once they're set up.
+  // The owner always sees them, and gets a pointer to Settings if one isn't set up yet.
+  function renderFoot() {
+    const asOwner = ownerView();
+    const cl = $("#credLink");
+    cl.hidden = !(credUrl || asOwner);
+    cl.href = credUrl || CRED_FILE;
+    $("#feedbackLink").hidden = !(pub.feedback || asOwner);
+    $("#ownerLink").hidden = owner;
   }
 
   function renderOwnerBits() {
@@ -833,6 +853,253 @@
     $("#daySheet").showModal();
   }
 
+  // ---------- credentials PDF ----------
+  // One PDF at the site's root. Anyone can open it; only the owner's key can replace or remove it.
+  const CRED_FILE = "credentials.pdf";
+  const CRED_MAX = 20 * 1024 * 1024;
+  let credUrl = null; // link to the PDF when there is one
+  let credInfo; // owner: {sha, size} from GitHub, null when there's no file, undefined until checked
+  let credFromApi = false; // credUrl came from GitHub, which beats the public check
+  let credBusy = false;
+  let credError = false;
+  const sizeText = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const credLinkFor = (tag) => `${CRED_FILE}?v=${encodeURIComponent(tag)}`;
+
+  // Anyone: is there a PDF on the site? Asked fresh each visit, so a replaced or removed file shows up right away.
+  async function checkCred() {
+    let url = null;
+    try {
+      const r = await fetch(CRED_FILE, { method: "HEAD", cache: "no-store" });
+      const type = r.headers.get("content-type") || "";
+      if (r.ok && !/html/i.test(type)) {
+        const tag = (r.headers.get("etag") || r.headers.get("last-modified") || String(Date.now())).replace(/[^A-Za-z0-9]/g, "").slice(-16);
+        url = credLinkFor(tag);
+      }
+    } catch { /* offline: no link */ }
+    if (credFromApi) return;
+    credUrl = url;
+    renderFoot();
+  }
+
+  // Owner: what GitHub has right now (the public site can be a minute behind).
+  async function loadCredInfo() {
+    try {
+      const list = await gh("GET", "/contents/");
+      const f = Array.isArray(list) ? list.filter((x) => x && x.name === CRED_FILE && x.type === "file")[0] : null;
+      credInfo = f ? { sha: f.sha, size: f.size } : null;
+      credUrl = f ? credLinkFor(f.sha.slice(0, 12)) : null;
+      credFromApi = true;
+      credError = false;
+    } catch {
+      credError = credInfo === undefined;
+    }
+    renderFoot();
+    renderCred();
+  }
+
+  function renderCred(status) {
+    const st = $("#credStatus");
+    st.replaceChildren();
+    if (status) st.textContent = status;
+    else if (credInfo) {
+      st.append(`A PDF is uploaded (${sizeText(credInfo.size)}). `,
+        h("a", { href: `https://github.com/${REPO.owner}/${REPO.name}/blob/HEAD/${CRED_FILE}`, target: "_blank", rel: "noopener", text: "Open it" }));
+    } else if (credInfo === null) st.textContent = "No PDF uploaded yet. Until you add one, supervisors don't see the link.";
+    else st.textContent = credError ? "Couldn't check for a PDF. Close Settings and open it again to retry." : "Checking…";
+    $("#credPickText").textContent = credInfo ? "Replace PDF" : "Upload PDF";
+    $("#credPick").classList.toggle("disabled", credBusy || credInfo === undefined);
+    $("#credFile").disabled = credBusy || credInfo === undefined;
+    $("#credRemove").hidden = !credInfo;
+    $("#credRemove").disabled = credBusy;
+  }
+
+  function readBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(",")[1] || ""); // data:application/pdf;base64,...
+      r.onerror = () => reject(r.error || new Error("read"));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function uploadCred(file) {
+    if (!file || credBusy) return;
+    if (!file.size) { renderCred("That file is empty. Pick the PDF again."); return; }
+    if (file.size > CRED_MAX) { renderCred(`That file is ${sizeText(file.size)}. The limit is 20 MB, so save a smaller copy of the PDF and try again.`); return; }
+    credBusy = true;
+    renderCred("Uploading…");
+    let msg = null;
+    try {
+      const content = await readBase64(file);
+      // A PDF starts with "%PDF-" (a few programs put it a little later). Checked here, not by the file's name.
+      if (!atob(content.slice(0, 1368)).includes("%PDF-")) throw Object.assign(new Error("not a pdf"), { notPdf: true });
+      const put = () => gh("PUT", `/contents/${CRED_FILE}`, Object.assign(
+        { message: "Update credentials PDF", content }, credInfo ? { sha: credInfo.sha } : {}));
+      let res;
+      try {
+        res = await put();
+      } catch (e) {
+        if (e.status !== 409 && e.status !== 422) throw e;
+        await loadCredInfo(); // changed somewhere else since Settings opened: replace that one
+        res = await put();
+      }
+      credInfo = { sha: res.content.sha, size: res.content.size || file.size };
+      credUrl = credLinkFor(res.content.sha.slice(0, 12));
+      credFromApi = true;
+      toast("PDF uploaded. Supervisors can open it in a minute or two.", 4200);
+    } catch (e) {
+      msg = e.notPdf ? "That file isn't a PDF. Pick a .pdf file."
+        : e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
+        : e.status === 403 || e.status === 404 ? "Your GitHub key can't save files. Set its Contents permission to Read and write."
+        : e.status === 413 || e.status === 422 ? "GitHub didn't accept the file. Try a smaller copy of the PDF."
+        : "Couldn't upload. Check your connection and try again.";
+    } finally {
+      credBusy = false;
+      $("#credFile").value = "";
+      renderCred(msg);
+      renderFoot();
+    }
+  }
+
+  async function removeCred() {
+    if (!credInfo || credBusy) return;
+    if (!window.confirm("Remove your credentials PDF? Supervisors won't see the link until you upload a new one.")) return;
+    credBusy = true;
+    renderCred("Removing…");
+    let msg = null;
+    try {
+      const del = () => gh("DELETE", `/contents/${CRED_FILE}`, { message: "Remove credentials PDF", sha: credInfo.sha });
+      try {
+        await del();
+      } catch (e) {
+        if (e.status === 404) { /* already gone */ } else if (e.status === 409 || e.status === 422) {
+          await loadCredInfo();
+          if (credInfo) await del();
+        } else throw e;
+      }
+      credInfo = null;
+      credUrl = null;
+      credFromApi = true;
+      toast("PDF removed.");
+    } catch (e) {
+      msg = e.status === 401 ? "GitHub no longer accepts your key. Tap Stop editing below, then connect again."
+        : e.status === 403 ? "Your GitHub key can't change files. Set its Contents permission to Read and write."
+        : "Couldn't remove it. Check your connection and try again.";
+    } finally {
+      credBusy = false;
+      renderCred(msg);
+      renderFoot();
+    }
+  }
+
+  // ---------- bug reports ----------
+  // Sent with FormSubmit (formsubmit.co), a free service that emails a form to an address. Nothing to sign up for:
+  // the first report to a new address sends that address an "Activate Form" email, and reports arrive after that.
+  const FEEDBACK_URL = "https://formsubmit.co/ajax/";
+  const pageUrl = () => location.origin + location.pathname;
+
+  async function sendFeedback(to, fields, subject) {
+    const body = Object.assign({ _subject: subject, _template: "table", _captcha: "false", _url: pageUrl() }, fields);
+    const res = await fetch(FEEDBACK_URL + to, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    let j = null;
+    try { j = await res.json(); } catch { /* not JSON */ }
+    const msg = j && typeof j.message === "string" ? j.message : "";
+    if (res.ok && j && String(j.success) === "true") return { ok: true, msg };
+    if (/activat/i.test(msg)) return { ok: false, activate: true, msg };
+    return { ok: false, msg };
+  }
+
+  const deviceInfo = () => ({
+    Device: navigator.userAgent,
+    Screen: `${window.screen ? `${screen.width}x${screen.height}` : "?"}, window ${window.innerWidth}x${window.innerHeight}`,
+    Page: location.href,
+    Sent: new Date().toString(),
+  });
+
+  function openFeedback() {
+    if (!pub.feedback) { toast("Add your email for bug reports in Settings first."); return; }
+    $("#fbFields").hidden = false;
+    $("#fbDone").hidden = true;
+    $("#fbError").hidden = true;
+    if (!$("#fbName").value) $("#fbName").value = store.get(LS.who) || "";
+    if (!$("#fbContact").value) $("#fbContact").value = store.get(LS.fbContact) || "";
+    showSheet("#feedbackSheet");
+  }
+
+  let fbSending = false;
+  async function onFeedback(e) {
+    e.preventDefault();
+    if (fbSending) return;
+    const text = $("#fbMsg").value.trim();
+    const err = $("#fbError");
+    if (!text) {
+      err.textContent = "Write what went wrong or what should change first.";
+      err.hidden = false;
+      $("#fbMsg").focus();
+      return;
+    }
+    const name = $("#fbName").value.trim(), contact = $("#fbContact").value.trim();
+    if (name) store.set(LS.who, name);
+    if (contact) store.set(LS.fbContact, contact); else store.del(LS.fbContact);
+    const fields = Object.assign({ Message: text, Name: name || "(not given)", "Reply to": contact || "(not given)" }, deviceInfo(), { _honey: $("#fbHoney").value });
+    if (isEmail(contact)) fields.email = contact; // FormSubmit makes this the email's Reply-To
+    const btn = $("#fbSend");
+    fbSending = true;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    err.hidden = true;
+    try {
+      const r = await sendFeedback(pub.feedback, fields, `Bug report: ${pub.name ? `${possessive(pub.name)} availability` : "availability calendar"}${name ? ` (from ${name})` : ""}`);
+      // Before activation FormSubmit holds reports and delivers them once it's activated, so that counts as sent.
+      // The owner is told to activate instead.
+      if (r.activate && owner) {
+        err.textContent = "FormSubmit is waiting for you to activate it. Check your email for a message from FormSubmit and tap Activate Form.";
+        err.hidden = false;
+      } else if (r.ok || r.activate) {
+        $("#fbMsg").value = "";
+        $("#fbFields").hidden = true;
+        $("#fbDone").hidden = false;
+      } else {
+        throw new Error(r.msg || "rejected");
+      }
+    } catch {
+      err.textContent = `Couldn't send it right now. Try again in a little while${pub.phone ? `, or text me at ${prettyPhone()}` : ""}.`;
+      err.hidden = false;
+    } finally {
+      fbSending = false;
+      btn.disabled = false;
+      btn.textContent = "Submit Feedback";
+    }
+  }
+
+  async function onFeedbackTest() {
+    const to = feedbackId($("#setFeedback").value);
+    const out = $("#fbTestResult");
+    const btn = $("#fbTest");
+    out.hidden = false;
+    if (!to) { out.textContent = "Enter your email address above first."; return; }
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      const r = await sendFeedback(to, Object.assign({ Message: "This is a test from Settings. Bug reports from supervisors will look like this." }, deviceInfo()),
+        "Test: bug reports from your availability calendar");
+      out.textContent = r.ok
+        ? `Sent. Check ${isEmail(to) ? to : "your inbox"} (and the spam folder). If it's there, bug reports work.${!saved || saved.pub.feedback !== to ? " Tap Save so supervisors can use it." : ""}`
+        : r.activate
+          ? `Almost done. FormSubmit emailed ${isEmail(to) ? to : "you"} an Activate Form link. Open it and tap Activate Form, then send another test.`
+          : `FormSubmit didn't accept it${r.msg ? `: ${r.msg}` : "."}`;
+    } catch {
+      out.textContent = "Couldn't reach FormSubmit. Check your connection and try again.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Send a test";
+    }
+  }
+
   // ---------- owner: edit sheet ----------
   let editKey = null;
 
@@ -1032,6 +1299,11 @@
     $("#setName").value = pub.name;
     $("#setEmpId").value = pub.empId;
     $("#setPhone").value = pub.phone;
+    $("#setFeedback").value = pub.feedback;
+    $("#setFeedbackError").hidden = true;
+    $("#fbTestResult").hidden = true;
+    renderCred();
+    if (!credBusy && (credInfo === undefined || credError)) loadCredInfo();
     $("#setWeekEnd").value = String((pub.weekStart + 6) % 7);
     $("#setOt").value = num(priv.otAfter);
     $("#setPickup").value = num(priv.pickup);
@@ -1047,6 +1319,13 @@
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
+    else if (t.id === "setFeedback") {
+      const typed = t.value.trim(), id = feedbackId(typed);
+      $("#setFeedbackError").textContent = "That doesn't look like an email address. Check it for typos.";
+      $("#setFeedbackError").hidden = !typed || !!id;
+      if (typed && !id) return; // keep the last good address until this one is fixed
+      pub.feedback = id;
+    }
     else if (t.id === "setWeekEnd") pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7;
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
@@ -1127,6 +1406,7 @@
       persistDraft();
       render();
       if (restored) toast("Restored changes you hadn't saved yet");
+      loadCredInfo();
       if (privAccess && !standIn) {
         // Reading isn't enough: check now that the key can save hours, so a save never stops halfway.
         try {
@@ -1391,6 +1671,17 @@
       else applyBrush(k);
     });
     $("#ownerLink").addEventListener("click", () => (token ? enterOwner() : openUnlock()));
+    $("#credLink").addEventListener("click", (e) => {
+      if (credUrl) return;
+      e.preventDefault();
+      toast("No PDF yet. Upload one in Settings.");
+    });
+    $("#feedbackLink").addEventListener("click", openFeedback);
+    $("#feedbackForm").addEventListener("submit", onFeedback);
+    $("#fbClose").addEventListener("click", () => $("#feedbackSheet").close(""));
+    $("#credFile").addEventListener("change", (e) => uploadCred(e.target.files && e.target.files[0]));
+    $("#credRemove").addEventListener("click", removeCred);
+    $("#fbTest").addEventListener("click", onFeedbackTest);
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", onEditChange);
     for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
@@ -1434,6 +1725,7 @@
 
   async function boot() {
     wire();
+    checkCred();
     try {
       const r = await fetch(`data.json?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) throw new Error(String(r.status));
