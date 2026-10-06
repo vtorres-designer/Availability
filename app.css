@@ -90,11 +90,13 @@ h2 { font-size: 28px; line-height: 1.05; }
   font-weight: 700;
 }
 .updated { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
-.empid {
-  margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
-  font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums;
+/* The shifts he'll pick up: right under the name, the first thing a supervisor reads. */
+.shifts-top {
+  margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  font-size: 15px; color: var(--muted);
 }
-.empid b { color: var(--ink); font-size: 17px; letter-spacing: 0.04em; user-select: all; -webkit-user-select: all; }
+.shifts-top b { color: var(--ink); font-size: 19px; letter-spacing: 0.02em; }
+.empid-value { font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; user-select: all; -webkit-user-select: all; }
 .btn.xs { min-height: 30px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 .picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .pick {
