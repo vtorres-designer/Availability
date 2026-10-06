@@ -194,6 +194,7 @@ h2 { font-size: 28px; line-height: 1.05; }
   content: ""; position: absolute; top: -4px; right: -4px; bottom: -4px; left: -4px;
   border: 2px solid var(--ink); border-radius: 13px; pointer-events: none;
 }
+.day .rep { position: absolute; top: 4px; left: 5px; font: 700 11px/1 var(--font-body); opacity: 0.9; }
 .day.pending::before {
   content: ""; position: absolute; top: 5px; right: 5px;
   width: 7px; height: 7px; border-radius: 50%;
@@ -411,3 +412,12 @@ dialog:not([open]) { display: none; }
 /* Bug reports: a field only bots fill in. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 #fbMsg { font: 16px/1.45 var(--font-body); min-height: 110px; }
+
+/* Settings: every-week days */
+.wk { display: grid; }
+.wk-row { display: grid; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.wk-row:last-child { border-bottom: 0; }
+.wk-fields { display: grid; gap: 8px; padding: 0 0 6px 30px; }
+.wk-work { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wk-work .field:last-child { grid-column: 1 / -1; }
+@media (min-width: 420px) { .wk-work { grid-template-columns: 1fr 1fr 0.8fr; } .wk-work .field:last-child { grid-column: auto; } }
