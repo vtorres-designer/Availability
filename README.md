@@ -51,11 +51,14 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 
 ## Connecting a phone or computer for editing
 
-1. Open the site, tap **Admin Login** at the bottom, and follow the steps on screen.
-2. The GitHub token needs two repository permissions, both set to **Read and write**:
+The Admin Login window only shows a link to GitHub's token page and a box for the token, so curious visitors learn nothing. The steps live here:
+
+1. Open GitHub's [fine-grained tokens](https://github.com/settings/personal-access-tokens) page. To make a token: **Generate new token**, name it **Availability calendar**, pick the longest expiration, and under Repository access choose **Only select repositories → Availability**. If you already have one, open it and tap **Regenerate token** to get a new code (GitHub only shows a code once).
+2. The token needs two repository permissions, both set to **Read and write**:
    - **Contents** saves the public calendar.
    - **Variables** keeps your hours private.
-3. If you made your token before Variables was needed, the site asks you to add it. Go to GitHub → Settings → Developer settings → Fine-grained tokens → **Availability calendar** → **Edit**, and set **Variables** to **Read and write**. You don't need to paste the token again.
+3. Copy the code (it starts with `github_pat_`), tap **Admin Login** at the bottom of the calendar, paste it and tap **Connect**. The same token works on every device; paste it on each one. Keep a copy in a password manager.
+4. If you made your token before Variables was needed, the site asks you to add it. Go to GitHub → Settings → Developer settings → Fine-grained tokens → **Availability calendar** → **Edit**, and set **Variables** to **Read and write**. You don't need to paste the token again.
 
 ## Adding your schedule
 

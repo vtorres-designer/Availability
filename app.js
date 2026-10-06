@@ -1606,7 +1606,7 @@
         store.del(LS.token);
         token = null;
         render();
-        openUnlock("GitHub no longer accepts your saved key. Make a new one and paste it here.");
+        openUnlock("Your saved token stopped working. Enter a new one.");
       } else {
         render();
         toast("Couldn't reach GitHub, so editing is off for now. Refresh to try again.", 5000);
@@ -1628,7 +1628,7 @@
     if (e.submitter && e.submitter.value === "close") { $("#unlockSheet").close(); return; }
     const tok = $("#tokenInput").value.trim();
     const err = $("#unlockError");
-    if (!tok) { err.textContent = "Paste your GitHub token first."; err.hidden = false; return; }
+    if (!tok) { err.textContent = "Enter a token."; err.hidden = false; return; }
     const btn = $("#unlockBtn");
     btn.disabled = true;
     btn.textContent = "Checking…";
@@ -1643,9 +1643,9 @@
     } catch (x) {
       err.hidden = false;
       err.textContent = x.status === 401
-        ? "GitHub didn't accept that token. Copy it again and paste the whole thing."
+        ? "That token didn't work."
         : x.status === 404 || x.status === 403
-          ? `That token can't see the "${REPO.name}" repository. Edit the token: add it under Repository access and set Contents to Read and write.`
+          ? "That token doesn't have access."
           : "Couldn't reach GitHub. Check your connection and try again.";
     } finally {
       btn.disabled = false;

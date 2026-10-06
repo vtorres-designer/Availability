@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
 <main class="page">
@@ -299,22 +299,12 @@ Thu 10/15 2300-0700</pre>
 <dialog class="sheet" id="unlockSheet" aria-labelledby="unlockTitle">
   <form method="dialog" class="sheet-in" id="unlockForm">
     <div class="sheet-head">
-      <div>
-        <p class="eyebrow">Admin login</p>
-        <h2 id="unlockTitle">Edit your calendar</h2>
-      </div>
+      <h2 id="unlockTitle">Admin Login</h2>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
-    <p>Your calendar is saved in your GitHub repository. To edit it from this phone or computer, paste a GitHub key once. It stays on this device only.</p>
-    <ol class="steps">
-      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
-      <li>Name it <b>Availability calendar</b>. Pick the longest expiration offered.</li>
-      <li>Repository access: <b>Only select repositories</b> → <b class="repo-name">Availability</b>.</li>
-      <li>Permissions → Repository permissions: set <b>Contents</b> to <b>Read and write</b>, and <b>Variables</b> to <b>Read and write</b>. Variables is where your hours are kept private.</li>
-      <li>Tap <b>Generate token</b>, copy it, and paste it below.</li>
-    </ol>
-    <label class="field"><span class="label">GitHub token</span>
-      <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
+    <p><a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub fine-grained tokens</a></p>
+    <label class="field"><span class="label">Token</span>
+      <input type="password" id="tokenInput" autocomplete="off" spellcheck="false"></label>
     <p class="error" id="unlockError" hidden></p>
     <div class="stack" id="unlockDraft" hidden>
       <p class="muted small">Changes you hadn't saved are kept on this device. They come back when you connect.</p>
@@ -363,7 +353,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="parser.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
