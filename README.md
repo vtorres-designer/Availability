@@ -13,11 +13,11 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 
 A night shift is listed under the day it starts. Tue means Tue night into Wed morning.
 
-When a supervisor taps a green or yellow day, they get one button for each type of shift you'll pick up (Overnight, Swing, Morning). The button opens their texting app with a message already written, for example:
+When a supervisor taps a green or yellow day, they get a short form. Every box is optional: their name, the shift type, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name and the site address. Each box they fill in adds a sentence to the text:
 
-> Hi Vincent, it's Maria. Can you cover an overnight shift on the night of Tue, Oct 13?
+> Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. Let me know. Thanks!
 
-They add the site and times, then hit send. The text comes from their own number, so you can reply to them directly.
+They can edit the message before tapping **Open in Messages**. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site and address for next time.
 
 ## What supervisors never see
 
@@ -42,33 +42,30 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 
 ## Adding your schedule
 
-Tap **Add schedule** and paste one line per day or date range:
+Tap **Add schedule** and type one line per day, for every day you can see in LISA:
 
 ```
-10/7 2300-0700
-10/8 11pm-7am Site B
-10/9, 10/10 2300-0700
-10/12-10/14 off
-Oct 20-24 open
-Oct 25 open overnight swing
-10/26 work 8h
-10/27 clear
+Fri 10/9 2300-0700 Site B
+Sat 10/10 2300-0700 Site B
+Sun 10/11 no shift
+Mon 10/12 2200-0600 Site C
+Tue 10/13 no shift
+Wed 10/14 busy
+Thu 10/15 2300-0700 Site B
 ```
 
-- **Date first:** 10/7, Oct 7, 2026-10-07, a range (10/12-10/14) or a list (10/9, 10/10). Without a year, it picks the nearest one, so in January, 12/30 means the December just past.
-- **Day names:** before a date, they're checked against it ("Tue 10/7" is flagged if 10/7 is a Wednesday). Right after a range, they pick days from it: `10/12-10/25 Mon-Fri 2300-0700`. *Mon Wed Fri*, *M/W/F*, *TTh*, *weekdays* and *weekends* work too. Put them right after the dates. Day names anywhere else on a range line get flagged, so a site like "Sun Valley Mall" never filters days by accident.
-- **Times mean you're working:** 2300-0700, 23:00-07:00, or 11pm-7am. Paid hours are worked out from the times. If a time could be morning or night, like "11-7" or "11:00-7:00", the site asks you to add am/pm. Put one shift on each line.
-- **Or use one word:**
-  - *off* or *busy* turns the day red.
-  - *open* turns it green.
-  - *work* turns it red and counts your usual shift length.
-  - *clear* turns it back to gray.
-- **Extras:** *8h* sets the paid hours, for example when a meal break isn't paid. After *open*, add *overnight*, *swing* or *morning* to limit the shifts you'll take that day.
+- **Day name (optional), date, then what the day is.** The day name is checked against the date, so a typo like "Tue 10/7" (10/7 is a Wednesday) gets flagged. Without a year, the nearest year is used, so in January, 12/30 means the December just past.
+- **Working:** the shift in 24-hour time, start-end: `2300-0700`. A shift that ends after midnight goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end: `2300-0730 8h`. 23:00-07:00 and 11pm-7am also work. A time that could be morning or night, like "11-7", gets flagged.
+- **Not scheduled:** `no shift`. The day turns green, or yellow if one more shift would mean overtime.
+- **Don't want to work:** `busy` (red). A bare `off` is flagged, because it could mean either.
+- **Back to gray:** `clear`.
+- **Notes:** anything after the times, like the site, is a private note.
+- **Shortcuts:** a range (`10/12-10/14 no shift`), a list (`10/9, 10/10 2300-0700`), or day names right after a range (`10/12-10/25 Mon-Fri 2300-0700`, *M/W/F*, *TTh*, *weekdays*, *weekends*). Day names anywhere else on a range line get flagged, so a site like "Sun Valley Mall" never filters days by accident. After `no shift`, you can add *overnight*, *swing* or *morning* to limit the shifts you'd take that day.
 - **Unclear lines aren't guessed.** These get flagged so you can reword them:
   - "not available" or "except Sat"
   - a time that could be AM or PM
   - two shifts on one line
-  - "off" written after the times
+  - "off" on its own, or written after the times
   - a cancelled shift
   - a number that could be a date or part of a site name
 - **Anything else** on the line, like the site name, is saved as a private note.
@@ -89,9 +86,9 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 ## Settings
 
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your first name, your cell number, and an optional note shown at the top.
-- **Pay week starts** sets which day each week begins. Match it to your paycheck so overtime is counted against the right week.
-- **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under your name), your cell number, and an optional note.
+- **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
+- **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow. A day turns yellow when one more usual-length shift would go past 40 in its pay week. On the last day of a pay week, an overnight pickup also counts toward the next week, since most of it is paid there.
 
 ## Privacy notes
 

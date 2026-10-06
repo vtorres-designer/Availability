@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vincent's Shift Availability</title>
+<title>Shift Availability</title>
 <meta name="description" content="Green days I can cover. Tap one to text me.">
 <meta name="robots" content="noindex, nofollow">
-<meta property="og:title" content="Vincent's Shift Availability">
+<meta property="og:title" content="Shift Availability">
 <meta property="og:description" content="Green days I can cover. Tap one to text me.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
@@ -14,13 +14,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=5">
+<link rel="stylesheet" href="app.css?v=6">
 </head>
 <body>
 <main class="page">
   <header class="top">
     <p class="eyebrow">Shift coverage</p>
-    <h1 id="title">Vincent's availability</h1>
+    <h1 id="title">Shift availability</h1>
+    <p class="empid" id="empId" hidden><span>Employee ID</span> <b id="empIdValue"></b> <button type="button" class="btn ghost xs" id="empIdCopy">Copy</button></p>
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
@@ -51,7 +52,7 @@
   </section>
 
   <footer class="foot">
-    <button type="button" class="linkish" id="ownerLink">Vincent? Edit calendar</button>
+    <button type="button" class="linkish" id="ownerLink">Edit calendar</button>
   </footer>
 </main>
 
@@ -150,26 +151,26 @@
     <p>One line per day or date range. Lines further down win if two lines cover the same day.</p>
     <details class="help" id="importHelp">
       <summary>How to write each line</summary>
-      <pre class="example">10/7 2300-0700
-10/8 11pm-7am Site B
-10/9, 10/10 2300-0700
-10/12-10/14 off
-Oct 20-24 open
-Oct 25 open overnight swing
-10/26 work 8h
-10/27 clear</pre>
+      <pre class="example">Fri 10/9 2300-0700 Site B
+Sat 10/10 2300-0700 Site B
+Sun 10/11 no shift
+Mon 10/12 2200-0600 Site C
+Tue 10/13 no shift
+Wed 10/14 busy
+Thu 10/15 2300-0700 Site B</pre>
       <ul class="rules">
-        <li><b>Date first:</b> 10/7, Oct 7, 2026-10-07, a range (10/12-10/14) or a list (10/9, 10/10). A day name before the date is checked against it.</li>
+        <li><b>One line per day:</b> day name (optional), date, then the shift. The day name is checked against the date, which catches typos.</li>
+        <li><b>Working:</b> start-end in 24-hour time, like <i>2300-0700</i>. A shift that ends after midnight still goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end, like <i>7.5h</i>.</li>
+        <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow if picking up a shift would mean overtime.</li>
+        <li><b>Don't want to work:</b> <i>busy</i> (red). <i>off</i> alone is flagged because it could mean either.</li>
+        <li><b>Anything after the times</b>, like the site, is a private note.</li>
+        <li><b>Also works:</b> 10/7, Oct 7, 2026-10-07, ranges (10/12-10/14 no shift), lists (10/9, 10/10 2300-0700), 23:00-07:00 or 11pm-7am, <i>clear</i> to make a day gray again.</li>
         <li><b>Pick days in a range</b> with day names right after the dates: <i>10/12-10/25 Mon-Fri 2300-0700</i>, <i>Mon Wed Fri</i>, <i>M/W/F</i>, <i>TTh</i>, <i>weekdays</i> or <i>weekends</i>.</li>
-        <li><b>Times mean you're working:</b> 2300-0700, 23:00-07:00 or 11pm-7am. Hours are worked out from the times. One shift per line.</li>
-        <li><b>Or one word:</b> <i>off</i> or <i>busy</i> (red), <i>open</i> (green), <i>work</i> (red, with your usual shift length), <i>clear</i> (back to gray).</li>
-        <li><b>Extras:</b> <i>8h</i> sets paid hours. After <i>open</i>, add <i>overnight</i>, <i>swing</i> or <i>morning</i> to limit which shifts you'll take.</li>
-        <li><b>Anything else</b>, like the site name, is saved as a private note. Supervisors never see it.</li>
         <li><b>If a line could mean two things</b>, it's listed with the reason instead of guessed. Reword it and it'll be added.</li>
       </ul>
     </details>
     <label class="field"><span class="label">Your schedule</span>
-      <textarea id="importText" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="10/7 2300-0700&#10;10/8 2300-0700&#10;10/12-10/14 off"></textarea></label>
+      <textarea id="importText" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Fri 10/9 2300-0700&#10;Sat 10/10 no shift&#10;Sun 10/11 2300-0700"></textarea></label>
     <div id="importPreview" class="preview" aria-live="polite"></div>
     <fieldset class="gapfill" id="gapBox" hidden>
       <legend class="label" id="gapLegend"></legend>
@@ -202,15 +203,17 @@ Oct 25 open overnight swing
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Your first name</span>
-        <input type="text" id="setName" maxlength="40" autocomplete="given-name"></label>
+      <label class="field"><span class="label">Your name (shown at the top; texts greet the first name)</span>
+        <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
+      <label class="field"><span class="label">Employee ID (shown under your name)</span>
+        <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
       <label class="field"><span class="label">Cell number (texts come here)</span>
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
     </div>
 
     <div class="group two">
-      <label class="field"><span class="label">Pay week starts</span>
-        <select id="setWeekStart">
+      <label class="field"><span class="label">Pay week ends (at midnight)</span>
+        <select id="setWeekEnd">
           <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
           <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
           <option value="6">Saturday</option>
@@ -238,7 +241,7 @@ Oct 25 open overnight swing
   <form method="dialog" class="sheet-in" id="unlockForm">
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">For Vincent only</p>
+        <p class="eyebrow" id="unlockWho">For the calendar's owner</p>
         <h2 id="unlockTitle">Edit your calendar</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
@@ -301,7 +304,7 @@ Oct 25 open overnight swing
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="parser.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
