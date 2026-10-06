@@ -59,7 +59,7 @@ Thu 10/15 2300-0700
 - **Not scheduled:** `no shift`. The day turns green, or yellow if one more shift would mean overtime.
 - **Don't want to work:** `busy` (red). A bare `off` is flagged, because it could mean either.
 - **Back to gray:** `clear`.
-- **Notes go in quotes:** `2300-0700 "Site B"`. Anything in quotes is a private note and is never read as a time, hours, or a word like open, clear or covered. Straight or curly quotes both work. Notes are optional. Any word outside quotes that the site doesn't recognize is flagged instead of guessed.
+- **Notes go in quotes:** `2300-0700 "Site B"`. Anything in quotes is a private note and is never read as a time, hours, or a word like open, clear or covered. Straight or curly quotes both work. To quote something inside a note, use single quotes: `"Sgt said 'call me'"`. Notes are optional. Any word outside quotes that the site doesn't recognize is flagged instead of guessed.
 - **Shortcuts:** a range (`10/12-10/14 no shift`), a list (`10/9, 10/10 2300-0700`), or day names right after a range (`10/12-10/25 Mon-Fri 2300-0700`, *M/W/F*, *TTh*, *weekdays*, *weekends*). Day names anywhere else on a range line get flagged, so a site like "Sun Valley Mall" never filters days by accident. After `no shift`, you can add *overnight*, *swing* or *morning* to limit the shifts you'd take that day.
 - **Unclear lines aren't guessed.** These get flagged so you can reword them:
   - "not available" or "except Sat"

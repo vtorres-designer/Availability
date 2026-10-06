@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=7">
+<link rel="stylesheet" href="app.css?v=8">
 </head>
 <body>
 <main class="page">
@@ -163,7 +163,7 @@ Thu 10/15 2300-0700</pre>
         <li><b>Working:</b> start-end in 24-hour time, like <i>2300-0700</i>. A shift that ends after midnight still goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end, like <i>7.5h</i>.</li>
         <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow if picking up a shift would mean overtime.</li>
         <li><b>Don't want to work:</b> <i>busy</i> (red). <i>off</i> alone is flagged because it could mean either.</li>
-        <li><b>Notes go in quotes:</b> <i>2300-0700 "Site B"</i>. Anything in quotes is a private note and is never read as a time or a word like open or clear. Any other word the site doesn't recognize is flagged.</li>
+        <li><b>Notes go in quotes:</b> <i>2300-0700 "Site B"</i>. Anything in quotes is a private note and is never read as a time or a word like open or clear. To quote something inside a note, use single quotes: <i>"Sgt said 'call me'"</i>. Any other word the site doesn't recognize is flagged.</li>
         <li><b>Also works:</b> 10/7, Oct 7, 2026-10-07, ranges (10/12-10/14 no shift), lists (10/9, 10/10 2300-0700), 23:00-07:00 or 11pm-7am, <i>clear</i> to make a day gray again.</li>
         <li><b>Pick days in a range</b> with day names right after the dates: <i>10/12-10/25 Mon-Fri 2300-0700</i>, <i>Mon Wed Fri</i>, <i>M/W/F</i>, <i>TTh</i>, <i>weekdays</i> or <i>weekends</i>.</li>
         <li><b>If a line could mean two things</b>, it's listed with the reason instead of guessed. Reword it and it'll be added.</li>
@@ -304,7 +304,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="parser.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
