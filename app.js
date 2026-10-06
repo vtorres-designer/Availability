@@ -3,7 +3,7 @@
   const SHIFT_KEYS = ["overnight", "swing", "morning"];
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const LS = { token: "sa.token", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", brush: "sa.brush", importText: "sa.import" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", brush: "sa.brush", importText: "sa.import" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
@@ -22,15 +22,8 @@
     del(k) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } },
     keys(prefix) { try { return Object.keys(localStorage).filter((k) => k.startsWith(prefix)); } catch { return []; } },
   };
-  // Each tab keeps its unsaved changes under its own key, so two tabs never overwrite each other's.
-  const TAB_ID = (() => {
-    try {
-      let id = sessionStorage.getItem("sa.tab");
-      if (!id) { id = Math.random().toString(36).slice(2, 10); sessionStorage.setItem("sa.tab", id); }
-      return id;
-    } catch { return Math.random().toString(36).slice(2, 10); }
-  })();
-  const OWN_DRAFT = LS.draftPrefix + TAB_ID;
+  // Each page load keeps its unsaved changes under its own key, so two tabs never overwrite each other's.
+  const OWN_DRAFT = LS.draftPrefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const pad = (n) => String(n).padStart(2, "0");
   const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -254,7 +247,6 @@
   let lastPubSent = null; // what this device last sent as data.json (without the timestamp)
   let standIn = false; // the private schedule couldn't be read (key lacks Variables), so priv is rebuilt from the public file
   let busy = false; // reloading or merging: edits wait until it's done
-  let adopted = {}; // other tabs' drafts applied here: key -> the stored text, removed after a save that includes them
 
   const ownerView = () => owner && !preview;
 
@@ -311,28 +303,84 @@
     return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
   }
 
-  // Unsaved changes, stored as only what this device changed: days, public fields, private settings.
+  // Unsaved changes, stored as only what this device changed. Each entry keeps the value it replaced ("from"),
+  // so a restored change is applied only if nobody saved something else on that day since.
   function diffOf() {
     const c = changes();
     const d = { days: {}, pub: {}, priv: {} };
-    for (const k of c.days) d.days[k] = priv.days[k] || null;
-    if (saved) {
-      for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = pub[f];
-      for (const f of ["otAfter", "pickup"]) if (priv[f] !== saved.priv[f]) d.priv[f] = priv[f];
-    }
+    if (!saved) return d;
+    for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
+    for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
+    for (const f of ["otAfter", "pickup"]) if (priv[f] !== saved.priv[f]) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     return d;
   }
   const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length;
+  const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
 
-  function applyDiff(d) {
-    for (const [k, rec] of Object.entries(d.days || {})) {
-      if (!isKey(k)) continue;
-      const clean = rec ? cleanPrivRec(rec, priv.pickup) : null;
+  // Applies a diff. With checkBase, an entry is skipped when the current value is no longer the one it replaced.
+  function applyDiff(d, checkBase) {
+    let applied = 0, skipped = 0;
+    const take = (e, current) => {
+      if (!e || typeof e !== "object" || !("to" in e)) return false;
+      if (same(current, e.to)) return false;
+      if (checkBase && !same(current, e.from)) { skipped++; return false; }
+      applied++;
+      return true;
+    };
+    for (const [k, e] of Object.entries(d.days || {})) {
+      if (!isKey(k) || !take(e, priv.days[k])) continue;
+      const clean = e.to ? cleanPrivRec(e.to, priv.pickup) : null;
       if (clean) priv.days[k] = clean;
       else delete priv.days[k];
     }
-    pub = normalizePub(Object.assign({}, pub, d.pub || {}));
-    for (const f of ["otAfter", "pickup"]) if (d.priv && Number(d.priv[f]) > 0) priv[f] = Number(d.priv[f]);
+    const next = Object.assign({}, pub);
+    for (const [f, e] of Object.entries(d.pub || {})) if (f in next && take(e, pub[f])) next[f] = e.to;
+    pub = normalizePub(next);
+    for (const f of ["otAfter", "pickup"]) {
+      const e = d.priv && d.priv[f];
+      if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
+    }
+    return { applied, skipped };
+  }
+
+  // After a save, copies of the changes it included are done. Removing them keeps an old copy from
+  // coming back later if that day is changed again.
+  function pruneOtherDrafts() {
+    for (const key of store.keys(LS.draftPrefix)) {
+      if (key === OWN_DRAFT) continue;
+      let d;
+      try { d = JSON.parse(store.get(key)); } catch { continue; }
+      if (!d || typeof d !== "object") continue;
+      let changed = false;
+      for (const [k, e] of Object.entries(d.days || {})) if (!e || same(saved.priv.days[k], e.to)) { delete d.days[k]; changed = true; }
+      for (const [f, e] of Object.entries(d.pub || {})) if (!e || same(saved.pub[f], e.to)) { delete d.pub[f]; changed = true; }
+      for (const [f, e] of Object.entries(d.priv || {})) if (!e || same(saved.priv[f], e.to)) { delete d.priv[f]; changed = true; }
+      if (!changed) continue;
+      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {} })) store.set(key, JSON.stringify(d));
+      else store.del(key);
+    }
+  }
+
+  // Another tab on this device saved: start from that save and keep this tab's own unsaved changes on top.
+  async function rebase() {
+    if (!owner || busy || saving || standIn) return;
+    busy = true;
+    try {
+      const st = await loadOwnerState(token);
+      const mine = diffOf();
+      saved = { pub: clone(st.pub), priv: clone(st.priv) };
+      pub = clone(st.pub);
+      priv = clone(st.priv);
+      applyDiff(mine, false);
+      pubSha = st.pubSha;
+      privAt = st.privAt;
+      privExists = st.privExists;
+      needsPublish = st.behind;
+      updated = st.updated;
+    } catch { /* offline: Save will notice a newer version */ }
+    busy = false;
+    persistDraft();
+    render();
   }
 
   function persistDraft() {
@@ -818,20 +866,9 @@
     }
     const today = todayKey();
     const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
-    let behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v));
-    // Both files carry the id of the save that wrote them. If the public file is newer, that save didn't
-    // finish writing the hours: take the colors from the public file for the days that differ.
-    const pubRev = pubRes.raw && pubRes.raw.rev, privRev = v.rev;
-    if (behind && pubRev && (!privRev || pubRev > privRev)) {
-      const shown = derivePublic(p, v);
-      for (const k of new Set([...Object.keys(file.days), ...Object.keys(shown)])) {
-        if (k < today || JSON.stringify(file.days[k] || null) === JSON.stringify(shown[k] || null)) continue;
-        const f = file.days[k];
-        if (!f) delete v.days[k];
-        else if (f.s === "busy") { if (!v.days[k] || v.days[k].s === "open") v.days[k] = { s: "busy" }; }
-        else v.days[k] = cleanPrivRec({ s: "open", w: f.w }, v.pickup);
-      }
-    }
+    // The private schedule is the source of truth and the public file is built from it. If they differ
+    // (a save stopped after storing the hours), the public file just needs publishing again.
+    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v));
     return { pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
   }
 
@@ -851,7 +888,6 @@
       updated = st.updated;
       pub = clone(st.pub);
       priv = clone(st.priv);
-      adopted = {};
       store.del(LS.draft2); // from a test build; never stored real data
       let restored = 0;
       if (!standIn) {
@@ -860,22 +896,27 @@
           const old = JSON.parse(store.get(LS.oldDraft) || "null");
           if (old && old.data && old.data.days) {
             const m = migrateV1(Object.assign({}, old.data, { through: "" }));
-            for (const [k, rec] of Object.entries(m.priv.days)) if (!priv.days[k]) { priv.days[k] = rec; restored++; }
+            for (const [k, rec] of Object.entries(m.priv.days)) if (!priv.days[k]) priv.days[k] = rec;
           }
         } catch { /* unreadable old draft */ }
         store.del(LS.oldDraft);
-        // Unsaved changes from this tab and from tabs that were closed, oldest first, applied to the newest calendar.
+        // Unsaved changes from earlier visits and other tabs, oldest first, applied to the newest calendar.
+        // They're folded into this page's record and the old keys removed, so each change lives in one place.
+        // A tab that is still open writes its own key again on its next edit.
         const drafts = [];
         for (const key of store.keys(LS.draftPrefix)) {
-          const text = store.get(key);
-          try { const d = JSON.parse(text); if (d && typeof d === "object") drafts.push({ key, text, d }); } catch { store.del(key); }
+          if (key === OWN_DRAFT) continue;
+          try {
+            const d = JSON.parse(store.get(key));
+            if (d && typeof d === "object" && Date.now() - (d.ts || 0) < 30 * 86400000) drafts.push(d);
+          } catch { /* unreadable */ }
+          store.del(key);
         }
-        drafts.sort((a, b) => (a.d.ts || 0) - (b.d.ts || 0));
-        for (const { key, text, d } of drafts) {
-          applyDiff(d);
-          if (key !== OWN_DRAFT) adopted[key] = text;
-        }
+        drafts.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        let skipped = 0;
+        for (const d of drafts) skipped += applyDiff(d, true).skipped;
         restored = changes().days.size + (changes().settings ? 1 : 0);
+        if (skipped) setTimeout(() => toast(`${skipped} unsaved change${skipped === 1 ? " was" : "s were"} skipped because that day was saved from somewhere else since.`, 6000), 3500);
       }
       loadError = false;
       busy = false;
@@ -1014,33 +1055,42 @@
       pubSha = remotePub.sha;
       privExists = remotePriv.status === 200;
       if (privExists) privAt = remotePriv.updatedAt;
-      // The public file goes first: its version check is atomic, so a stale device stops here before touching anything.
-      stage = "public";
-      lastPubSent = publicCore(pubOut);
-      const res = await gh("PUT", "/contents/data.json", {
-        message: `Update availability (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})`,
-        content: b64encode(JSON.stringify(pubOut, null, 2) + "\n"),
-        sha: pubSha,
-      });
-      pubSha = res.content.sha;
-      updated = stamp;
+      // Hours first: they're the source of truth. If the public file then fails, the next load republishes it.
       stage = "private";
       lastPrivText = privText;
       await writePrivate(privText, force);
       for (const k of Object.keys(priv.days)) if (k < payload.cutoff) delete priv.days[k];
       saved = { pub: snapPub, priv: payload.priv };
+      needsPublish = true;
+      persistDraft();
+      stage = "public";
+      lastPubSent = publicCore(pubOut);
+      const put = (sha) => gh("PUT", "/contents/data.json", {
+        message: `Update availability (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})`,
+        content: b64encode(JSON.stringify(pubOut, null, 2) + "\n"),
+        sha,
+      });
+      let res;
+      try {
+        res = await put(pubSha);
+      } catch (e) {
+        if (e.status !== 409 && e.status !== 422) throw e;
+        // The public file changed in the last moment. It's rebuilt from the hours just saved, so write it again.
+        res = await put((await getPublicRemote(token)).sha);
+      }
+      pubSha = res.content.sha;
+      updated = stamp;
       needsPublish = false;
-      // Other tabs' drafts that were part of this save are done, unless that tab changed them since.
-      for (const [key, text] of Object.entries(adopted)) if (store.get(key) === text) store.del(key);
-      adopted = {};
+      pruneOtherDrafts();
+      store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
     } catch (e) {
-      if (e.conflict || e.status === 409 || (stage === "public" && e.status === 422)) showSheet("#conflictSheet");
+      if (e.conflict || (stage === "private" && e.status === 409)) showSheet("#conflictSheet");
       else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
       else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop editing, then connect again.", 6000);
-      else if (stage === "private" && e.status === 422) toast("Your calendar was published, but GitHub wouldn't store your hours. Clear some far-off days and tap Save again.", 7000);
-      else if (stage === "private") toast("Your calendar was published, but your hours didn't save. Tap Save again.", 6000);
-      else if (stage === "public" && (e.status === 403 || e.status === 404)) toast("Your key can't save the calendar file. On GitHub, set the token's Contents permission to Read and write.", 6000);
+      else if (stage === "private" && e.status === 422) toast("GitHub wouldn't store your hours. Clear some far-off days and tap Save again.", 7000);
+      else if (stage === "public" && (e.status === 403 || e.status === 404)) toast("Your hours are saved, but your key can't update the calendar file. On GitHub, set the token's Contents permission to Read and write.", 7000);
+      else if (stage === "public") toast("Your hours are saved, but the public calendar didn't update. Tap Save again.", 6000);
       else toast("Couldn't save. Check your connection and tap Save again.", 5000);
     } finally {
       saving = false;
@@ -1059,7 +1109,7 @@
     saved = { pub: clone(st.pub), priv: clone(st.priv) };
     pub = clone(st.pub);
     priv = clone(st.priv);
-    applyDiff(mine);
+    applyDiff(mine, false);
     pubSha = st.pubSha;
     privAt = st.privAt;
     privExists = st.privExists;
@@ -1075,7 +1125,6 @@
     if (v === "merge") return mergeAndSave();
     if (v === "reload") {
       store.del(OWN_DRAFT);
-      for (const key of Object.keys(adopted)) if (store.get(key) === adopted[key]) store.del(key);
       busy = true;
       render();
       await enterOwner();
@@ -1151,9 +1200,7 @@
     });
     // Two tabs editing at once would overwrite each other's unsaved changes.
     window.addEventListener("storage", (e) => {
-      if (owner && e.key && e.key.startsWith(LS.draftPrefix) && e.key !== OWN_DRAFT && e.newValue) {
-        toast("Your calendar is also open in another tab. Changes in both are kept, but save in one tab at a time.", 5000);
-      }
+      if (owner && e.key === LS.savedSignal) rebase();
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
