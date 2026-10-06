@@ -1,26 +1,18 @@
 "use strict";
 (() => {
   const SHIFT_KEYS = ["overnight", "swing", "morning"];
+  const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const LS = { token: "sa.token", draft: "sa.draft", who: "sa.who", brush: "sa.brush" };
-  const TAGS = { open: "Open", ot: "OT", work: "Work", off: "Busy", unset: "TBD" };
+  const LS = { token: "sa.token", draft: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", brush: "sa.brush", importText: "sa.import" };
+  const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
+  const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
+  const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
+  const OWNER_TAG = { open: "Open", ot: "OT", work: "Work", busy: "Busy", unset: "" };
 
-  const defaults = () => ({
-    name: "Vincent",
-    phone: "",
-    note: "",
-    through: "",
-    weekStart: 0,
-    otAfter: 40,
-    willing: ["overnight"],
-    shifts: {
-      overnight: { label: "Overnight", start: "22:00", end: "07:00", hours: 9 },
-      swing: { label: "Swing", start: "14:00", end: "22:00", hours: 8 },
-      morning: { label: "Morning", start: "06:00", end: "14:00", hours: 8 },
-    },
-    days: {},
-    updated: null,
-  });
+  // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
+  // live in a repository variable that only the owner's key can read.
+  const defaultPub = () => ({ name: "Vincent", phone: "", note: "", willing: ["overnight"], weekStart: 0 });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, days: {} });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -36,21 +28,19 @@
   const addDays = (k, n) => { const d = dateOf(k); d.setDate(d.getDate() + n); return keyOf(d); };
   const todayKey = () => keyOf(new Date());
   const isKey = (k) => typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+  const isTime = (t) => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
   const fmt = (k, o) => dateOf(k).toLocaleDateString("en-US", o);
   const shortDay = (k) => fmt(k, { weekday: "short", month: "short", day: "numeric" });
   const longDay = (k) => fmt(k, { weekday: "long", month: "long", day: "numeric" });
-  const toMin = (t) => { const [h, m] = String(t || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const num = (n) => String(+Number(n).toFixed(2));
   const possessive = (name) => (name ? (/s$/i.test(name) ? `${name}'` : `${name}'s`) : "My");
-
+  const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+  const spanHours = (start, end) => window.ScheduleParser.spanHours(start, end);
   function fmtTime(t) {
-    const m = toMin(t), h = Math.floor(m / 60) % 24, mm = m % 60;
+    const [h, m] = t.split(":").map(Number);
     const h12 = h % 12 || 12, ap = h < 12 ? "AM" : "PM";
-    return mm ? `${h12}:${pad(mm)} ${ap}` : `${h12} ${ap}`;
+    return m ? `${h12}:${pad(m)} ${ap}` : `${h12} ${ap}`;
   }
-  const crosses = (s) => toMin(s.end) <= toMin(s.start);
-  const spanHours = (s) => { let m = toMin(s.end) - toMin(s.start); if (m <= 0) m += 1440; return m / 60; };
-  const shiftHours = (key) => { const s = data.shifts[key]; return Number(s.hours) > 0 ? Number(s.hours) : spanHours(s); };
 
   function h(tag, attrs, ...kids) {
     const el = document.createElement(tag);
@@ -65,9 +55,17 @@
     return el;
   }
 
+  function showSheet(sel) {
+    const d = $(sel);
+    d.returnValue = "";
+    if (!d.open) d.showModal();
+  }
+
   let toastTimer = 0;
   function toast(msg, ms = 3200) {
     const t = $("#toast");
+    const host = document.querySelector("dialog[open]") || document.body; // sheets sit above the page
+    if (t.parentNode !== host) host.append(t);
     t.textContent = msg;
     t.hidden = false;
     clearTimeout(toastTimer);
@@ -86,61 +84,131 @@
     return ok;
   }
 
-  // ---------- data ----------
-  function normalize(raw) {
-    const base = defaults();
+  // ---------- data model ----------
+  const cleanWilling = (w) => (Array.isArray(w) ? SHIFT_KEYS.filter((k) => w.includes(k)) : null);
+  const cleanNote = (n) => (typeof n === "string" ? n.trim().slice(0, 100) : "");
+
+  function normalizePub(raw) {
     const r = raw && typeof raw === "object" ? raw : {};
-    const d = Object.assign(base, r);
-    d.shifts = {};
-    for (const k of SHIFT_KEYS) d.shifts[k] = Object.assign(defaults().shifts[k], (r.shifts && r.shifts[k]) || {});
-    d.willing = Array.isArray(r.willing) ? r.willing.filter((k) => SHIFT_KEYS.includes(k)) : defaults().willing;
-    d.days = {};
-    if (r.days && typeof r.days === "object") for (const [k, v] of Object.entries(r.days)) if (isKey(k) && v && typeof v === "object") d.days[k] = v;
-    d.weekStart = Math.min(6, Math.max(0, parseInt(d.weekStart, 10) || 0));
-    d.otAfter = Number(d.otAfter) > 0 ? Number(d.otAfter) : 40;
-    d.through = isKey(d.through) ? d.through : "";
-    d.name = String(d.name || "").slice(0, 40);
-    d.phone = String(d.phone || "").slice(0, 20);
-    d.note = String(d.note || "").slice(0, 140);
+    const d = defaultPub();
+    if (typeof r.name === "string") d.name = r.name.trim().slice(0, 40);
+    if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
+    if (typeof r.note === "string") d.note = r.note.slice(0, 140);
+    if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
+    const ws = parseInt(r.weekStart, 10);
+    if (ws >= 0 && ws <= 6) d.weekStart = ws;
     return d;
   }
 
-  const workHours = (rec) => (Number(rec.hours) > 0 ? Number(rec.hours) : shiftHours(SHIFT_KEYS.includes(rec.shift) ? rec.shift : "overnight"));
-  const weekStartOf = (k) => addDays(k, -((dateOf(k).getDay() - data.weekStart + 7) % 7));
+  function cleanPrivRec(rec, pickup) {
+    if (!rec || typeof rec !== "object") return null;
+    if (rec.s === "work") {
+      const out = { s: "work" };
+      if (isTime(rec.start) && isTime(rec.end) && rec.start !== rec.end) { out.start = rec.start; out.end = rec.end; }
+      const hrs = Number(rec.hours);
+      out.hours = hrs > 0 && hrs <= 24 ? hrs : out.start ? spanHours(out.start, out.end) : pickup;
+      const note = cleanNote(rec.note);
+      if (note) out.note = note;
+      return out;
+    }
+    if (rec.s === "busy") {
+      const note = cleanNote(rec.note);
+      return note ? { s: "busy", note } : { s: "busy" };
+    }
+    if (rec.s === "open") {
+      const w = cleanWilling(rec.w);
+      return w ? { s: "open", w } : { s: "open" };
+    }
+    return null;
+  }
 
-  function weekHours(k) {
-    const ws = weekStartOf(k);
+  function normalizePriv(raw) {
+    const r = raw && typeof raw === "object" ? raw : {};
+    const d = defaultPriv();
+    if (Number(r.otAfter) > 0) d.otAfter = Number(r.otAfter);
+    if (Number(r.pickup) > 0 && Number(r.pickup) <= 24) d.pickup = Number(r.pickup);
+    if (r.days && typeof r.days === "object") {
+      for (const [k, v] of Object.entries(r.days)) {
+        const rec = isKey(k) ? cleanPrivRec(v, d.pickup) : null;
+        if (rec) d.days[k] = rec;
+      }
+    }
+    return d;
+  }
+
+  // The first version of data.json kept everything public and treated days up to "through" as open.
+  function migrateV1(raw) {
+    const r = raw && typeof raw === "object" ? raw : {};
+    const pub = normalizePub(r);
+    const priv = defaultPriv();
+    if (Number(r.otAfter) > 0) priv.otAfter = Number(r.otAfter);
+    const shiftHours = (k) => Number(r.shifts && r.shifts[k] && r.shifts[k].hours) || 8;
+    const days = r.days && typeof r.days === "object" ? r.days : {};
+    for (const [k, v] of Object.entries(days)) {
+      if (!isKey(k) || !v) continue;
+      if (v.s === "work") priv.days[k] = { s: "work", hours: Number(v.hours) > 0 ? Number(v.hours) : shiftHours(v.shift) };
+      else if (v.s === "off") priv.days[k] = { s: "busy" };
+      else if (v.s === "open") priv.days[k] = cleanPrivRec({ s: "open", w: v.willing }, priv.pickup);
+    }
+    if (isKey(r.through)) {
+      for (let k = todayKey(); k <= r.through; k = addDays(k, 1)) if (!priv.days[k]) priv.days[k] = { s: "open" };
+    }
+    return { pub, priv };
+  }
+
+  // Rebuilds what the owner can from the public file alone (used if the private variable is missing).
+  function privFromPublicDays(days) {
+    const priv = defaultPriv();
+    for (const [k, v] of Object.entries(days)) {
+      if (v.s === "busy") priv.days[k] = { s: "busy" };
+      else priv.days[k] = cleanPrivRec({ s: "open", w: v.w }, priv.pickup);
+    }
+    return priv;
+  }
+
+  function normalizePublicDays(raw) {
+    const out = {};
+    if (!raw || typeof raw !== "object") return out;
+    for (const [k, v] of Object.entries(raw)) {
+      if (!isKey(k) || !v || !["open", "ot", "busy"].includes(v.s)) continue;
+      const w = v.s !== "busy" ? cleanWilling(v.w) : null;
+      out[k] = w ? { s: v.s, w } : { s: v.s };
+    }
+    return out;
+  }
+
+  function readPublicFile(raw) {
+    if (raw && raw.v === 2) return { pub: normalizePub(raw), days: normalizePublicDays(raw.days), updated: raw.updated || null };
+    const m = migrateV1(raw);
+    return { pub: m.pub, days: derivePublic(m.pub, m.priv), updated: (raw && raw.updated) || null, migrated: m };
+  }
+
+  const weekStartOf = (k, ws) => addDays(k, -((dateOf(k).getDay() - ws + 7) % 7));
+
+  function weekHours(k, priv, ws) {
+    const start = weekStartOf(k, ws);
     let total = 0;
     for (let i = 0; i < 7; i++) {
-      const rec = data.days[addDays(ws, i)];
-      if (rec && rec.s === "work") total += workHours(rec);
+      const rec = priv.days[addDays(start, i)];
+      if (rec && rec.s === "work") total += Number(rec.hours) || 0;
     }
     return total;
   }
 
-  function dayInfo(k) {
-    const rec = data.days[k] || null;
-    const past = k < todayKey();
-    const booked = weekHours(k);
-    if (rec && rec.s === "work") {
-      const shift = SHIFT_KEYS.includes(rec.shift) ? rec.shift : "overnight";
-      return { kind: "work", past, shift, hours: workHours(rec), booked };
+  // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
+  // and no difference between working and busy.
+  function derivePublic(p, v) {
+    const out = {};
+    const today = todayKey();
+    for (const k of Object.keys(v.days).sort()) {
+      if (k < today) continue;
+      const rec = v.days[k];
+      if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
+      if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
+      const ot = weekHours(k, v, p.weekStart) + v.pickup > v.otAfter;
+      out[k] = rec.w ? { s: ot ? "ot" : "open", w: rec.w } : { s: ot ? "ot" : "open" };
     }
-    if (rec && rec.s === "off") return { kind: "off", past, booked };
-    const explicitOpen = rec && rec.s === "open";
-    if (!explicitOpen && (!data.through || k > data.through)) return { kind: "unset", past, booked };
-    const willing = (rec && Array.isArray(rec.willing) ? rec.willing : data.willing).filter((x) => SHIFT_KEYS.includes(x));
-    if (!willing.length) return { kind: "off", past, booked };
-    const options = willing.map((x) => ({ key: x, hours: shiftHours(x), ot: booked + shiftHours(x) > data.otAfter }));
-    return { kind: options.every((o) => o.ot) ? "ot" : "open", past, options, booked };
-  }
-
-  function statusText(info) {
-    if (info.kind === "work") return `Working, ${data.shifts[info.shift].label.toLowerCase()} shift`;
-    if (info.kind === "off") return "Unavailable";
-    if (info.kind === "unset") return "Not set yet";
-    if (info.kind === "ot") return "Available, but it would be overtime";
-    return "Available";
+    return out;
   }
 
   // ---------- state ----------
@@ -150,18 +218,29 @@
       const first = location.pathname.split("/").filter(Boolean)[0];
       return { owner: host.split(".")[0], name: first && !first.includes(".") ? first : host };
     }
-    return { owner: "vtorres-designer", name: "availability" };
+    return { owner: "vtorres-designer", name: "Availability" };
   })();
-  const API = `https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/data.json`;
+  const API = `https://api.github.com/repos/${REPO.owner}/${REPO.name}`;
 
-  let data = normalize(null);
-  let savedObj = null; // owner: last saved copy
-  let sha = null;
+  let pub = defaultPub();
+  let priv = defaultPriv();
+  let pubDays = {}; // what the public page shows
+  let updated = null;
+  let saved = null; // owner: {pub, priv} as last saved
+  let pubSha = null;
+  let privAt = null; // private variable's updated_at when loaded
+  let privExists = false;
+  let privAccess = true;
   let token = store.get(LS.token);
   let owner = false;
+  let preview = false;
   let brush = "edit";
   let saving = false;
   let loadError = false;
+  let needsPublish = false; // the public file is behind the saved private schedule (or still in the old format)
+  let lastPrivText = null; // what this device last wrote to the private variable
+
+  const ownerView = () => owner && !preview;
 
   // ---------- GitHub ----------
   const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), (c) => c.charCodeAt(0)));
@@ -172,8 +251,8 @@
     return btoa(bin);
   }
 
-  async function gh(method, body, tok = token) {
-    const res = await fetch(API, {
+  async function gh(method, path, body, tok = token) {
+    const res = await fetch(API + path, {
       method,
       cache: "no-store",
       headers: Object.assign(
@@ -187,68 +266,97 @@
       err.status = res.status;
       throw err;
     }
-    return res.json();
+    const text = res.status === 204 ? "" : await res.text();
+    return text ? JSON.parse(text) : null;
   }
 
-  async function fetchRemote(tok) {
-    const j = await gh("GET", null, tok);
-    return { data: normalize(JSON.parse(b64decode(j.content))), sha: j.sha };
+  async function getPublicRemote(tok) {
+    const j = await gh("GET", "/contents/data.json", null, tok);
+    return { raw: JSON.parse(b64decode(j.content)), sha: j.sha };
+  }
+
+  // Returns {status, value, updatedAt}. 404 = not created yet, 403 = key lacks the Variables permission.
+  async function getPrivateRemote(tok) {
+    try {
+      const j = await gh("GET", `/actions/variables/${PRIVATE_VAR}`, null, tok);
+      return { status: 200, value: j.value, updatedAt: j.updated_at };
+    } catch (e) {
+      if (e.status === 404 || e.status === 403) return { status: e.status };
+      throw e;
+    }
   }
 
   // ---------- owner changes ----------
   function changes() {
-    if (!savedObj) return { days: new Set(), settings: false };
-    const keys = new Set([...Object.keys(data.days), ...Object.keys(savedObj.days)]);
-    const days = new Set([...keys].filter((k) => JSON.stringify(data.days[k] ?? null) !== JSON.stringify(savedObj.days[k] ?? null)));
-    const strip = (o) => JSON.stringify(Object.assign({}, o, { days: null, updated: null }));
-    return { days, settings: strip(data) !== strip(savedObj) };
+    if (!saved) return { days: new Set(), settings: false, publish: false };
+    const keys = new Set([...Object.keys(priv.days), ...Object.keys(saved.priv.days)]);
+    const days = new Set([...keys].filter((k) => JSON.stringify(priv.days[k] ?? null) !== JSON.stringify(saved.priv.days[k] ?? null)));
+    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null }));
+    return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
+  }
+
+  function persistDraft() {
+    if (!privAccess) return; // edits on top of a stand-in schedule must never replace the real one
+    const c = changes();
+    if (c.days.size || c.settings) store.set(LS.draft, JSON.stringify({ pubSha, privAt, pub, priv }));
+    else store.del(LS.draft);
   }
 
   function afterChange() {
-    const c = changes();
-    if (c.days.size || c.settings) store.set(LS.draft, JSON.stringify({ baseSha: sha, data }));
-    else store.del(LS.draft);
+    persistDraft();
     render();
   }
 
   function setDay(k, rec) {
-    if (rec) data.days[k] = rec;
-    else delete data.days[k];
+    if (rec) priv.days[k] = rec;
+    else delete priv.days[k];
   }
-  const openRec = (k, willing) => {
-    const custom = willing && !sameSet(willing, data.willing);
-    if (custom) return { s: "open", willing: SHIFT_KEYS.filter((x) => willing.includes(x)) };
-    return !data.through || k > data.through ? { s: "open" } : null;
-  };
-  const workRec = (shift, hours) => ({ s: "work", shift, hours: Number(hours) > 0 ? Number(hours) : shiftHours(shift) });
-  const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+  const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
   function applyBrush(k) {
-    const cur = data.days[k];
-    if (brush === "work") setDay(k, cur && cur.s === "work" ? openRec(k) : workRec("overnight"));
-    else if (brush === "off") setDay(k, cur && cur.s === "off" ? openRec(k) : { s: "off" });
-    else if (brush === "open") setDay(k, openRec(k, cur && cur.s === "open" ? cur.willing : null));
+    const cur = priv.days[k];
+    if (brush === "work") setDay(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
+    else if (brush === "busy") setDay(k, cur && cur.s === "busy" ? null : { s: "busy" });
+    else if (brush === "open") setDay(k, cur && cur.s === "open" ? null : { s: "open" });
     afterChange();
+  }
+
+  // ---------- day info ----------
+  function ownerInfo(k) {
+    const rec = priv.days[k] || null;
+    const booked = weekHours(k, priv, pub.weekStart);
+    const base = { past: k < todayKey(), booked, rec };
+    if (!rec) return Object.assign(base, { kind: "unset" });
+    if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
+    if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
+    return Object.assign(base, { kind: booked + priv.pickup > priv.otAfter ? "ot" : "open" });
+  }
+
+  function publicInfo(k) {
+    const rec = pubDays[k];
+    return { past: k < todayKey(), kind: rec ? rec.s : "unset", w: rec && rec.w ? rec.w : null };
+  }
+
+  function publicStatusText(kind) {
+    return { open: "Available", ot: "Available, but it would be overtime", busy: "Not available", unset: "Not set yet" }[kind];
   }
 
   // ---------- render ----------
   function weekRange() {
-    const today = todayKey();
-    const start = weekStartOf(today);
-    let end;
-    if (owner) {
-      end = addDays(start, 7 * 7);
-      if (data.through) { const t = addDays(weekStartOf(data.through), 7 * 4); if (t > end) end = t; }
-    } else {
-      end = data.through ? addDays(weekStartOf(data.through), 7) : addDays(start, 7 * 2);
-      const marked = Object.keys(data.days).filter((k) => k >= start).sort().pop();
-      if (marked && weekStartOf(marked) > end) end = weekStartOf(marked);
-      if (end < addDays(start, 7)) end = addDays(start, 7);
+    const ws = pub.weekStart;
+    const start = weekStartOf(todayKey(), ws);
+    const days = ownerView() ? priv.days : pubDays;
+    const last = Object.keys(days).filter((k) => k >= start).sort().pop();
+    let end = addDays(start, 7);
+    if (last && weekStartOf(last, ws) > end) end = weekStartOf(last, ws);
+    if (ownerView()) {
+      const more = addDays(end, 7 * 4);
+      end = more > addDays(start, 7 * 7) ? more : addDays(start, 7 * 7);
     }
-    const cap = addDays(start, 7 * 30);
+    const cap = addDays(start, 7 * 40);
     if (end > cap) end = cap;
     const weeks = [];
-    for (let ws = start; ws <= end; ws = addDays(ws, 7)) weeks.push(ws);
+    for (let w = start; w <= end; w = addDays(w, 7)) weeks.push(w);
     return weeks;
   }
 
@@ -260,87 +368,92 @@
   }
 
   function render() {
-    const name = data.name || "";
-    const title = `${possessive(name)} availability`;
-    $("#title").textContent = title;
-    document.title = `${possessive(name)} Shift Availability`;
-    $("#note").hidden = !data.note;
-    $("#note").textContent = data.note;
+    const asOwner = ownerView();
+    if (owner && preview) pubDays = derivePublic(pub, priv);
+    $("#title").textContent = `${possessive(pub.name)} availability`;
+    document.title = `${possessive(pub.name)} Shift Availability`;
+    $("#note").hidden = !pub.note;
+    $("#note").textContent = pub.note;
     $("#updated").textContent = loadError
       ? "Couldn't load the latest calendar. Check your connection and refresh."
-      : data.updated
-        ? `Updated ${new Date(data.updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+      : updated
+        ? `Updated ${new Date(updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
         : "";
 
     const w = $("#willing");
     w.replaceChildren();
-    if (data.willing.length) {
+    if (pub.willing.length) {
       w.append(h("span", { class: "lbl", text: "Shifts I'll pick up:" }));
-      for (const k of data.willing) {
-        const s = data.shifts[k];
-        w.append(h("span", { class: "chip" }, h("b", { text: s.label }), h("span", { text: `${fmtTime(s.start)}–${fmtTime(s.end)}` })));
-      }
+      for (const k of pub.willing) w.append(h("span", { class: "chip", text: SHIFT_LABEL[k] }));
     }
 
-    $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(data.weekStart + i) % 7] })));
+    $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
     const today = todayKey();
-    const pending = owner ? changes().days : new Set();
+    const pending = asOwner ? changes().days : new Set();
     const frag = document.createDocumentFragment();
     weekRange().forEach((ws, wi) => {
-      const hrs = weekHours(ws);
       const days = h("div", { class: "days" });
-      let anyKnown = false;
       for (let i = 0; i < 7; i++) {
         const k = addDays(ws, i);
-        const info = dayInfo(k);
-        if (info.kind !== "unset") anyKnown = true;
         const d = dateOf(k);
-        const showPast = info.past && !owner;
-        const cls = ["day", showPast ? "past" : info.kind];
-        if (info.past && owner) cls.push("past");
+        const showMonth = d.getDate() === 1 || (wi === 0 && i === 0);
+        let cls, tag, label, disabled = false;
+        if (asOwner) {
+          const info = ownerInfo(k);
+          cls = ["day", info.kind];
+          if (info.kind === "busy") cls.push("hatch");
+          if (info.past) cls.push("past");
+          tag = OWNER_TAG[info.kind];
+          label = info.kind === "work" ? "Working" : info.kind === "busy" ? "Busy" : publicStatusText(info.kind);
+        } else {
+          const info = publicInfo(k);
+          disabled = info.past;
+          cls = ["day", info.past ? "past" : info.kind];
+          tag = info.past ? "" : PUBLIC_TAG[info.kind];
+          label = info.past ? "past" : publicStatusText(info.kind);
+        }
         if (k === today) cls.push("today");
         if (pending.has(k)) cls.push("pending");
-        const showMonth = d.getDate() === 1 || (wi === 0 && i === 0);
-        days.append(h("button", {
-          type: "button",
-          class: cls.join(" "),
-          "data-key": k,
-          "aria-label": `${longDay(k)}: ${showPast ? "past" : statusText(info)}`,
-          disabled: showPast ? true : null,
-        },
-        h("span", { class: "mon", text: showMonth ? fmt(k, { month: "short" }) : "" }),
-        h("span", { class: "num", text: d.getDate() }),
-        h("span", { class: "tag", text: showPast ? "" : TAGS[info.kind] })));
+        days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null },
+          h("span", { class: "mon", text: showMonth ? fmt(k, { month: "short" }) : "" }),
+          h("span", { class: "num", text: d.getDate() }),
+          h("span", { class: "tag", text: tag })));
       }
-      let right = "";
-      if (hrs > 0) right = `${num(hrs)} hrs scheduled`;
-      else if (!anyKnown) right = "Not posted yet";
-      frag.append(h("div", { class: "week" },
-        h("div", { class: "week-head" },
-          h("b", { text: weekLabel(ws) }),
-          h("span", { class: hrs >= data.otAfter ? "hrs over" : "hrs", text: hrs >= data.otAfter ? `${right} · at overtime` : right })),
-        days));
+      const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
+      if (asOwner) {
+        const hrs = weekHours(ws, priv, pub.weekStart);
+        if (hrs > 0) head.append(h("span", { class: hrs >= priv.otAfter ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${hrs >= priv.otAfter ? " · overtime" : ""}` }));
+      }
+      frag.append(h("div", { class: "week" }, head, days));
     });
     $("#weeks").replaceChildren(frag);
 
-    document.body.classList.toggle("owner", owner);
-    $("#toolbar").hidden = !owner;
-    $("#ownerBanner").hidden = !owner;
+    document.body.classList.toggle("owner", asOwner);
+    document.body.classList.toggle("previewing", owner && preview);
+    $("#toolbar").hidden = !asOwner;
+    $("#ownerBanner").hidden = !asOwner;
+    $("#previewBar").hidden = !(owner && preview);
     $("#ownerLink").hidden = owner;
-    if (owner) renderOwnerBits();
+    if (asOwner) renderOwnerBits();
   }
 
   function renderOwnerBits() {
-    const line = $("#throughLine");
-    line.replaceChildren();
-    const fix = h("button", { type: "button", class: "linkish", text: "Change", onclick: openSettings });
-    if (data.through) line.append(`Supervisors see your nights through ${longDay(data.through)}. `, fix);
-    else line.append("Mark your working nights, then set how far your schedule is entered so open nights turn green. ", fix);
-    if (!data.phone) line.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
+    const hints = $("#ownerHints");
+    hints.replaceChildren();
+    if (!privAccess) {
+      hints.append(h("b", { text: "One more step before you can save. " }),
+        h("button", { type: "button", class: "linkish", text: "Fix my GitHub key", onclick: () => showSheet("#keySheet") }));
+    } else if (!Object.keys(priv.days).length) {
+      hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
+    } else {
+      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow shows up on its own when a shift would be overtime.");
+    }
+    if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
 
     const c = changes();
-    const n = c.days.size + (c.settings ? 1 : 0);
+    const n = c.days.size + (c.settings ? 1 : 0) + (c.publish ? 1 : 0);
+    if (c.publish && !c.days.size && !c.settings) hints.append(h("br"), h("b", { text: "Tap Save to update what supervisors see." }));
     const btn = $("#saveBtn");
     btn.disabled = saving || n === 0;
     btn.textContent = saving ? "Saving…" : n ? `Save ${n} change${n === 1 ? "" : "s"}` : "Saved";
@@ -349,7 +462,7 @@
 
   // ---------- supervisor sheet ----------
   function smsNumber() {
-    const raw = data.phone.trim();
+    const raw = pub.phone.trim();
     const digits = raw.replace(/\D/g, "");
     if (!digits) return "";
     if (raw.startsWith("+")) return `+${digits}`;
@@ -358,218 +471,347 @@
     return digits;
   }
   function prettyPhone() {
-    const d = data.phone.replace(/\D/g, "");
+    const d = pub.phone.replace(/\D/g, "");
     const t = d.length === 11 && d[0] === "1" ? d.slice(1) : d;
-    return t.length === 10 ? `(${t.slice(0, 3)}) ${t.slice(3, 6)}-${t.slice(6)}` : data.phone.trim();
+    return t.length === 10 ? `(${t.slice(0, 3)}) ${t.slice(3, 6)}-${t.slice(6)}` : pub.phone.trim();
   }
   const apple = () => /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent);
 
   function smsBody(k, sk, who) {
-    const s = data.shifts[sk];
-    const label = s.label.toLowerCase();
-    const article = /^[aeiou]/.test(label) ? "an" : "a";
-    const when = crosses(s)
-      ? `from ${shortDay(k)} at ${fmtTime(s.start)} to ${shortDay(addDays(k, 1))} at ${fmtTime(s.end)}`
-      : `on ${shortDay(k)}, ${fmtTime(s.start)} – ${fmtTime(s.end)}`;
-    const ask = `${article} ${label} shift ${when}?`;
-    const hi = data.name ? `Hi ${data.name}` : "Hi";
+    let ask;
+    if (sk) {
+      const label = SHIFT_LABEL[sk].toLowerCase();
+      const article = /^[aeiou]/.test(label) ? "an" : "a";
+      ask = sk === "overnight" ? `${article} ${label} shift on the night of ${shortDay(k)}?` : `${article} ${label} shift on ${shortDay(k)}?`;
+    } else {
+      ask = `a shift on ${shortDay(k)}?`;
+    }
+    const hi = pub.name ? `Hi ${pub.name}` : "Hi";
     return who ? `${hi}, it's ${who}. Can you cover ${ask}` : `${hi}, can you cover ${ask}`;
   }
   const smsHref = (body) => `sms:${smsNumber()}${apple() ? "&" : "?"}body=${encodeURIComponent(body)}`;
 
-  function optionNote(k, o) {
-    const s = data.shifts[o.key];
-    const dow = fmt(k, { weekday: "short" });
-    const span = crosses(s)
-      ? `${fmtTime(s.start)} ${dow} – ${fmtTime(s.end)} ${fmt(addDays(k, 1), { weekday: "short" })}`
-      : `${fmtTime(s.start)} – ${fmtTime(s.end)}`;
-    return `${span} · ${num(o.hours)} hrs${o.ot ? " · overtime" : ""}`;
-  }
-
   function openDay(k) {
-    const info = dayInfo(k);
+    const info = publicInfo(k);
     $("#dayKicker").textContent = fmt(k, { weekday: "long" });
     $("#dayTitle").textContent = fmt(k, { month: "long", day: "numeric" });
-    const body = $("#dayBody");
-    body.replaceChildren();
-    const sw = { open: "open", ot: "ot", work: "busy", off: "busy", unset: "none" }[info.kind];
+    const sw = { open: "open", ot: "ot", busy: "busy", unset: "none" }[info.kind];
     const headline = {
       open: "I'm available",
       ot: "I'm available, but it would be overtime",
-      work: "I'm working this night",
-      off: "I'm not available this night",
+      busy: "I'm not available this day",
       unset: "Not set yet",
     }[info.kind];
     const wrap = h("div", { class: "stack" }, h("p", { class: "status-line" }, h("span", { class: `sw ${sw}` }), headline));
 
-    if (info.kind === "work") {
-      const s = data.shifts[info.shift];
-      wrap.append(h("p", { class: "muted", text: `${s.label} shift, ${fmtTime(s.start)} – ${fmtTime(s.end)}.` }));
-    } else if (info.kind === "unset") {
-      wrap.append(h("p", { class: "muted", text: "I haven't entered my schedule this far out yet. Check back closer to the date." }));
+    if (info.kind === "unset") {
+      wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
     } else if (info.kind === "open" || info.kind === "ot") {
-      if (info.booked > 0) wrap.append(h("p", { class: "muted", text: `I have ${num(info.booked)} hrs scheduled that week (overtime starts after ${num(data.otAfter)}).` }));
       if (!smsNumber()) {
         wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
       } else {
         const whoInput = h("input", { type: "text", id: "who", maxlength: "40", autocomplete: "name", placeholder: "So I know who's asking" });
         whoInput.value = store.get(LS.who) || "";
-        const links = info.options.map((o) => {
-          const a = h("a", { class: `btn go wide${o.ot ? " ot" : ""}` },
-            h("span", { text: `Text me about ${data.shifts[o.key].label}` }),
-            h("span", { class: "option-note", text: optionNote(k, o) }));
-          return { a, o };
-        });
+        const shifts = info.w || pub.willing;
+        const links = (shifts.length ? shifts : [null]).map((sk) => ({
+          sk,
+          a: h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` },
+            h("span", { text: sk ? `Text me about ${SHIFT_LABEL[sk]}` : "Text me about this day" }),
+            info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime" }) : null),
+        }));
         const refresh = () => {
           const who = whoInput.value.trim();
-          for (const { a, o } of links) a.href = smsHref(smsBody(k, o.key, who));
+          for (const { a, sk } of links) a.href = smsHref(smsBody(k, sk, who));
         };
         whoInput.addEventListener("input", () => { store.set(LS.who, whoInput.value.trim()); refresh(); });
         refresh();
         const copyBtn = h("button", { type: "button", class: "btn ghost sm", text: "Copy number" });
-        copyBtn.addEventListener("click", async () => { toast((await copyText(prettyPhone())) ? "Number copied" : "Couldn't copy. Press and hold the number instead."); });
+        copyBtn.addEventListener("click", async () => {
+          const ok = await copyText(prettyPhone());
+          copyBtn.textContent = ok ? "Copied" : "Press and hold the number";
+          setTimeout(() => { copyBtn.textContent = "Copy number"; }, 2500);
+        });
         wrap.append(
           h("label", { class: "field" }, h("span", { class: "label", text: "Your name (optional)" }), whoInput),
           h("div", { class: "options" }, links.map((l) => l.a)),
-          h("p", { class: "muted small", text: "Opens your texting app with the message filled in. Add your site or post, then hit send." }),
+          h("p", { class: "muted small", text: "Opens your texting app with the message filled in. Add the site and times, then hit send." }),
           h("p", { class: "contact" }, h("span", { text: "Or text" }), h("b", { text: prettyPhone() }), copyBtn)
         );
       }
     }
-    body.append(wrap);
+    $("#dayBody").replaceChildren(wrap);
     $("#daySheet").showModal();
   }
 
   // ---------- owner: edit sheet ----------
   let editKey = null;
+
+  function checkRow(id, x, checked) {
+    return h("label", { class: "check", for: id },
+      h("input", { type: "checkbox", id, value: x, checked: checked ? true : null }),
+      h("span", null, h("b", { text: SHIFT_LABEL[x] })));
+  }
+
   function openEdit(k) {
     editKey = k;
     $("#editTitle").textContent = shortDay(k);
-    const sel = $("#workShift");
-    sel.replaceChildren(...SHIFT_KEYS.map((x) => h("option", { value: x, text: `${data.shifts[x].label} (${fmtTime(data.shifts[x].start)}–${fmtTime(data.shifts[x].end)})` })));
-    fillEdit();
+    fillEdit(true);
     $("#editSheet").showModal();
   }
 
-  function fillEdit() {
-    const k = editKey;
-    const rec = data.days[k];
-    const st = rec && (rec.s === "work" || rec.s === "off") ? rec.s : "open";
-    $(`#st${st === "open" ? "Open" : st === "work" ? "Work" : "Off"}`).checked = true;
-    $("#editWork").hidden = st !== "work";
-    $("#editOpen").hidden = st !== "open";
-    $("#editOff").hidden = st !== "off";
-    if (st === "work") {
-      $("#workShift").value = SHIFT_KEYS.includes(rec.shift) ? rec.shift : "overnight";
-      $("#workHours").value = num(workHours(rec));
-    }
-    const willing = rec && rec.s === "open" && Array.isArray(rec.willing) ? rec.willing : data.willing;
-    $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
-    $("#useUsual").hidden = !(rec && Array.isArray(rec.willing));
-    const info = dayInfo(k);
-    let line = `${weekLabel(weekStartOf(k))}: ${num(info.booked)} hrs scheduled.`;
-    if (st === "open") {
-      if (!data.through || k > data.through) line += " This night is past your \"entered through\" date, so it shows green only because you marked it.";
-      if (info.kind === "ot") line += " Shows yellow: any shift would go past overtime.";
-    }
-    $("#editWeek").textContent = line;
+  function weekLine(k) {
+    const info = ownerInfo(k);
+    const ws = weekStartOf(k, pub.weekStart);
+    let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
+    if (info.kind === "ot") line += ` One more ${num(priv.pickup)}-hr shift would go past ${num(priv.otAfter)}, so supervisors see yellow.`;
+    else if (info.kind === "open") line += " Supervisors see green.";
+    return line;
   }
 
-  function checkRow(id, x, checked) {
-    const s = data.shifts[x];
-    return h("label", { class: "check", for: id },
-      h("input", { type: "checkbox", id, value: x, checked: checked ? true : null }),
-      h("span", null, h("b", { text: s.label }), h("small", { text: `${fmtTime(s.start)} – ${fmtTime(s.end)} · ${num(shiftHours(x))} hrs` })));
+  function fillEdit(fillInputs) {
+    const k = editKey;
+    const rec = priv.days[k];
+    const st = rec ? rec.s : "unset";
+    $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
+    for (const [id, s] of [["#editWork", "work"], ["#editBusy", "busy"], ["#editOpen", "open"], ["#editUnset", "unset"]]) $(id).hidden = st !== s;
+    if (fillInputs) {
+      $("#workStart").value = rec && rec.s === "work" && rec.start ? rec.start : "";
+      $("#workEnd").value = rec && rec.s === "work" && rec.end ? rec.end : "";
+      $("#workHours").value = rec && rec.s === "work" ? num(rec.hours) : num(priv.pickup);
+      $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
+      $("#busyNote").value = rec && rec.s === "busy" && rec.note ? rec.note : "";
+    }
+    const willing = rec && rec.s === "open" && rec.w ? rec.w : pub.willing;
+    $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
+    $("#useUsual").hidden = !(rec && rec.s === "open" && rec.w);
+    $("#editWeek").textContent = weekLine(k);
   }
 
   function onEditChange(e) {
     const k = editKey;
     if (!k) return;
+    const t = e.target;
     const st = document.querySelector('input[name="st"]:checked').value;
-    if (st === "work") {
-      const shift = $("#workShift").value || "overnight";
-      const hoursEl = $("#workHours");
-      if (e && (e.target.id === "workShift" || e.target.name === "st")) hoursEl.value = num(shiftHours(shift));
-      setDay(k, workRec(shift, hoursEl.value));
-    } else if (st === "off") {
-      setDay(k, { s: "off" });
+    if (st === "unset") setDay(k, null);
+    else if (st === "busy") setDay(k, cleanPrivRec({ s: "busy", note: $("#busyNote").value }, priv.pickup));
+    else if (st === "open") {
+      const cur = priv.days[k];
+      const fromBoxes = t.closest && t.closest("#editWilling");
+      let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.s === "open" ? cur.w : null;
+      if (w && sameSet(w, pub.willing)) w = null;
+      setDay(k, cleanPrivRec({ s: "open", w }, priv.pickup));
     } else {
-      const fromBoxes = e && e.target.closest && e.target.closest("#editWilling");
-      const cur = data.days[k];
-      const willing = fromBoxes
-        ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value)
-        : cur && cur.s === "open" ? cur.willing : null;
-      setDay(k, openRec(k, willing));
+      const start = $("#workStart").value, end = $("#workEnd").value;
+      if ((t.id === "workStart" || t.id === "workEnd") && isTime(start) && isTime(end) && start !== end) {
+        $("#workHours").value = num(spanHours(start, end));
+      }
+      setDay(k, workRec(start, end, $("#workHours").value, $("#workNote").value));
     }
-    fillEdit();
+    fillEdit(t.name === "st");
     afterChange();
   }
 
+  // ---------- owner: import ----------
+  let importResult = null;
+
+  function describeKeys(item) {
+    if (item.filtered) return item.keys.map(shortDay).join(", ");
+    const withYear = (k) => (k.slice(0, 4) === todayKey().slice(0, 4) ? shortDay(k) : `${shortDay(k)}, ${k.slice(0, 4)}`);
+    return item.groups.map((g) => (g.from === g.to ? withYear(g.from) : `${withYear(g.from)} – ${withYear(g.to)}`)).join(", ");
+  }
+  function describeRec(rec) {
+    if (rec.s === "work") {
+      const t = rec.start ? `${fmtTime(rec.start)} – ${fmtTime(rec.end)}, ` : "";
+      const hrs = rec.hours != null ? rec.hours : priv.pickup;
+      return `Working ${t}${num(hrs)} hrs${rec.note ? ` · ${rec.note}` : ""}`;
+    }
+    if (rec.s === "busy") return `Busy${rec.note ? ` · ${rec.note}` : ""}`;
+    if (rec.s === "open") return `Available${rec.w ? ` (${rec.w.map((x) => SHIFT_LABEL[x]).join(", ")})` : ""}`;
+    return "Clear (back to gray)";
+  }
+  const dotFor = (s) => ({ work: "busy", busy: "busy hatch", open: "open", clear: "none" }[s]);
+
+  // Final per-day result of the pasted text (later lines win), plus gray days inside the pasted span.
+  function planImport(result) {
+    const final = new Map();
+    for (const it of result.items) for (const k of it.keys) final.set(k, it.rec);
+    const skipped = new Set(result.errors.flatMap((er) => er.keys || []));
+    let gaps = [];
+    const keys = [...final.keys()].sort();
+    if (keys.length > 1) {
+      for (let k = keys[0]; k <= keys[keys.length - 1]; k = addDays(k, 1)) {
+        if (!final.has(k) && !priv.days[k] && !skipped.has(k)) gaps.push(k);
+      }
+    }
+    if (gaps.length > 200) gaps = [];
+    const replaced = [...final.entries()].filter(([k, rec]) => priv.days[k] && rec.s !== "clear" && priv.days[k].s !== rec.s).length;
+    return { final, gaps, replaced };
+  }
+
+  function renderImport() {
+    const text = $("#importText").value;
+    store.set(LS.importText, text);
+    const box = $("#importPreview");
+    box.replaceChildren();
+    importResult = window.ScheduleParser.parse(text, todayKey());
+    const { items, errors } = importResult;
+    const plan = planImport(importResult);
+    if (!items.length && !errors.length) {
+      $("#gapBox").hidden = true;
+      $("#importApply").disabled = true;
+      $("#importApply").textContent = "Add to calendar";
+      return;
+    }
+    const rows = [];
+    for (const it of items) {
+      rows.push({ line: it.line, el: h("li", { class: "pv-item" },
+        h("span", { class: `dot ${dotFor(it.rec.s)}` }),
+        h("span", { class: "pv-text" },
+          h("b", { text: describeKeys(it) }),
+          h("span", { text: describeRec(it.rec) }),
+          it.warn ? h("span", { class: "pv-warn strong", text: it.warn }) : null,
+          it.ignored ? h("span", { class: "pv-warn", text: `Ignored: "${it.ignored}"` }) : null)) });
+    }
+    for (const er of errors) {
+      rows.push({ line: er.line, el: h("li", { class: "pv-item pv-err" },
+        h("span", { class: "pv-x", text: "!" }),
+        h("span", { class: "pv-text" }, h("b", { text: `Line ${er.line}: ${er.text}` }), h("span", { text: er.msg }))) });
+    }
+    rows.sort((a, b) => a.line - b.line);
+    const n = plan.final.size;
+    const summary = [`${n} day${n === 1 ? "" : "s"} ready`];
+    if (plan.replaced) summary.push(`${plan.replaced} already marked will change`);
+    if (errors.length) summary.push(`${errors.length} line${errors.length === 1 ? "" : "s"} skipped (fix or delete ${errors.length === 1 ? "it" : "them"})`);
+    box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }), h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
+
+    const gapBox = $("#gapBox");
+    gapBox.hidden = !plan.gaps.length;
+    if (plan.gaps.length) {
+      $("#gapLegend").textContent = `${plan.gaps.length} gray day${plan.gaps.length === 1 ? "" : "s"} between ${shortDay(plan.final.size ? [...plan.final.keys()].sort()[0] : plan.gaps[0])} and ${shortDay([...plan.final.keys()].sort().pop())} aren't in your list.`;
+    }
+    const gapOpen = !gapBox.hidden && $("#gapOpen").checked;
+    const total = n + (gapOpen ? plan.gaps.length : 0);
+    $("#importApply").disabled = total === 0;
+    $("#importApply").textContent = total ? `Add ${total} day${total === 1 ? "" : "s"} to calendar` : "Add to calendar";
+  }
+
+  function applyImport() {
+    if (!importResult) return;
+    const plan = planImport(importResult);
+    for (const [k, rec] of plan.final) {
+      if (rec.s === "clear") setDay(k, null);
+      else setDay(k, cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup));
+    }
+    const gapOpen = !$("#gapBox").hidden && $("#gapOpen").checked;
+    if (gapOpen) for (const k of plan.gaps) setDay(k, { s: "open" });
+    const total = plan.final.size + (gapOpen ? plan.gaps.length : 0);
+    // Lines that couldn't be read stay in the box so they can be fixed.
+    const lines = $("#importText").value.split(/\r\n|\r|\n/);
+    const leftover = [...new Set(importResult.errors.map((er) => er.line))].map((n) => lines[n - 1]).join("\n");
+    $("#importText").value = leftover;
+    if (leftover) store.set(LS.importText, leftover); else store.del(LS.importText);
+    $("#importSheet").close();
+    afterChange();
+    toast(`Added ${total} day${total === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add schedule." : ""} Check them, then tap Save.`, 5000);
+  }
+
+  function openImport() {
+    $("#importText").value = store.get(LS.importText) || "";
+    $("#gapGray").checked = true;
+    renderImport();
+    $("#importSheet").showModal();
+  }
+
   // ---------- owner: settings ----------
+  function otExplain() {
+    return `A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push that pay week past ${num(priv.otAfter)} hours.`;
+  }
+
   function openSettings() {
-    $("#setThrough").value = data.through;
-    $("#setNote").value = data.note;
-    $("#setName").value = data.name;
-    $("#setPhone").value = data.phone;
-    $("#setWeekStart").value = String(data.weekStart);
-    $("#setOt").value = num(data.otAfter);
-    $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, data.willing.includes(x))));
-    $("#setShifts").replaceChildren(...SHIFT_KEYS.map((x) => {
-      const s = data.shifts[x];
-      return h("div", { class: "shift-row", "data-shift": x },
-        h("span", { class: "name", text: s.label }),
-        h("label", { class: "field" }, h("span", { class: "label", text: "Starts" }), h("input", { type: "time", "data-f": "start", id: `st-${x}`, value: s.start })),
-        h("label", { class: "field" }, h("span", { class: "label", text: "Ends" }), h("input", { type: "time", "data-f": "end", id: `en-${x}`, value: s.end })),
-        h("label", { class: "field" }, h("span", { class: "label", text: "Paid hrs" }), h("input", { type: "number", "data-f": "hours", id: `hr-${x}`, min: "1", max: "24", step: "0.25", inputmode: "decimal", value: num(s.hours) })));
-    }));
+    $("#setNote").value = pub.note;
+    $("#setName").value = pub.name;
+    $("#setPhone").value = pub.phone;
+    $("#setWeekStart").value = String(pub.weekStart);
+    $("#setOt").value = num(priv.otAfter);
+    $("#setPickup").value = num(priv.pickup);
+    $("#otExplain").textContent = otExplain();
+    $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     $("#settingsSheet").showModal();
   }
 
   function onSettingsChange(e) {
     const t = e.target;
-    if (t.id === "setThrough") data.through = isKey(t.value) ? t.value : "";
-    else if (t.id === "setNote") data.note = t.value.slice(0, 140);
-    else if (t.id === "setName") data.name = t.value.trim().slice(0, 40);
-    else if (t.id === "setPhone") data.phone = t.value.trim().slice(0, 20);
-    else if (t.id === "setWeekStart") data.weekStart = parseInt(t.value, 10) || 0;
-    else if (t.id === "setOt") { if (Number(t.value) > 0) data.otAfter = Number(t.value); }
-    else if (t.closest("#setWilling")) data.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
-    else if (t.dataset.f) {
-      const x = t.closest("[data-shift]").dataset.shift;
-      const s = data.shifts[x];
-      if (t.dataset.f === "hours") { if (Number(t.value) > 0) s.hours = Number(t.value); }
-      else if (t.value) {
-        s[t.dataset.f] = t.value;
-        s.hours = spanHours(s);
-        $(`#hr-${x}`).value = num(s.hours);
-      }
-    } else return;
+    if (t.id === "setNote") pub.note = t.value.slice(0, 140);
+    else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
+    else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
+    else if (t.id === "setWeekStart") pub.weekStart = parseInt(t.value, 10) || 0;
+    else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
+    else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
+    else if (t.closest("#setWilling")) pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
+    else return;
+    $("#otExplain").textContent = otExplain();
     afterChange();
   }
 
-  // ---------- owner: connect / save ----------
+  // ---------- owner: connect / load / save ----------
+  async function loadOwnerState(tok) {
+    const [pubRes, privRes] = await Promise.all([getPublicRemote(tok), getPrivateRemote(tok)]);
+    const file = readPublicFile(pubRes.raw);
+    let p = file.pub, v;
+    if (privRes.status === 200) {
+      let parsed = null;
+      try { parsed = JSON.parse(privRes.value); } catch { /* unreadable: rebuild below */ }
+      v = parsed ? normalizePriv(parsed) : file.migrated ? file.migrated.priv : privFromPublicDays(file.days);
+    } else {
+      v = file.migrated ? file.migrated.priv : privFromPublicDays(file.days);
+    }
+    const today = todayKey();
+    const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
+    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v));
+    return { pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
+  }
+
   async function enterOwner() {
-    owner = true;
-    brush = ["edit", "work", "off", "open"].includes(store.get(LS.brush)) ? store.get(LS.brush) : "edit";
     try {
-      const remote = await fetchRemote(token);
-      savedObj = remote.data;
-      sha = remote.sha;
+      const st = await loadOwnerState(token);
+      owner = true;
+      brush = ["edit", "work", "busy", "open"].includes(store.get(LS.brush)) ? store.get(LS.brush) : "edit";
+      saved = { pub: clone(st.pub), priv: clone(st.priv) };
+      pubSha = st.pubSha;
+      privAt = st.privAt;
+      privExists = st.privExists;
+      privAccess = st.privAccess;
+      needsPublish = st.behind;
+      updated = st.updated;
+      pub = clone(st.pub);
+      priv = clone(st.priv);
       let restored = false;
       try {
-        const d = JSON.parse(store.get(LS.draft) || "null");
-        if (d && d.data) {
-          data = normalize(d.data);
-          sha = d.baseSha || sha; // an older base makes Save report the conflict instead of overwriting
+        // An unsaved draft from the first version of the site is converted, not dropped.
+        const old = JSON.parse(store.get(LS.oldDraft) || "null");
+        if (old && old.data && !store.get(LS.draft)) {
+          const m = migrateV1(old.data);
+          store.set(LS.draft, JSON.stringify({ pubSha: old.baseSha || null, privAt: null, pub: m.pub, priv: m.priv }));
+        }
+      } catch { /* unreadable old draft */ }
+      store.del(LS.oldDraft);
+      try {
+        const d = privAccess ? JSON.parse(store.get(LS.draft) || "null") : null;
+        if (d && d.pub && d.priv) {
+          pub = normalizePub(d.pub);
+          priv = normalizePriv(d.priv);
+          // Keep the versions the draft started from, so Save notices if another device saved since.
+          pubSha = d.pubSha || pubSha;
+          privAt = d.privAt !== undefined ? d.privAt : privAt;
           restored = true;
         }
       } catch { /* bad draft */ }
-      if (!restored) data = clone(savedObj);
       loadError = false;
       render();
       const c = changes();
       if (restored && (c.days.size || c.settings)) toast("Restored changes you hadn't saved yet");
+      if (!privAccess) showSheet("#keySheet");
     } catch (e) {
       owner = false;
       if (e.status === 401) {
@@ -585,7 +827,7 @@
   }
 
   function openUnlock(msg) {
-    $("#repoName").textContent = REPO.name;
+    for (const el of document.querySelectorAll(".repo-name")) el.textContent = REPO.name;
     $("#unlockError").hidden = !msg;
     $("#unlockError").textContent = msg || "";
     $("#unlockSheet").showModal();
@@ -601,13 +843,13 @@
     btn.disabled = true;
     btn.textContent = "Checking…";
     try {
-      await fetchRemote(tok);
+      await getPublicRemote(tok);
       token = tok;
       store.set(LS.token, tok);
       $("#tokenInput").value = "";
       $("#unlockSheet").close();
       await enterOwner();
-      toast("Connected. You can edit now.");
+      if (owner) toast("Connected. You can edit now.");
     } catch (x) {
       err.hidden = false;
       err.textContent = x.status === 401
@@ -621,33 +863,92 @@
     }
   }
 
+  const byteLength = (text) => new TextEncoder().encode(text).length;
+
+  // The private variable's contents, trimmed of old days if it would be too big for GitHub.
+  function privatePayload(v, ws) {
+    const today = todayKey();
+    for (const cutoff of [addDays(today, -60), addDays(today, -14), weekStartOf(today, ws)]) {
+      const out = { v: 2, otAfter: v.otAfter, pickup: v.pickup, days: {} };
+      for (const k of Object.keys(v.days).sort()) if (k >= cutoff) out.days[k] = v.days[k];
+      const text = JSON.stringify(out);
+      if (byteLength(text) <= VAR_LIMIT) return { text, priv: normalizePriv(out), cutoff };
+    }
+    return null;
+  }
+
+  const conflictError = () => Object.assign(new Error("conflict"), { conflict: true });
+
+  async function writePrivate(text, force) {
+    const patch = () => gh("PATCH", `/actions/variables/${PRIVATE_VAR}`, { name: PRIVATE_VAR, value: text });
+    const post = () => gh("POST", "/actions/variables", { name: PRIVATE_VAR, value: text });
+    if (privExists) {
+      try { await patch(); } catch (e) { if (e.status !== 404) throw e; await post(); } // deleted on GitHub: create it again
+    } else {
+      try { await post(); } catch (e) {
+        if (e.status !== 409) throw e;
+        if (!force) throw conflictError(); // another device created it first
+        await patch();
+      }
+    }
+    privExists = true;
+    lastPrivText = text;
+    try {
+      const after = await getPrivateRemote(token);
+      if (after.status === 200) privAt = after.updatedAt;
+    } catch { /* the next save matches on lastPrivText instead */ }
+  }
+
   async function save(force) {
     if (saving) return;
+    if (!privAccess) { showSheet("#keySheet"); return; }
+    // Work from a snapshot, so edits made while saving stay as unsaved changes.
+    const snapPub = clone(pub);
+    const payload = privatePayload(clone(priv), snapPub.weekStart);
+    if (!payload) { toast("Your calendar has too many days to save. Clear some far-off days and try again.", 6000); return; }
     saving = true;
     renderOwnerBits();
-    const out = clone(data);
-    out.updated = new Date().toISOString();
-    const cutoff = addDays(todayKey(), -60);
-    for (const k of Object.keys(out.days)) if (k < cutoff) delete out.days[k];
+    const stamp = new Date().toISOString();
+    const pubOut = Object.assign({ v: 2 }, snapPub, { days: derivePublic(snapPub, payload.priv), updated: stamp });
+    let stage = "check";
     try {
-      if (force) sha = (await fetchRemote(token)).sha;
-      const res = await gh("PUT", {
+      // Check both files before writing either, so a newer save from another device is never overwritten.
+      const remotePub = await getPublicRemote(token);
+      const remotePriv = await getPrivateRemote(token);
+      if (remotePriv.status === 403) { privAccess = false; throw Object.assign(new Error("key"), { key: true }); }
+      if (!force) {
+        if (remotePub.sha !== pubSha) throw conflictError();
+        if (remotePriv.status === 200 && remotePriv.updatedAt !== privAt && remotePriv.value !== lastPrivText) throw conflictError();
+        if (remotePriv.status === 404 && privExists) throw conflictError(); // deleted elsewhere: let him choose
+      }
+      pubSha = remotePub.sha;
+      privExists = remotePriv.status === 200;
+      if (privExists) privAt = remotePriv.updatedAt;
+      stage = "private";
+      await writePrivate(payload.text, force);
+      stage = "public";
+      const res = await gh("PUT", "/contents/data.json", {
         message: `Update availability (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})`,
-        content: b64encode(JSON.stringify(out, null, 2) + "\n"),
-        sha,
+        content: b64encode(JSON.stringify(pubOut, null, 2) + "\n"),
+        sha: pubSha,
       });
-      sha = res.content.sha;
-      data = normalize(out);
-      savedObj = clone(data);
-      store.del(LS.draft);
+      pubSha = res.content.sha;
+      for (const k of Object.keys(priv.days)) if (k < payload.cutoff) delete priv.days[k];
+      saved = { pub: snapPub, priv: payload.priv };
+      needsPublish = false;
+      updated = stamp;
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
     } catch (e) {
-      if (e.status === 409 || e.status === 422) $("#conflictSheet").showModal();
+      if (stage === "public") needsPublish = true; // hours saved privately, public calendar not yet
+      if (e.conflict || e.status === 409 || (stage === "public" && e.status === 422)) showSheet("#conflictSheet");
+      else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
       else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop editing, then connect again.", 6000);
-      else if (e.status === 403 || e.status === 404) toast("Your key can read but not save. On GitHub, set the token's Contents permission to Read and write.", 6000);
+      else if (stage === "private" && e.status === 422) toast("GitHub wouldn't store your hours. Clear some far-off days and try again.", 6000);
+      else if (stage === "public" && (e.status === 403 || e.status === 404)) toast("Your key can't save the calendar file. On GitHub, set the token's Contents permission to Read and write.", 6000);
       else toast("Couldn't save. Check your connection and tap Save again.", 5000);
     } finally {
       saving = false;
+      persistDraft();
       render();
     }
   }
@@ -658,50 +959,71 @@
     if (v === "reload") {
       store.del(LS.draft);
       await enterOwner();
-      toast("Loaded the newer calendar");
+      if (owner) toast("Loaded the newer calendar");
     }
+  }
+
+  async function onKeyRetry() {
+    if ($("#keySheet").returnValue !== "retry") return;
+    let r;
+    try { r = await getPrivateRemote(token); } catch { toast("Couldn't reach GitHub. Try again in a moment."); return; }
+    if (r.status === 403) { toast("Still missing the Variables permission. Check the token's settings on GitHub.", 5000); return; }
+    if (r.status === 200) {
+      // Your saved hours exist: load them instead of the stand-in rebuilt from the public file.
+      // Edits made while the key was missing were never stored; a draft made before that is restored as usual.
+      const hadEdits = (() => { const c = changes(); return c.days.size > 0 || c.settings; })();
+      await enterOwner();
+      if (owner) toast(hadEdits ? "Loaded your saved hours. Redo any changes you just made, then tap Save." : "Your key is set.", 5000);
+      return;
+    }
+    privAccess = true;
+    privExists = false;
+    persistDraft();
+    render();
+    toast("Your key can now read the private store. If Save still fails, set Variables to Read and write.", 5000);
   }
 
   // ---------- wiring ----------
   function wire() {
     for (const x of document.querySelectorAll(".sheet .x")) {
       x.type = "button";
-      x.addEventListener("click", () => x.closest("dialog").close());
+      x.addEventListener("click", () => x.closest("dialog").close(""));
     }
+    // close("") clears returnValue, so dismissing a sheet never repeats the last button's action.
     for (const d of document.querySelectorAll("dialog.sheet")) {
-      d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+      d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
+      d.addEventListener("cancel", () => { d.returnValue = ""; });
     }
     $("#weeks").addEventListener("click", (e) => {
       const b = e.target.closest(".day");
       if (!b || b.disabled) return;
       const k = b.dataset.key;
-      if (!owner) return openDay(k);
+      if (!ownerView()) return openDay(k);
       if (brush === "edit") openEdit(k);
       else applyBrush(k);
     });
     $("#ownerLink").addEventListener("click", () => (token ? enterOwner() : openUnlock()));
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", onEditChange);
-    $("#workHours").addEventListener("input", onEditChange);
-    $("#useUsual").addEventListener("click", () => { setDay(editKey, openRec(editKey)); fillEdit(); afterChange(); });
+    for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
+    $("#useUsual").addEventListener("click", () => { setDay(editKey, { s: "open" }); fillEdit(false); afterChange(); });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
-    for (const b of document.querySelectorAll("[data-through]")) {
-      b.addEventListener("click", () => {
-        const base = data.through && data.through >= todayKey() ? data.through : addDays(weekStartOf(todayKey()), 6);
-        data.through = addDays(base, 7 * Number(b.dataset.through));
-        $("#setThrough").value = data.through;
-        afterChange();
-      });
-    }
     $("#signOut").addEventListener("click", () => {
-      store.del(LS.token);
-      store.del(LS.draft);
+      for (const k of [LS.token, LS.draft, LS.oldDraft, LS.importText, LS.brush]) store.del(k);
       location.reload();
     });
     $("#settingsBtn").addEventListener("click", openSettings);
+    $("#importBtn").addEventListener("click", openImport);
+    let importTimer = 0;
+    $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
+    $("#gapBox").addEventListener("change", renderImport);
+    $("#importApply").addEventListener("click", applyImport);
     $("#saveBtn").addEventListener("click", () => save(false));
     $("#conflictSheet").addEventListener("close", onConflict);
+    $("#keySheet").addEventListener("close", onKeyRetry);
+    $("#previewBtn").addEventListener("click", () => { preview = true; render(); window.scrollTo(0, 0); });
+    $("#previewExit").addEventListener("click", () => { preview = false; render(); });
     for (const b of document.querySelectorAll(".brushes button")) {
       b.addEventListener("click", () => {
         brush = b.dataset.brush;
@@ -718,7 +1040,10 @@
     try {
       const r = await fetch(`data.json?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) throw new Error(String(r.status));
-      data = normalize(await r.json());
+      const file = readPublicFile(await r.json());
+      pub = file.pub;
+      pubDays = file.days;
+      updated = file.updated;
     } catch {
       loadError = true;
     }

@@ -1,52 +1,92 @@
 # Shift Availability
 
-A one-page calendar you text to supervisors. They open the link, see which nights you can cover, and tap a night to text you. It's free: GitHub Pages hosts it, and texts go from the supervisor's own phone.
+A one-page calendar you text to supervisors. They open the link, see which days you can cover, and tap a day to text you. It's free: GitHub Pages hosts it, and texts go from the supervisor's own phone.
+
+Live at <https://vtorres-designer.github.io/Availability/>. The capital A matters: the link has to match the repo name exactly.
 
 | Color | Meaning |
 |---|---|
 | Green **OPEN** | Available. |
-| Yellow **OT** | Available, but the shift would push that week past 40 hours. |
-| Red **WORK** | You're already working that night. |
-| Red, striped **BUSY** | You blocked it (plans, appointment, want it off). |
-| Grey **TBD** | Past the date your schedule is entered through. |
+| Yellow **OT** | Available, but one more shift would push that pay week past 40 hours. |
+| Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
+| Gray | Not set yet. Every day starts gray until you mark it. |
 
-A night is listed under the day it starts. Tue means Tue 10 PM to Wed 7 AM.
+A night shift is listed under the day it starts. Tue means Tue night into Wed morning.
 
-When a supervisor taps a green or yellow night, they get one button per shift you'll pick up (Overnight, Swing, Morning). The button opens their texting app with a message already written, for example:
+When a supervisor taps a green or yellow day, they get one button for each type of shift you'll pick up (Overnight, Swing, Morning). The button opens their texting app with a message already written, for example:
 
-> Hi Vincent, it's Maria. Can you cover an overnight shift from Thu, Oct 15 at 10 PM to Fri, Oct 16 at 7 AM?
+> Hi Vincent, it's Maria. Can you cover an overnight shift on the night of Tue, Oct 13?
 
-They hit send. The text comes from their own number, so you can reply to them directly.
+They add the site and times, then hit send. The text comes from their own number, so you can reply to them directly.
+
+## What supervisors never see
+
+Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number and your note at the top.
+
+The public calendar file (`data.json`) holds only that public part. Your times, hours and notes are kept in a private repository variable named `AVAILABILITY_PRIVATE` (**Settings → Secrets and variables → Actions → Variables**). Only you can see it.
 
 ## Files
 
 - `index.html`, `app.css`, `app.js`: the site.
-- `data.json`: your calendar. The site saves this file when you tap **Save**.
+- `parser.js`: reads a pasted schedule.
+- `data.json`: the public calendar. The site rewrites it when you tap **Save**.
 - `.nojekyll`: tells GitHub Pages to serve the files as they are.
 
-## One-time setup
+## Connecting a phone or computer for editing
 
-1. **Create the repo:** at <https://github.com/new>, name it `availability`, set it to **Public**, tick **Add a README**, and create it. Pages is free only for public repos.
-2. **Add the files.** Either let Claude push them (the Claude GitHub app needs access to the repo), or use **Add file → Upload files** and drag in everything in this folder, including `.nojekyll`.
-3. **Turn on Pages:** go to **Settings → Pages**. Under Build and deployment, set Source to *Deploy from a branch*, Branch to `main`, and folder to `/ (root)`. Then tap **Save**.
-4. After about a minute the site is live at <https://vtorres-designer.github.io/Availability/>. The capital A matters: the link has to match the repo name exactly.
-5. **Connect your phone for editing:** open the site, tap **Vincent? Edit calendar** at the bottom, and follow the five steps on screen. They walk you through making a GitHub token that can change only this one repo. You paste it once per device.
+1. Open the site, tap **Vincent? Edit calendar** at the bottom, and follow the steps on screen.
+2. The GitHub token needs two repository permissions, both set to **Read and write**:
+   - **Contents** saves the public calendar.
+   - **Variables** keeps your hours private.
+3. If you made your token before Variables was needed, the site asks you to add it. Go to GitHub → Settings → Developer settings → Fine-grained tokens → **Availability calendar** → **Edit**, and set **Variables** to **Read and write**. You don't need to paste the token again.
 
-## Updating your calendar
+## Adding your schedule
 
-1. Open the site on your phone. Once you've connected, it opens in edit mode with a toolbar at the bottom.
-2. Pick what a tap does:
-   - **Working**: tap the nights LISA has you scheduled. Tap again to undo.
-   - **Busy**: tap nights you won't take.
-   - **Open**: tap to clear a night back to available.
-   - **Tap to edit**: opens the night so you can set the shift type, paid hours, or which shifts you'd take that night.
-3. In **Settings**, move **Schedule is entered through** forward to the last date you copied from LISA. The **+1 week** and **+2 weeks** buttons do this quickly.
-4. Tap **Save**. Supervisors see the change within a minute or two.
+Tap **Add schedule** and paste one line per day or date range:
 
-Settings also has your cell number, a short note shown at the top (for example "Looking for extra hours this week"), your usual shifts and their times, and the overtime rules. Set **Work week starts** to match your paycheck week, or the yellow nights will be counted against the wrong week.
+```
+10/7 2300-0700
+10/8 11pm-7am Site B
+10/9, 10/10 2300-0700
+10/12-10/14 off
+Oct 20-24 open
+Oct 25 open overnight swing
+10/26 work 8h
+10/27 clear
+```
 
-## Privacy
+- **Date first:** 10/7, Oct 7, 2026-10-07, a range (10/12-10/14) or a list (10/9, 10/10). Without a year, it picks the nearest one, so in January, 12/30 means the December just past.
+- **Day names:** before a date, they're checked against it ("Tue 10/7" is flagged if 10/7 is a Wednesday). After a range, they pick days from it: `10/12-10/25 Mon Wed Fri 2300-0700`. You can also use *weekdays* or *weekends*.
+- **Times mean you're working:** 2300-0700, 23:00-07:00, or 11pm-7am. Paid hours are worked out from the times. If a time could be morning or night, like "11-7" or "11:00-7:00", the site asks you to add am/pm. Put one shift on each line.
+- **Or use one word:**
+  - *off* or *busy* turns the day red.
+  - *open* turns it green.
+  - *work* turns it red and counts your usual shift length.
+  - *clear* turns it back to gray.
+- **Extras:** *8h* sets the paid hours, for example when a meal break isn't paid. After *open*, add *overnight*, *swing* or *morning* to limit the shifts you'll take that day.
+- **Unclear lines aren't guessed.** For example, "not available" or a time that could be AM or PM gets flagged, so you can reword it.
+- **Anything else** on the line, like the site name, is saved as a private note.
+- If two lines cover the same day, the lower one wins.
 
-- The repo is public, so anyone with the link can see your calendar, first name and cell number. The page tells search engines not to list it.
-- Your GitHub token is saved only in that device's browser. It can change only the `availability` repo. To remove it, open **Settings → Stop editing on this device**, or delete the token on GitHub.
-- Your other GitHub Pages sites under the same account share the same web address, so they could read the token too. That's only a risk if you host someone else's code there.
+The site shows a preview before anything changes. Lines it can't read are listed with the reason, and they stay in the box after you add the rest, so you can fix them. If your list leaves gray days in between, you can choose to mark them Available. Days from a line that couldn't be read are never filled in. Tap **Add to calendar**, check the days, then tap **Save**.
+
+## Editing single days
+
+Pick what a tap does in the toolbar:
+- **Working**, **Busy** or **Available**: tap a day to mark it. Tap it again to turn it back to gray.
+- **Tap to edit**: opens the day. You can set start and end times, paid hours, a private note, or which shifts you'd take.
+
+**See what supervisors see** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
+
+## Settings
+
+- The shifts you'll usually pick up. Supervisors see the names only.
+- Your first name, your cell number, and an optional note shown at the top.
+- **Pay week starts** sets which day each week begins. Match it to your paycheck so overtime is counted against the right week.
+- **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow.
+
+## Privacy notes
+
+- Anyone with the link can see your first name, cell number and calendar colors. The page tells search engines not to list it.
+- Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop editing on this device**, or delete the token on GitHub.
+- Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.
