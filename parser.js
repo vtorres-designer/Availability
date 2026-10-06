@@ -154,8 +154,9 @@
         if (dmm && readDate(s, bpos + dmm[0].length, null, a.dot)) { bDow = dowIndex(dmm[1]); bpos += dmm[0].length; }
         b = readDate(s, bpos, a, !!a.dot);
         if (!b && dmm && !bDow) {
-          // A day name alone ends the range: "Wed 10/7 - Fri" means through that Friday.
-          b = { weekdayEnd: dowIndex(dmm[1]), end: bpos + dmm[0].replace(/\s+$/, "").length };
+          // A day name alone ends the range ("Wed 10/7 to Fri" means through that Friday). After a bare dash it
+          // could also be a check on the date, so that form is only accepted when it names the date's own day.
+          b = { weekdayEnd: dowIndex(dmm[1]), end: bpos + dmm[0].replace(/\s+$/, "").length, dash: /^[-–—]$/.test(sm[0].trim()) };
         }
         if (b && b.dayOnly) {
           const tight = !sm[1] && !sm[2] && /^[-–]$/.test(sm[0]);
@@ -179,6 +180,13 @@
       if (fy == null || !validDate(fy, a.m, a.d)) return { error: badDate(a) };
       const from = keyOf(fy, a.m, a.d);
       let to = from;
+      if (b && b.weekdayEnd != null && b.weekdayEnd === weekday(from)) {
+        // "10/15 - Thu": just names the date's own day.
+        a.end = b.end;
+        b = null;
+      } else if (b && b.weekdayEnd != null && b.dash) {
+        return { error: `Is ${DOW_NAMES[b.weekdayEnd]} the end of a range? Write it with "to", like ${a.m}/${a.d} to ${DOW_NAMES[b.weekdayEnd].slice(0, 3)}, or write both dates.` };
+      }
       if (b && b.weekdayEnd != null) {
         to = from;
         while (weekday(to) !== b.weekdayEnd || to === from) { to = addDays(to, 1); if (between(from, to) > 7) break; }
@@ -283,6 +291,7 @@
     else { h = +tok; m = 0; }
     if (m > 59) return { error: true };
     if (ap) {
+      if (/^\d{4}$/.test(tok)) return { error: true, mixed: true }; // "0700 PM": 24-hour time with AM/PM
       if (h < 1 || h > 12) return { error: true };
       return { min: ((h % 12) + (ap.toLowerCase() === "p" ? 12 : 0)) * 60 + m };
     }
@@ -304,6 +313,7 @@
     const text = r[0].slice(r[1].length).trim();
     const a = readTime(r[3], r[4]);
     const b = readTime(r[7], r[8]);
+    if (a.mixed || b.mixed) return Object.assign(span, { error: `"${text}" mixes 24-hour time with AM/PM. Write 2300-0700 with no AM/PM. If AM or PM belongs to a note, put the note in quotes.` });
     if (a.error || b.error) return Object.assign(span, { error: `"${text}" isn't a time I can read. Write it like 2300-0700 or 11pm-7am.` });
     const ambiguous = () => Object.assign(span, { error: `"${text}" could be morning or night. Add am/pm (11pm-7am) or use 24-hour time (2300-0700).` });
     if (a.min == null && b.min == null) return ambiguous();
@@ -348,12 +358,14 @@
     const set = new Set();
     const item = new RegExp("\\s*(?:" + DOW + "(?:\\s*" + RANGE_SEP + "\\s*" + DOW + ")?|(weekdays?)|(weekends?)|(daily|every\\s*day|all\\s*week))\\b\\.?", "iy");
     const joiner = /\s*(?:,|&|\+|\/|\band\b)?/iy;
-    let pos = 0, found = false;
+    let pos = 0, found = false, daily = false, named = false;
     for (;;) {
       item.lastIndex = pos;
       const m = item.exec(rest);
       if (!m) break;
       found = true;
+      if (m[5]) daily = true;
+      else named = true;
       if (m[3]) [1, 2, 3, 4, 5].forEach((d) => set.add(d));
       else if (m[4]) [0, 6].forEach((d) => set.add(d));
       else if (m[5]) [0, 1, 2, 3, 4, 5, 6].forEach((d) => set.add(d));
@@ -367,6 +379,7 @@
     }
     // "Sun Valley Mall" is a site, not a day filter: a filter is followed by times, a status word or nothing.
     const follow = new RegExp("^\\s*(?:$|[,.;:)]|\\d|" + STATUS_FOLLOW + "|(?:work|working|shift|overnights?|nights?|swings?|evenings?|mornings?|graveyards?)\\b)", "i");
+    if (found && daily && named) return { conflict: true, set, length: pos };
     if (found) return follow.test(rest.slice(pos)) ? { set, length: pos } : null;
     const codes = readCodeFilter(rest);
     return codes && follow.test(rest.slice(codes.length)) ? codes : null;
@@ -376,7 +389,9 @@
     const out = [];
     const re = /\S+/g;
     for (let m; (m = re.exec(s));) {
-      const w = m[0].replace(/[’`]/g, "'").replace(/^[^\w']+|[^\w'/]+$/g, "").toLowerCase();
+      // A word wrapped in single quotes (‘busy’, ‚busy‘, ‹busy›) is meant as text, so it never counts as a command.
+      const wrapped = /^[\u2018\u201A\u201B\u2039\u203A]|[\u2018\u201A\u201B\u2039\u203A]$/.test(m[0]);
+      const w = wrapped ? "" : m[0].replace(/[’`]/g, "'").replace(/^[^\w']+|[^\w'/]+$/g, "").toLowerCase();
       out.push({ raw: m[0], w, index: m.index, length: m[0].length });
     }
     return out;
@@ -385,7 +400,7 @@
   // ---------- one line ----------
   // Private notes go in double quotes, straight or curly as phones type them. Text inside quotes is never
   // read as a date, time, hours or a word like "open"; text outside quotes must all be understood.
-  const QUOTE_CHARS = "\"\u201C\u201D\u201E\u201F\u2033\uFF02";
+  const QUOTE_CHARS = "\"\u201C\u201D\u201E\u201F\u2033\u2036\uFF02\u00AB\u00BB\u301D\u301E\u301F\u275D\u275E";
   const QUOTE = new RegExp("[" + QUOTE_CHARS + "]");
   const QUOTED = new RegExp("[" + QUOTE_CHARS + "]([^" + QUOTE_CHARS + "]*)[" + QUOTE_CHARS + "]", "g");
 
@@ -393,7 +408,9 @@
     let s = String(raw).replace(/[‐‑‒−]/g, "-").replace(/\s+/g, " ").trim();
     if (!s) return null;
     const notes = [];
+    if (nestedQuotes(s)) return { error: NESTED_MSG };
     s = s.replace(QUOTED, (m, text) => { if (text.trim()) notes.push(text.trim()); return " "; });
+    s = s.replace(/(\w)[’`](\w)/g, "$1'$2"); // can’t -> can't
     if (QUOTE.test(s)) return { error: "A note is missing its closing quote. Put the note between two quotes, like \"Site B\"." };
     s = s.replace(/\s+/g, " ").trim();
     if (!s) return { error: "Start the line with a date, like 10/7." };
@@ -416,6 +433,7 @@
     if (/^[a-z]/i.test(dates.rest)) return fail("Put a space after the date.");
     // Day names straight after the dates pick days from them, or confirm a single date.
     const filter = readDowFilter(rest);
+    if (filter && filter.conflict) return fail("Use either day names or daily, not both.");
     if (filter) {
       const kept = keys.filter((k) => filter.set.has(weekday(k)));
       if (!kept.length) return fail(keys.length === 1 ? dowMismatch(keys[0], [...filter.set][0]) : "None of those dates fall on the days you listed.");
@@ -492,6 +510,7 @@
     // Shift names: on a no-shift day they limit which shifts you'd take; on a working day they're just a label.
     let willing = null;
     for (const [re, key] of SHIFT_WORDS) {
+      if (status !== "open" && status !== "work") break; // "busy morning" is unclear: flagged below
       const m = re.exec(rest);
       if (!m) continue;
       if (status === "open") { willing = willing || []; if (!willing.includes(key)) willing.push(key); }
@@ -542,10 +561,24 @@
     return out;
   }
 
+  // A quote mark that closes a note and is glued to the next word ("said “1500-2300” maybe") means quotes
+  // inside a note. Pairing them would let part of the note be read as times, so the line is flagged.
+  function nestedQuotes(line) {
+    let open = false;
+    for (let i = 0; i < line.length; i++) {
+      if (!QUOTE.test(line[i])) continue;
+      if (open && /[\p{L}\p{N}]/u.test(line[i + 1] || "")) return true;
+      open = !open;
+    }
+    return false;
+  }
+  const NESTED_MSG = "This note has quotes inside it. Use single quotes inside a note, like \"Sgt said '1500-2300'\".";
+
   /** Parse pasted schedule text. `today` is "YYYY-MM-DD". Later lines win over earlier ones. */
   function parse(text, today) {
     const items = [], errors = [];
     String(text || "").split(/\r\n|\r|\n/).forEach((line, i) => {
+      if (nestedQuotes(line)) { errors.push({ line: i + 1, text: line.trim(), msg: NESTED_MSG, keys: [] }); return; }
       for (const part of splitEntries(line)) {
         const r = parseLine(part, today);
         if (!r) continue;
