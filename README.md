@@ -28,6 +28,10 @@ Supervisors can open the link in any current browser on an iPhone, Android phone
 - **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code. They point their phone's camera at it, and the text opens on their phone, ready to send.
 - **Copy message** and **Copy number** work everywhere.
 
+## Sharing
+
+Anyone can tap **Share this calendar** under the title. It shows the link with a **Copy link** button, the device's own share menu (on phones, tablets and most computers), and a QR code someone can scan with a phone camera.
+
 ## Links at the bottom of the page
 
 - **See my credentials** opens your credentials PDF. It shows only after you upload one in Settings.
