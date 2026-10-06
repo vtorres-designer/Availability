@@ -3,14 +3,18 @@
   "name": "V. Torres",
   "empId": "10023185",
   "phone": "7206694305",
-  "note": "Note: I’m less likely to see your request on time if submitted with less than 24hr notice.",
+  "note": "",
   "willing": [
     "overnight"
   ],
   "weekStart": 5,
-  "feedback": "vtorres.contact@gmail.com",
+  "feedback": "c237b50f475f334782ed4e44565ebe73",
   "days": {},
-  "weekly": [],
-  "updated": "2026-10-06T15:36:43.337Z",
-  "rev": "2026-10-06T15:36:43.337Z~khfx"
+  "weekly": [
+    0,
+    5,
+    6
+  ],
+  "updated": "2026-10-06T15:41:34.058Z",
+  "rev": "2026-10-06T15:41:34.058Z~rsdn"
 }
