@@ -45,21 +45,21 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 Tap **Add schedule** and type one line per day, for every day you can see in LISA:
 
 ```
-Fri 10/9 2300-0700 Site B
-Sat 10/10 2300-0700 Site B
+Fri 10/9 2300-0700 "Site B"
+Sat 10/10 2300-0700 "Site B"
 Sun 10/11 no shift
-Mon 10/12 2200-0600 Site C
+Mon 10/12 2200-0600 "Site C, Gate 2"
 Tue 10/13 no shift
 Wed 10/14 busy
-Thu 10/15 2300-0700 Site B
+Thu 10/15 2300-0700
 ```
 
 - **Day name (optional), date, then what the day is.** The day name is checked against the date, so a typo like "Tue 10/7" (10/7 is a Wednesday) gets flagged. Without a year, the nearest year is used, so in January, 12/30 means the December just past.
-- **Working:** the shift in 24-hour time, start-end: `2300-0700`. A shift that ends after midnight goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end: `2300-0730 8h`. 23:00-07:00 and 11pm-7am also work. A time that could be morning or night, like "11-7", gets flagged.
+- **Working:** the shift in 24-hour time, start-end: `2300-0700`. A shift that ends after midnight goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours: `2300-0730 8h`. 23:00-07:00 and 11pm-7am also work. A time that could be morning or night, like "11-7", gets flagged.
 - **Not scheduled:** `no shift`. The day turns green, or yellow if one more shift would mean overtime.
 - **Don't want to work:** `busy` (red). A bare `off` is flagged, because it could mean either.
 - **Back to gray:** `clear`.
-- **Notes:** anything after the times, like the site, is a private note.
+- **Notes go in quotes:** `2300-0700 "Site B"`. Anything in quotes is a private note and is never read as a time, hours, or a word like open, clear or covered. Straight or curly quotes both work. Notes are optional. Any word outside quotes that the site doesn't recognize is flagged instead of guessed.
 - **Shortcuts:** a range (`10/12-10/14 no shift`), a list (`10/9, 10/10 2300-0700`), or day names right after a range (`10/12-10/25 Mon-Fri 2300-0700`, *M/W/F*, *TTh*, *weekdays*, *weekends*). Day names anywhere else on a range line get flagged, so a site like "Sun Valley Mall" never filters days by accident. After `no shift`, you can add *overnight*, *swing* or *morning* to limit the shifts you'd take that day.
 - **Unclear lines aren't guessed.** These get flagged so you can reword them:
   - "not available" or "except Sat"

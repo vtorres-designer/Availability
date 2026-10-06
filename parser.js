@@ -383,9 +383,20 @@
   }
 
   // ---------- one line ----------
+  // Private notes go in double quotes, straight or curly as phones type them. Text inside quotes is never
+  // read as a date, time, hours or a word like "open"; text outside quotes must all be understood.
+  const QUOTE_CHARS = "\"\u201C\u201D\u201E\u201F\u2033\uFF02";
+  const QUOTE = new RegExp("[" + QUOTE_CHARS + "]");
+  const QUOTED = new RegExp("[" + QUOTE_CHARS + "]([^" + QUOTE_CHARS + "]*)[" + QUOTE_CHARS + "]", "g");
+
   function parseLine(raw, today) {
     let s = String(raw).replace(/[‐‑‒−]/g, "-").replace(/\s+/g, " ").trim();
     if (!s) return null;
+    const notes = [];
+    s = s.replace(QUOTED, (m, text) => { if (text.trim()) notes.push(text.trim()); return " "; });
+    if (QUOTE.test(s)) return { error: "A note is missing its closing quote. Put the note between two quotes, like \"Site B\"." };
+    s = s.replace(/\s+/g, " ").trim();
+    if (!s) return { error: "Start the line with a date, like 10/7." };
     s = s.replace(NO_SHIFT, "noshift").replace(DAY_OFF, "dayoff");
 
     // A day name before the date ("Tue 10/7", "Tuesday, October 7") is checked against it.
@@ -427,35 +438,33 @@
       // A status word between the date and the times ("10/7 open 2300-0700") contradicts them.
       for (const t of tokens(rest.slice(0, times.index))) {
         const st = statusOf(t.w);
-        if (st && st !== "work") return fail(`"${t.raw}" before the times reads as ${STATUS_NAME[st]}, but times mean working. If it's part of the site name, put the site after the times.`);
+        if (st && st !== "work") return fail(`"${t.raw}" before the times reads as ${STATUS_NAME[st]}, but times mean working. If it's part of a note, put the note in quotes.`);
         if (st === "work") cut(t.index, t.length);
       }
       cut(times.index, times.length);
+      // "work" after the times agrees with them.
+      for (const t of tokens(rest.slice(times.index))) if (statusOf(t.w) === "work") cut(times.index + t.index, t.length);
       const after = tokens(rest.slice(times.index));
       const last = after.length && statusOf(after[after.length - 1].w);
-      if (last && last !== "work") return fail(`"${after[after.length - 1].raw}" after the times contradicts them. Times mean working. To mark the day ${STATUS_NAME[last]}, leave out the times.`);
+      if (last && last !== "work") return fail(`"${after[after.length - 1].raw}" after the times contradicts them. If it's part of a note, put the note in quotes. To mark the day ${STATUS_NAME[last]}, leave out the times.`);
       if (NEGATION.test(rest.slice(times.index)) && after.some((t) => statusOf(t.w))) return fail("I can't read \"not\" next to a shift. Leave the times out and write no shift, busy or clear.");
-      if (DOUBT_WORDS.test(rest)) return fail("I can't tell if this shift is still on. If it was cancelled, write no shift instead of the times.");
+      if (DOUBT_WORDS.test(rest)) return fail("I can't tell if this shift is still on. If it was cancelled, write no shift instead of the times. If the word is part of a note, put the note in quotes.");
     }
     if (/(?:^|[\s-])\d{1,2}\/\d{1,2}(?:st|nd|rd|th)?(?:\/\d{2,4})?(?=\s|$|[,.;:])/i.test(rest) || new RegExp("\\b" + MONTH + "\\s*\\d{1,2}\\b", "i").test(rest)) {
       return fail("Put each date (or date range) at the start of its own line.");
     }
 
-    // Paid hours: "8h", "7.5 hrs", "(8.00 hrs)" at the end of the line or before punctuation. Not "24 Hour Fitness".
-    let hours = null, rejectedHours = "";
-    // A lone "h" counts only in lowercase, so "Unit 4H" stays a site name.
-    const hre = /(^|[^\d.:\w])(\d{1,2}(?:\.\d+)?)(\s*)(?:h(?![a-zA-Z])|[Hh][Rr][Ss]?\b|[Hh][Oo][Uu][Rr][Ss]?\b)\.?/g;
-    for (let m; (m = hre.exec(rest));) {
-      const after = rest.slice(m.index + m[0].length);
-      if (!/^\s*(?:$|[).,;\]]|(?:work|working|shift|scheduled)\b)/i.test(after)) {
-        rejectedHours = m[0].slice(m[1].length).trim();
-        if (times) warnings.push(`"${rejectedHours}" wasn't used as paid hours. The hours come from the times. To set them, put the hours at the end of the line.`);
-        continue;
-      }
+    // Paid hours: "8h", "7.5 hrs", "(8.00 hrs)". A lone "h" counts only in lowercase.
+    let hours = null;
+    const hre = /(^|[^\d.:\w])(\d{1,2}(?:\.\d+)?)\s*(?:h(?![a-zA-Z])|[Hh][Rr][Ss]?\b|[Hh][Oo][Uu][Rr][Ss]?\b)\.?/g;
+    const hourTokens = [];
+    for (let m; (m = hre.exec(rest));) hourTokens.push(m);
+    if (hourTokens.length > 1) return fail("This line has two paid-hours values. Keep one, or put the other in the quoted note.");
+    if (hourTokens.length) {
+      const m = hourTokens[0];
       hours = +m[2];
       if (!(hours > 0 && hours <= 24)) return fail("Paid hours must be between 0 and 24.");
       cut(m.index + m[1].length, m[0].length - m[1].length);
-      break;
     }
 
     // Status: times mean working. Otherwise every status word on the line has to agree.
@@ -475,22 +484,27 @@
         return fail("Add the shift times (like 2300-0700), or write no shift, busy, work or clear.");
       }
       if (status === "off") return fail("\"Off\" could mean two things. Write no shift if you aren't scheduled (shows as available), or busy if you don't want to work that day.");
-      if ((hours != null || rejectedHours) && status !== "work") return fail("Paid hours only go with working days.");
-      if (status === "work" && hours == null && rejectedHours) return fail(`Put the paid hours at the end of the line (like 10/7 work ${rejectedHours.replace(/\s+/g, "")}), or leave them out.`);
+      if (hours != null && status !== "work") return fail("Paid hours only go with working days.");
     }
 
+    // Plain wording that adds nothing: "no shift all day", "available any shift".
+    if (status === "open") rest = rest.replace(/\b(?:all\s+day|any\s+shifts?|any\s*time)\b/gi, (m) => " ".repeat(m.length));
+    // Shift names: on a no-shift day they limit which shifts you'd take; on a working day they're just a label.
     let willing = null;
-    if (status === "open") {
-      for (const [re, key] of SHIFT_WORDS) {
-        const m = re.exec(rest);
-        if (m) { willing = willing || []; if (!willing.includes(key)) willing.push(key); cut(m.index, m[0].length); }
-      }
+    for (const [re, key] of SHIFT_WORDS) {
+      const m = re.exec(rest);
+      if (!m) continue;
+      if (status === "open") { willing = willing || []; if (!willing.includes(key)) willing.push(key); }
+      cut(m.index, m[0].length);
     }
-    const note = rest
+    // Everything outside quotes has to be understood. Anything left over is flagged, not guessed.
+    const leftover = rest
       .replace(/\(\s*\)|\[\s*\]/g, " ")
       .replace(/\s+/g, " ")
-      .replace(/^[\s\-–—,;:|•/&+]+|[\s\-–—,;:|•/&+]+$/g, "")
-      .slice(0, 100);
+      .replace(/^[\s\-–—,;:|•/&+.]+|[\s\-–—,;:|•/&+.]+$/g, "")
+      .trim();
+    if (leftover) return fail(`Put notes in quotes, like 10/7 2300-0700 "Site B". I couldn't read: ${leftover.slice(0, 40)}`);
+    const note = notes.join(" · ").slice(0, 100);
 
     const rec = { s: status };
     if (status === "work") {
@@ -509,10 +523,17 @@
     return { keys, groups: dates.groups, rec, ignored, warn: warnings.join(" "), filtered: keys.length !== dates.keys.length };
   }
 
-  // ';' separates entries only when a date follows it, so "Site B; gate code 4471" stays one note.
+  // ';' separates entries only outside quotes and when a date follows it, so "Site B; gate code 4471" stays one note.
   function splitEntries(line) {
+    const pieces = [];
+    let cur = "", inQuote = false;
+    for (const ch of line) {
+      if (QUOTE.test(ch)) inQuote = !inQuote;
+      if (ch === ";" && !inQuote) { pieces.push(cur); cur = ""; } else cur += ch;
+    }
+    pieces.push(cur);
     const out = [];
-    for (const part of line.split(";")) {
+    for (const part of pieces) {
       const t = part.trim();
       const startsWithDate = t && (readDate(t, 0, null, true) || new RegExp("^" + DOW + "\\b\\.?,?\\s*\\d", "i").test(t) || new RegExp("^" + DOW + "\\b\\.?,?\\s*" + MONTH, "i").test(t));
       if (out.length && !startsWithDate) out[out.length - 1] += ";" + part;
