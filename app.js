@@ -66,7 +66,7 @@
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", fbContact: "sa.fbContact" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", fbContact: "sa.fbContact", lastWeekly: "sa.weekly" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
@@ -221,7 +221,9 @@
     if (!(d >= 0 && d <= 6)) return null;
     const rec = cleanPrivRec({ s: r.s, start: r.start, end: r.end, hours: r.hours }, pickup);
     if (!rec || (rec.s !== "work" && rec.s !== "busy")) return null;
-    return Object.assign({ d }, rec);
+    const out = Object.assign({ d }, rec);
+    if (isKey(r.from)) out.from = r.from; // added or changed on this date; earlier days don't follow it
+    return out;
   }
   function cleanWeekly(list, pickup) {
     const out = [];
@@ -233,7 +235,9 @@
     }
     return out.sort((a, b) => a.d - b.d);
   }
-  const ruleOn = (k, v) => (v.weekly || []).filter((r) => r.d === dateOf(k).getDay())[0] || null;
+  const ruleFor = (list, d) => (list || []).filter((r) => r.d === d)[0] || null;
+  const ruleOn = (k, v) => { const r = ruleFor(v.weekly, dateOf(k).getDay()); return r && !(r.from && k < r.from) ? r : null; };
+  const ruleCore = (r) => (r ? JSON.stringify(Object.assign({}, r, { from: null })) : "");
   // The record that counts for a day: what's marked on it, or else its every-week setting.
   function dayRec(k, v) {
     if (v.days[k]) return v.days[k];
@@ -241,6 +245,7 @@
     if (!r) return null;
     const out = Object.assign({}, r, { weekly: true });
     delete out.d;
+    delete out.from;
     return out;
   }
   // Supervisors only learn which weekdays are red every week, never the times.
@@ -465,10 +470,16 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup", "weekly"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    // Every-week days are kept per weekday, so changes from two devices or tabs to different weekdays both survive.
+    d.wk = {};
+    for (let w = 0; w < 7; w++) {
+      const to = ruleFor(priv.weekly, w), from = ruleFor(saved.priv.weekly, w);
+      if (!same(to, from)) d.wk[w] = { to, from };
+    }
     return d;
   }
-  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length;
+  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length;
   const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
 
   // Applies a diff. With checkBase, an entry is skipped when the current value is no longer the one it replaced.
@@ -494,8 +505,11 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
-    const wk = d.priv && d.priv.weekly;
-    if (wk && take(wk, priv.weekly)) priv.weekly = cleanWeekly(wk.to, priv.pickup);
+    for (const [w, e] of Object.entries(d.wk || {})) {
+      const dow = Number(w);
+      if (!(dow >= 0 && dow <= 6) || !take(e, ruleFor(priv.weekly, dow))) continue;
+      priv.weekly = cleanWeekly(priv.weekly.filter((r) => r.d !== dow).concat(e.to ? [Object.assign({}, e.to, { d: dow })] : []), priv.pickup);
+    }
     return { applied, skipped };
   }
 
@@ -511,8 +525,9 @@
       for (const [k, e] of Object.entries(d.days || {})) if (!e || same(saved.priv.days[k], e.to)) { delete d.days[k]; changed = true; }
       for (const [f, e] of Object.entries(d.pub || {})) if (!e || same(saved.pub[f], e.to)) { delete d.pub[f]; changed = true; }
       for (const [f, e] of Object.entries(d.priv || {})) if (!e || same(saved.priv[f], e.to)) { delete d.priv[f]; changed = true; }
+      for (const [w, e] of Object.entries(d.wk || {})) if (!e || same(ruleFor(saved.priv.weekly, Number(w)), e.to)) { delete d.wk[w]; changed = true; }
       if (!changed) continue;
-      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {} })) store.set(key, JSON.stringify(d));
+      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {}, wk: d.wk || {} })) store.set(key, JSON.stringify(d));
       else store.del(key);
     }
   }
@@ -527,12 +542,14 @@
       saved = { pub: clone(st.pub), priv: clone(st.priv) };
       pub = clone(st.pub);
       priv = clone(st.priv);
+      forgetAutoCopies();
       applyDiff(mine, false);
       pubSha = st.pubSha;
       privAt = st.privAt;
       privExists = st.privExists;
       needsPublish = st.behind;
       updated = st.updated;
+      if ($("#settingsSheet").open) renderWeekly();
     } catch { /* offline: Save will notice a newer version */ }
     busy = false;
     persistDraft();
@@ -674,7 +691,7 @@
           h("span", { class: "mon", text: showMonth ? fmt(k, { month: "short" }) : "" }),
           h("span", { class: "num", text: d.getDate() }),
           h("span", { class: "tag", text: tag }),
-          weekly ? h("span", { class: "rep", "aria-hidden": "true", text: "↻" }) : null));
+          weekly ? h("span", { class: showMonth ? "rep alt" : "rep", "aria-hidden": "true", text: "↻" }) : null));
       }
       const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
       if (asOwner) {
@@ -1378,7 +1395,6 @@
   }
 
   // ---------- owner: every-week days ----------
-  let weeklyAtOpen = [];
   function renderWeekly() {
     const box = $("#setWeekly");
     box.replaceChildren();
@@ -1402,34 +1418,51 @@
     }
   }
 
+  // Only the row that changed is read, so a rule saved meanwhile from another tab isn't overwritten.
   function readWeekly(t) {
     const row = t.closest(".wk-row");
-    const val = (r, f) => r.querySelector(`[data-f="${f}"]`).value;
-    if (row && (t.dataset.f === "start" || t.dataset.f === "end")) {
-      const s = val(row, "start"), e = val(row, "end");
+    if (!row) return;
+    const val = (f) => row.querySelector(`[data-f="${f}"]`).value;
+    if (t.dataset.f === "start" || t.dataset.f === "end") {
+      const s = val("start"), e = val("end");
       if (isTime(s) && isTime(e) && s !== e) row.querySelector('[data-f="hours"]').value = num(spanHours(s, e));
     }
-    const rules = [];
-    for (const r of document.querySelectorAll("#setWeekly .wk-row")) {
-      const on = r.querySelector('[data-f="on"]').checked, s = val(r, "s");
-      r.querySelector(".wk-fields").hidden = !on;
-      r.querySelector(".wk-work").hidden = !on || s !== "work";
-      if (on) rules.push({ d: Number(r.dataset.d), s, start: val(r, "start"), end: val(r, "end"), hours: val(r, "hours") });
+    const dow = Number(row.dataset.d), on = row.querySelector('[data-f="on"]').checked, s = val("s");
+    row.querySelector(".wk-fields").hidden = !on;
+    row.querySelector(".wk-work").hidden = !on || s !== "work";
+    const was = ruleFor(saved ? saved.priv.weekly : [], dow);
+    const rule = on ? cleanRule({ d: dow, s, start: val("start"), end: val("end"), hours: val("hours") }, priv.pickup) : null;
+    // A new or changed rule counts from today. One that's back to its saved form keeps its saved start.
+    if (rule) { if (was && ruleCore(was) === ruleCore(rule)) { if (was.from) rule.from = was.from; } else rule.from = todayKey(); }
+    priv.weekly = cleanWeekly(priv.weekly.filter((r) => r.d !== dow).concat(rule ? [rule] : []), priv.pickup);
+    keepPastWeek();
+  }
+
+  // Changes to every-week days count from today. Days already past in this pay week (and the night before it starts,
+  // whose shift can run into it) keep the saved rule as their own record, so this week's hours and yellow days stay right.
+  // A day turned off also keeps today. Recomputed on every change, so undoing a change removes the copies it made.
+  const autoCopies = {};
+  function keepPastWeek() {
+    for (const k of Object.keys(autoCopies)) {
+      if (same(priv.days[k], autoCopies[k])) delete priv.days[k];
+      delete autoCopies[k];
     }
-    const next = cleanWeekly(rules, priv.pickup);
-    // Turning a day off means it stops from now on: days already past in this pay week keep it,
-    // so this week's hours (and the yellow days) stay right.
+    if (!saved) return;
     const today = todayKey();
-    for (let k = weekStartOf(today, pub.weekStart); k < today; k = addDays(k, 1)) {
+    for (let k = addDays(weekStartOf(today, pub.weekStart), -1); k <= today; k = addDays(k, 1)) {
+      if (priv.days[k]) continue;
       const dow = dateOf(k).getDay();
-      const was = weeklyAtOpen.filter((r) => r.d === dow)[0];
-      if (!was || priv.days[k] || next.some((r) => r.d === dow)) continue;
+      const was = ruleFor(saved.priv.weekly, dow), now = ruleFor(priv.weekly, dow);
+      if (!was || (was.from && k < was.from)) continue;
+      if (now && (ruleCore(now) === ruleCore(was) || k === today)) continue;
       const rec = Object.assign({}, was);
       delete rec.d;
+      delete rec.from;
       priv.days[k] = rec;
+      autoCopies[k] = rec;
     }
-    priv.weekly = next;
   }
+  const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
 
   let fbAtOpen = "";
   function openSettings() {
@@ -1448,7 +1481,6 @@
     $("#setPickup").value = num(priv.pickup);
     $("#otExplain").textContent = otExplain();
     $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
-    weeklyAtOpen = clone(priv.weekly);
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     $("#settingsSheet").showModal();
@@ -1494,7 +1526,9 @@
     // The private schedule is the source of truth and the public file is built from it. If they differ
     // (a save stopped after storing the hours), the public file just needs publishing again.
     const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v)) || !same(file.weekly, weeklyPublic(v));
-    return { pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
+    // Older copies of this page don't know every-week days and save without them. The new version always writes the key.
+    const weeklyLost = privRes.status === 200 && !/"weekly"\s*:/.test(privRes.value || "");
+    return { weeklyLost, pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
   }
 
   async function enterOwner() {
@@ -1514,6 +1548,14 @@
       pub = clone(st.pub);
       priv = clone(st.priv);
       store.del(LS.draft2); // from a test build; never stored real data
+      forgetAutoCopies();
+      let lostWeekly = false;
+      try {
+        const last = cleanWeekly(JSON.parse(store.get(LS.lastWeekly) || "[]"), priv.pickup);
+        if (st.weeklyLost && last.length && !priv.weekly.length) { priv.weekly = last; lostWeekly = true; }
+        else if (!st.weeklyLost) store.set(LS.lastWeekly, JSON.stringify(st.priv.weekly));
+      } catch { /* unreadable */ }
+      if (lostWeekly) setTimeout(() => toast("An older open copy of this page removed your every-week days when it saved. They're back here. Tap Save to keep them.", 8000), 600);
       let restored = 0;
       if (!standIn) {
         // The first version of the site stored a full copy; only its marked days that are still unset here come back.
@@ -1708,6 +1750,8 @@
       updated = stamp;
       needsPublish = false;
       pruneOtherDrafts();
+      forgetAutoCopies();
+      store.set(LS.lastWeekly, JSON.stringify(saved.priv.weekly));
       store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
     } catch (e) {
@@ -1732,6 +1776,7 @@
     let st;
     try { st = await loadOwnerState(token); } catch { busy = false; render(); toast("Couldn't reach GitHub. Try Save again in a moment."); return; }
     const mine = diffOf(); // editing was paused, so this is everything changed here
+    forgetAutoCopies();
     saved = { pub: clone(st.pub), priv: clone(st.priv) };
     pub = clone(st.pub);
     priv = clone(st.priv);
