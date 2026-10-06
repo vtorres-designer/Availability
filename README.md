@@ -56,7 +56,7 @@ Oct 25 open overnight swing
 ```
 
 - **Date first:** 10/7, Oct 7, 2026-10-07, a range (10/12-10/14) or a list (10/9, 10/10). Without a year, it picks the nearest one, so in January, 12/30 means the December just past.
-- **Day names:** before a date, they're checked against it ("Tue 10/7" is flagged if 10/7 is a Wednesday). After a range, they pick days from it: `10/12-10/25 Mon Wed Fri 2300-0700`. You can also use *weekdays* or *weekends*.
+- **Day names:** before a date, they're checked against it ("Tue 10/7" is flagged if 10/7 is a Wednesday). Right after a range, they pick days from it: `10/12-10/25 Mon-Fri 2300-0700`. *Mon Wed Fri*, *M/W/F*, *TTh*, *weekdays* and *weekends* work too. Put them right after the dates. Day names anywhere else on a range line get flagged, so a site like "Sun Valley Mall" never filters days by accident.
 - **Times mean you're working:** 2300-0700, 23:00-07:00, or 11pm-7am. Paid hours are worked out from the times. If a time could be morning or night, like "11-7" or "11:00-7:00", the site asks you to add am/pm. Put one shift on each line.
 - **Or use one word:**
   - *off* or *busy* turns the day red.
@@ -64,7 +64,13 @@ Oct 25 open overnight swing
   - *work* turns it red and counts your usual shift length.
   - *clear* turns it back to gray.
 - **Extras:** *8h* sets the paid hours, for example when a meal break isn't paid. After *open*, add *overnight*, *swing* or *morning* to limit the shifts you'll take that day.
-- **Unclear lines aren't guessed.** For example, "not available" or a time that could be AM or PM gets flagged, so you can reword it.
+- **Unclear lines aren't guessed.** These get flagged so you can reword them:
+  - "not available" or "except Sat"
+  - a time that could be AM or PM
+  - two shifts on one line
+  - "off" written after the times
+  - a cancelled shift
+  - a number that could be a date or part of a site name
 - **Anything else** on the line, like the site name, is saved as a private note.
 - If two lines cover the same day, the lower one wins.
 
@@ -77,6 +83,8 @@ Pick what a tap does in the toolbar:
 - **Tap to edit**: opens the day. You can set start and end times, paid hours, a private note, or which shifts you'd take.
 
 **See what supervisors see** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
+
+Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days you changed are put back. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add my changes to it** keeps both, and your change wins on any day you both edited. **Load the newer one** drops what you changed on this device.
 
 ## Settings
 
