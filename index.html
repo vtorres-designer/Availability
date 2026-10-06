@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=3">
+<link rel="stylesheet" href="app.css?v=4">
 </head>
 <body>
 <main class="page">
@@ -253,6 +253,10 @@ Oct 25 open overnight swing
     <label class="field"><span class="label">GitHub token</span>
       <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
     <p class="error" id="unlockError" hidden></p>
+    <div class="stack" id="unlockDraft" hidden>
+      <p class="muted small">Changes you hadn't saved are kept on this device. They come back when you connect.</p>
+      <button type="button" class="linkish" id="unlockDiscard">Discard them</button>
+    </div>
     <button type="submit" class="btn primary wide" id="unlockBtn" value="connect">Connect</button>
   </form>
 </dialog>
@@ -267,12 +271,14 @@ Oct 25 open overnight swing
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
-    <p>Your times, hours and notes are now saved in a private spot in your repository instead of the public calendar file. Your GitHub key needs one more permission to use it. You don't need to paste the key again.</p>
+    <p>Your times, hours and notes are saved in a private spot in your repository, not in the public calendar file. Your GitHub key needs permission to use it. You don't need to paste the key again.</p>
     <ol class="steps">
       <li>Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">GitHub → Fine-grained tokens</a> and tap <b>Availability calendar</b>.</li>
-      <li>Tap <b>Edit</b>. Under Repository permissions, set <b>Variables</b> to <b>Read and write</b>.</li>
+      <li>Tap <b>Edit</b>. Under Repository access, check that <b class="repo-name">Availability</b> is selected.</li>
+      <li>Under Repository permissions, set <b>Variables</b> to <b>Read and write</b> (not Read-only).</li>
       <li>Tap <b>Update</b>, come back here, and tap <b>Try again</b>.</li>
     </ol>
+    <p class="muted small">Until then you can look at your calendar, but you can't change it, so nothing you do here gets lost.</p>
     <div class="row-btns">
       <button class="btn primary" value="retry">Try again</button>
     </div>
@@ -284,16 +290,17 @@ Oct 25 open overnight swing
   <form method="dialog" class="sheet-in">
     <h2 id="conflictTitle">Changed on another device</h2>
     <p>Your calendar was saved from somewhere else after you opened it here.</p>
+    <p class="muted small"><b>Add my changes to it</b> keeps both. Where you changed the same day, your change wins. <b>Load the newer one</b> drops the changes you made here.</p>
     <div class="row-btns">
       <button class="btn ghost" value="reload">Load the newer one</button>
-      <button class="btn primary" value="overwrite">Keep my changes</button>
+      <button class="btn primary" value="merge">Add my changes to it</button>
     </div>
   </form>
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="parser.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
