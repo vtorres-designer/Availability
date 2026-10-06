@@ -567,7 +567,7 @@
     let open = false;
     for (let i = 0; i < line.length; i++) {
       if (!QUOTE.test(line[i])) continue;
-      if (open && /[\p{L}\p{N}]/u.test(line[i + 1] || "")) return true;
+      if (open && /[0-9A-Za-z\u00C0-\u024F\u0370-\u1FFF\u3040-\uFFEF]/.test(line[i + 1] || "")) return true;
       open = !open;
     }
     return false;

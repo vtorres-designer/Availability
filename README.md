@@ -19,6 +19,15 @@ When a supervisor taps a green or yellow day, they get a short form. Every box i
 
 They can edit the message before tapping **Open in Messages**. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site and address for next time.
 
+## Works on any device
+
+Supervisors can open the link in any current browser on an iPhone, Android phone, iPad, Windows PC, Mac, Chromebook or Linux computer. Phones and browsers back to about 2019 work too.
+
+- **Phone or tablet:** **Open in Messages** opens their texting app with the message filled in.
+- **Mac:** it opens Messages, which sends from their iPhone if the two are linked.
+- **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code. They point their phone's camera at it, and the text opens on their phone, ready to send.
+- **Copy message** and **Copy number** work everywhere.
+
 ## What supervisors never see
 
 Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number and your note at the top.
@@ -29,6 +38,7 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 
 - `index.html`, `app.css`, `app.js`: the site.
 - `parser.js`: reads a pasted schedule.
+- `vendor/qrcode.js`: draws the QR code for computers. It's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 (MIT license), kept in the repo so the page never loads code from another site.
 - `data.json`: the public calendar. The site rewrites it when you tap **Save**.
 - `.nojekyll`: tells GitHub Pages to serve the files as they are.
 

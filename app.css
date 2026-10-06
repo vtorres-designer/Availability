@@ -191,7 +191,7 @@ h2 { font-size: 28px; line-height: 1.05; }
 .day.past { background: transparent; color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
 .day.past:active { transform: none; }
 .day.today::after {
-  content: ""; position: absolute; inset: -4px;
+  content: ""; position: absolute; top: -4px; right: -4px; bottom: -4px; left: -4px;
   border: 2px solid var(--ink); border-radius: 13px; pointer-events: none;
 }
 .day.pending::before {
@@ -308,7 +308,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .seg { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .seg legend { padding: 0 0 6px; }
 .seg label { position: relative; }
-.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .seg span {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 46px; border-radius: 10px; font-weight: 700; font-size: 14px;
@@ -386,3 +386,16 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .day { transition: none; }
   .day:active { transform: none; }
 }
+
+/* Browsers without <dialog> (Safari before 15.4, Firefox before 98) get the same sheets via a stand-in. */
+dialog:not([open]) { display: none; }
+.no-dialog dialog[open] {
+  display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
+  margin: 0 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.shim-backdrop { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 999; background: rgba(8, 12, 24, 0.45); }
+
+/* Texting from a computer: scan the code with a phone. */
+.qr { display: grid; justify-items: center; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); text-align: center; }
+.qr svg { display: block; width: 200px; height: 200px; background: #fff; border-radius: 8px; }
+.qr p { margin: 0; }
