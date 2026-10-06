@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="app.css?v=13">
 </head>
 <body>
 <main class="page">
@@ -25,6 +25,7 @@
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
+    <p class="share-row"><button type="button" class="btn ghost sm" id="shareBtn">Share this calendar</button></p>
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
@@ -90,6 +91,26 @@
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <div id="dayBody"></div>
+  </form>
+</dialog>
+
+<!-- Anyone: share the link -->
+<dialog class="sheet" id="shareSheet" aria-labelledby="shareTitle">
+  <form method="dialog" class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="shareTitle">Share this calendar</h2>
+      <button class="x" value="close" aria-label="Close">×</button>
+    </div>
+    <label class="field"><span class="label">Link</span>
+      <input type="text" id="shareUrl" readonly></label>
+    <div class="row-btns">
+      <button type="button" class="btn primary" id="shareCopy">Copy link</button>
+      <button type="button" class="btn ghost" id="shareNative" hidden>Share…</button>
+    </div>
+    <div class="qr" id="shareQr" hidden>
+      <div class="qr-code" aria-hidden="true"></div>
+      <p class="small">Or scan this code with a phone's camera.</p>
+    </div>
   </form>
 </dialog>
 
@@ -353,7 +374,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=12"></script>
-<script src="app.js?v=12"></script>
+<script src="parser.js?v=13"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>

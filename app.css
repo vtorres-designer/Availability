@@ -423,3 +423,7 @@ dialog:not([open]) { display: none; }
 .wk-work { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wk-work .field:last-child { grid-column: 1 / -1; }
 @media (min-width: 420px) { .wk-work { grid-template-columns: 1fr 1fr 0.8fr; } .wk-work .field:last-child { grid-column: auto; } }
+
+/* Share this calendar */
+.share-row { margin: 10px 0 0; }
+#shareUrl { font-size: 15px; }

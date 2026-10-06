@@ -784,13 +784,48 @@
   }
   // "SMSTO:number:message" is the QR format iPhone and Android cameras open as a ready-to-send text.
   function qrSvg(lib, text) {
+    return qrFor(lib, `SMSTO:${smsNumber()}:${text}`, "QR code that opens this text on a phone");
+  }
+  function qrFor(lib, data, alt) {
     lib.stringToBytes = lib.stringToBytesFuncs["UTF-8"];
     const q = lib(0, "M");
-    q.addData(`SMSTO:${smsNumber()}:${text}`, "Byte");
+    q.addData(data, "Byte");
     q.make();
     // At least 3 screen pixels per square so a phone camera can read a long message from a monitor.
-    return { svg: q.createSvgTag({ cellSize: 4, margin: 16, scalable: true, alt: "QR code that opens this text on a phone" }),
-      size: Math.max(200, (q.getModuleCount() + 8) * 3) };
+    return { svg: q.createSvgTag({ cellSize: 4, margin: 16, scalable: true, alt }), size: Math.max(200, (q.getModuleCount() + 8) * 3) };
+  }
+
+  // ---------- share the calendar ----------
+  // The page's own address, without anything after it (a test query, a #), so everyone gets the same clean link.
+  const shareUrl = () => location.origin + location.pathname.replace(/index\.html$/i, "");
+  function openShare() {
+    const url = shareUrl();
+    $("#shareUrl").value = url;
+    $("#shareCopy").textContent = "Copy link";
+    $("#shareNative").hidden = typeof navigator.share !== "function";
+    const box = $("#shareQr");
+    loadQr().then((lib) => {
+      const qr = qrFor(lib, url, "QR code with the link to this calendar");
+      const code = box.querySelector(".qr-code");
+      code.innerHTML = qr.svg;
+      code.firstChild.style.width = code.firstChild.style.height = "200px";
+      box.hidden = false;
+    }).catch(() => { box.hidden = true; });
+    showSheet("#shareSheet");
+  }
+  async function onShareCopy() {
+    const b = $("#shareCopy");
+    const ok = await copyText($("#shareUrl").value);
+    if (!ok) { const i = $("#shareUrl"); i.focus(); i.select(); }
+    b.textContent = ok ? "Copied!" : "Press and hold the link to copy it";
+    setTimeout(() => { b.textContent = "Copy link"; }, 2500);
+  }
+  async function onShareNative() {
+    try {
+      await navigator.share({ title: document.title, text: pub.name ? `${possessive(pub.name)} shift availability` : "Shift availability", url: shareUrl() });
+    } catch (e) {
+      if (!e || e.name !== "AbortError") onShareCopy(); // couldn't open the share menu: copy instead
+    }
   }
   const smsHref = (body) => `sms:${smsNumber()}${apple() ? "&" : "?"}body=${encodeURIComponent(body)}`;
   const hhmm24 = (t) => t.replace(":", "");
@@ -1868,6 +1903,9 @@
       if (credFromApi) e.currentTarget.href = `${credUrl}&t=${Date.now()}`;
     });
     $("#feedbackLink").addEventListener("click", openFeedback);
+    $("#shareBtn").addEventListener("click", openShare);
+    $("#shareCopy").addEventListener("click", onShareCopy);
+    $("#shareNative").addEventListener("click", onShareNative);
     $("#feedbackForm").addEventListener("submit", onFeedback);
     $("#fbClose").addEventListener("click", () => $("#feedbackSheet").close(""));
     $("#credFile").addEventListener("change", (e) => {
