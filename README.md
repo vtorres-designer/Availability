@@ -29,7 +29,7 @@ They hit send. The text comes from their own number, so you can reply to them di
 1. **Create the repo:** at <https://github.com/new>, name it `availability`, set it to **Public**, tick **Add a README**, and create it. Pages is free only for public repos.
 2. **Add the files.** Either let Claude push them (the Claude GitHub app needs access to the repo), or use **Add file → Upload files** and drag in everything in this folder, including `.nojekyll`.
 3. **Turn on Pages:** go to **Settings → Pages**. Under Build and deployment, set Source to *Deploy from a branch*, Branch to `main`, and folder to `/ (root)`. Then tap **Save**.
-4. After about a minute the site is live at `https://vtorres-designer.github.io/availability/`.
+4. After about a minute the site is live at `https://vtorres-designer.github.io/Availability/ (the capital A matters: it has to match the repo name exactly)`.
 5. **Connect your phone for editing:** open the site, tap **Vincent? Edit calendar** at the bottom, and follow the five steps on screen. They walk you through making a GitHub token that can change only this one repo. You paste it once per device.
 
 ## Updating your calendar
