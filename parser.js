@@ -11,8 +11,8 @@
   const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const RANGE_SEP = "(?:-|–|—|to\\b|thru\\b|through\\b|until\\b|till?\\b)";
   // A 4-digit number after a date is a year unless it starts a time range ("Oct 7 2030-0630").
-  const YEAR = "(?:,?\\s*(20\\d{2})(?!\\d)(?!\\s*" + RANGE_SEP + "\\s*(?:\\d{3,4}(?![\\d/.])|\\d{1,2}[:.]\\d{2}|\\d{1,2}\\s*[ap]\\.?m?\\b|\\d{1,2}(?![\\d/.:]))))?";
-  const HOURS_WORD = "(?:h|hr|hrs|hour|hours)\\b";
+  const YEAR = "(?:,?\\s*(20\\d{2})(?!\\d)(?!\\s*" + RANGE_SEP + "\\s*(?:\\d{3,4}(?![\\d/.])|\\d{1,2}[:.]\\d{2}|\\d{1,2}\\s*[ap]\\.?m?\\b)))?";
+  const HOURS_WORD = "(?:h|[Hh][Rr][Ss]?|[Hh][Oo][Uu][Rr][Ss]?)\\b";
   // A bare day may be followed by ':' or '.' only as punctuation ("Oct 12-16: off").
   const DAY_ONLY_GUARD = "(?![\\d]|[:.](?!\\s|$)|h\\b|\\s*(?:[ap]\\.?m?\\b|" + HOURS_WORD + "))";
   const STATUS_WORDS = [
@@ -55,7 +55,11 @@
   const spanHours = (start, end) => { let m = toMin(end) - toMin(start); if (m <= 0) m += 1440; return m / 60; };
   const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
   const statusOf = (w) => { for (const [name, re] of STATUS_WORDS) if (re.test(w)) return name; return null; };
-  const STATUS_FOLLOW = "(?:off|busy|blocked|unavailable|unavail|open|available|avail|free|work|working|scheduled|shift|clear|reset)\\b";
+  // Words that may follow a bare day number for it to count as a date ("Oct 12 - 16 vacation").
+  // Not "shift": in "10/8 - 3rd shift" the number is a shift name.
+  const STATUS_FOLLOW = "(?:off|busy|blocked?|unavailable|unavail|n/a|pto|vacation|open|available|avail|free|work|working|clear|reset|unset|gr[ae]y|blank|remove)\\b";
+  // Words that make a line with times unclear: is the shift still on?
+  const DOUBT_WORDS = /\b(?:cancell?ed|called\s+off|swapp?ed|dropped|covered)\b/i;
 
   // ---------- dates ----------
   // One date at `pos`: {y|null, m, d, end, dayOnly?} or null. `prev` allows a bare day number ("Oct 7-10").
@@ -64,12 +68,12 @@
     const at = (re) => { re.lastIndex = pos; return re.exec(s); };
     if ((r = at(/(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/y))) return { y: +r[1], m: +r[2], d: +r[3], end: pos + r[0].length };
     if ((r = at(/(\d{1,2})-(\d{1,2})-(\d{4})(?!\d)/y))) return { y: +r[3], m: +r[1], d: +r[2], end: pos + r[0].length };
-    if ((r = at(new RegExp("(\\d{1,2})/(\\d{1,2})(?:/(\\d{4}|\\d{2}))?(?![\\d/])", "y")))) {
+    if ((r = at(new RegExp("(\\d{1,2})/(\\d{1,2})(?:st|nd|rd|th)?(?:/(\\d{4}|\\d{2}))?(?![\\d/])", "iy")))) {
       return { y: r[3] ? fullYear(+r[3]) : null, m: +r[1], d: +r[2], end: pos + r[0].length };
     }
     // 10.7 or 10.7.26, but never "7.5h" (paid hours).
     if ((r = at(new RegExp("(\\d{1,2})\\.(\\d{1,2})(?:\\.(\\d{4}|\\d{2}))?(?![\\d.])(?!\\s*" + HOURS_WORD + ")", "y"))) && (allowDot || r[3])) {
-      return { y: r[3] ? fullYear(+r[3]) : null, m: +r[1], d: +r[2], end: pos + r[0].length };
+      return { y: r[3] ? fullYear(+r[3]) : null, m: +r[1], d: +r[2], end: pos + r[0].length, dot: true };
     }
     if ((r = at(new RegExp(MONTH + "\\s*(\\d{1,2})(?:st|nd|rd|th)?(?!\\d)" + YEAR, "iy")))) {
       return { y: r[3] ? +r[3] : null, m: monthNum(r[1]), d: +r[2], end: pos + r[0].length };
@@ -112,7 +116,7 @@
 
   // What may follow a bare day number for it to count as a date: end, punctuation, a separator,
   // a time, a status word or a day name. Anything else ("12 Oaks Mall") means it isn't a date.
-  const BARE_FOLLOW = new RegExp("^(?:\\s*$|[:.](?:\\s|$)|\\s*(?:[,&+;]|and\\b|" + RANGE_SEP + "|\\d|" + DOW + "\\b|" + STATUS_FOLLOW + "))", "i");
+  const BARE_FOLLOW = new RegExp("^(?:\\s*$|[:.](?:\\s|$)|\\s*(?:[,&+;]|and\\b|\\d|" + DOW + "\\b|" + STATUS_FOLLOW + "))", "i");
   const BARE_FOLLOW_LIST = new RegExp("^(?:\\s*$|[:.](?:\\s|$)|\\s*(?:[,&+;]|and\\b|\\d|" + DOW + "\\b|" + STATUS_FOLLOW + "))", "i");
 
   // Dates at the start of `s`: single dates, ranges ("10/12-10/14", "Oct 12-16") and lists ("10/9, 10/10").
@@ -135,19 +139,28 @@
       const sm = sep.exec(s);
       if (sm) {
         let bpos = a.end + sm[0].length;
+        const the = /the\s+/iy;
+        the.lastIndex = bpos;
+        if (the.exec(s)) bpos = the.lastIndex;
         const dm = new RegExp(DOW + "\\b\\.?,?\\s*", "iy");
         dm.lastIndex = bpos;
         const dmm = dm.exec(s);
-        if (dmm && readDate(s, bpos + dmm[0].length, null, false)) { bDow = dowIndex(dmm[1]); bpos += dmm[0].length; }
-        b = readDate(s, bpos, a, false);
+        if (dmm && readDate(s, bpos + dmm[0].length, null, a.dot)) { bDow = dowIndex(dmm[1]); bpos += dmm[0].length; }
+        b = readDate(s, bpos, a, !!a.dot);
+        if (!b && dmm && !bDow) {
+          // A day name alone ends the range: "Wed 10/7 - Fri" means through that Friday.
+          b = { weekdayEnd: dowIndex(dmm[1]), end: bpos + dmm[0].replace(/\s+$/, "").length };
+        }
         if (b && b.dayOnly) {
           const tight = !sm[1] && !sm[2] && /^[-–]$/.test(sm[0]);
           const after = s.slice(b.end);
           // "Oct 7 - 11-7am": the number starts a time range, not a date.
           const t = readTimes(s.slice(bpos));
           if (t && !t.error && t.index === 0) b = null;
-          // "10/7 - 12 Oaks Mall": with spaces around the dash, a number followed by a word isn't a date.
-          else if (!tight && !BARE_FOLLOW.test(after)) b = null;
+          else if (!tight && !BARE_FOLLOW.test(after)) {
+            // "10/7 - 12 Oaks Mall" or "Oct 12 - 16 Hospital East": can't tell a site number from a range end.
+            return { error: `I can't tell if "${s.slice(bpos, b.end).trim()}" is a date. Write the end date in full (like ${a.m}/${b.d}), or put the site after the times.` };
+          }
         }
       }
       // Years. A range end with a year lends it to the start ("12/30 - 1/2/2027").
@@ -160,6 +173,19 @@
       if (fy == null || !validDate(fy, a.m, a.d)) return { error: badDate(a) };
       const from = keyOf(fy, a.m, a.d);
       let to = from;
+      if (b && b.weekdayEnd != null) {
+        to = from;
+        while (weekday(to) !== b.weekdayEnd || to === from) { to = addDays(to, 1); if (between(from, to) > 7) break; }
+        pos = b.end;
+        b = null;
+        groups.push({ from, to });
+        const [py, pm, pd] = parts(to);
+        prev = { key: to, y: py, m: pm, d: pd };
+        const list = /\s*(?:,|&|\+|\band\b)\s*/iy;
+        list.lastIndex = pos;
+        if (!list.exec(s)) break;
+        continue;
+      }
       if (b) {
         if (ty == null) {
           // "10/9-10/8" is a typo, not a year-long range; "12/26-1/8" really does cross into the next year.
@@ -217,6 +243,8 @@
     for (let from = 0; from < s.length;) {
       const r = TIME_RANGE.exec(s.slice(from));
       if (!r) break;
+      // A match at the start of the slice must not begin in the middle of a number ("1pm" inside "11pm").
+      if (r.index === 0 && !r[1] && from > 0 && /[\d.:/#]/.test(s[from - 1])) { from += 1; continue; }
       const index = from + r.index + r[1].length;
       const length = r[0].length - r[1].length;
       const secondStart = index + r[2].length + r[5].length;
@@ -224,15 +252,16 @@
       all.push({ r, index, length, secondStart, score, tight: !/\s/.test(r[5]) });
       from = index + 1;
     }
-    // Three numbers in a chain ("Bldg 100 - 2300-0700", "2300-0700 - 24 Hour Fitness"): the shift is the better
-    // pair, or with equal scores the one written without spaces around the dash. Otherwise it's unclear.
+    // Three numbers in a chain ("Bldg 100 - 2300-0700", "2300-0700 - 24 Hour Fitness"): the shift is the pair
+    // written without spaces around the dash, else the one that looks more like times. Otherwise it's unclear.
     const drop = new Set();
     let unclear = false;
     for (const c of all) {
       const o = all.find((x) => x.index === c.secondStart);
       if (!o) continue;
-      if (c.score !== o.score) drop.add(c.score < o.score ? c : o);
-      else if (c.tight !== o.tight) drop.add(c.tight ? o : c);
+      // "11-7am - 24 Hour Fitness": the pair written without spaces is the shift, whatever the scores.
+      if (c.tight !== o.tight) drop.add(c.tight ? o : c);
+      else if (c.score !== o.score) drop.add(c.score < o.score ? c : o);
       else unclear = true;
     }
     const keep = all.filter((c) => !drop.has(c)).sort((p, q) => q.score - p.score || p.index - q.index);
@@ -287,6 +316,28 @@
   }
 
   // ---------- day-name filter right after the dates: "Mon Wed Fri", "Mon-Fri", "weekdays" ----------
+  // Letter codes for days: M T W R F, Mo Tu We Th Fr Sa Su. A lone S is ambiguous.
+  const CODE = "(mo|tu|we|th|fr|sa|su|m|t|w|r|f)";
+  const codeDay = (c) => ({ mo: 1, m: 1, tu: 2, t: 2, we: 3, w: 3, th: 4, r: 4, fr: 5, f: 5, sa: 6, su: 0 })[c.toLowerCase()];
+  function readCodeFilter(rest) {
+    // A span: "M-F", "M thru F", "Mo-Fr".
+    const span = new RegExp("^\\s*" + CODE + "\\s*(?:-|–|to\\b|thru\\b|through\\b)\\s*" + CODE + "(?![a-z])", "i").exec(rest);
+    if (span) {
+      const set = new Set();
+      for (let d = codeDay(span[1]), n = 0; n < 7; d = (d + 1) % 7, n++) { set.add(d); if (d === codeDay(span[2])) break; }
+      return { set, length: span[0].length };
+    }
+    // A list: "M/W/F", "M W F", "Sa/Su", "TTh", "MWF", "TR". Every chunk must be made only of day codes.
+    const m = /^\s*[A-Za-z]{1,5}(?:\s*[/,&]\s*[A-Za-z]{1,5}|\s+[A-Za-z]{1,2}(?![A-Za-z]))*/.exec(rest);
+    if (!m) return null;
+    const chunks = m[0].trim().split(/[\s/,&]+/);
+    const whole = new RegExp("^(?:" + CODE + ")+$", "i");
+    if (!chunks.every((c) => whole.test(c))) return null;
+    const codes = chunks.join("").match(new RegExp(CODE, "gi"));
+    if (!codes || codes.length < 2) return null;
+    return { set: new Set(codes.map(codeDay)), length: m[0].length };
+  }
+
   function readDowFilter(rest) {
     const set = new Set();
     const item = new RegExp("\\s*(?:" + DOW + "(?:\\s*" + RANGE_SEP + "\\s*" + DOW + ")?|(weekdays?)|(weekends?)|(daily|every\\s*day|all\\s*week))\\b\\.?", "iy");
@@ -308,10 +359,11 @@
       const j = joiner.exec(rest);
       pos = j ? j.index + j[0].length : pos;
     }
-    if (!found) return null;
     // "Sun Valley Mall" is a site, not a day filter: a filter is followed by times, a status word or nothing.
-    const follow = new RegExp("^\\s*(?:$|[,.;:)]|\\d|" + STATUS_FOLLOW + "|(?:overnights?|nights?|swings?|evenings?|mornings?|graveyards?)\\b)", "i");
-    return follow.test(rest.slice(pos)) ? { set, length: pos } : null;
+    const follow = new RegExp("^\\s*(?:$|[,.;:)]|\\d|" + STATUS_FOLLOW + "|(?:work|working|shift|overnights?|nights?|swings?|evenings?|mornings?|graveyards?)\\b)", "i");
+    if (found) return follow.test(rest.slice(pos)) ? { set, length: pos } : null;
+    const codes = readCodeFilter(rest);
+    return codes && follow.test(rest.slice(codes.length)) ? codes : null;
   }
 
   function tokens(s) {
@@ -343,9 +395,7 @@
     const warnings = [];
 
     if (leadDow != null && weekday(keys[0]) !== leadDow) return fail(dowMismatch(keys[0], leadDow));
-    if (/^\s*(?:[MTWRFSU]|TH|TU|SA|SU){2,5}\b(?!['’])/.test(rest)) {
-      return fail("Write day names like Mon Wed Fri, not letters.");
-    }
+    if (/^[a-z]/i.test(dates.rest)) return fail("Put a space after the date.");
     // Day names straight after the dates pick days from them, or confirm a single date.
     const filter = readDowFilter(rest);
     if (filter) {
@@ -354,8 +404,13 @@
       keys = kept;
       cut(0, filter.length);
     }
-    if (new RegExp(NEGATION.source + "\\W+(?:the\\s+)?" + DOW + "\\b", "i").test(rest)) {
+    if (new RegExp(NEGATION.source + "\\W+(?:the\\s+)?(?:" + DOW + "|weekdays?|weekends?)\\b", "i").test(rest)) {
       return fail("I can't read exceptions like \"except Sat\". List the days you mean instead, like Mon-Fri.");
+    }
+    // On a range, day names anywhere else on the line would be ignored, so ask for them in the right place.
+    if (dates.keys.length > 1) {
+      const later = new RegExp("\\b(?:" + DOW + "|weekdays?|weekends?)\\b|\\b(?:[MTWRFS](?:\\s*[-/]\\s*[MTWRFS])+|(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:\\s*[-/]\\s*(?:Mo|Tu|We|Th|Fr|Sa|Su))+|TTh|MWF|MTWRF|TR)\\b", "i").exec(rest);
+      if (later) return fail(`To pick days from a range, put "${later[0].trim()}" right after the dates, like 10/12-10/25 Mon-Fri 2300-0700.`);
     }
 
     const times = readTimes(rest);
@@ -369,19 +424,25 @@
         if (st === "work") cut(t.index, t.length);
       }
       cut(times.index, times.length);
+      const after = tokens(rest.slice(times.index));
+      const last = after.length && statusOf(after[after.length - 1].w);
+      if (last && last !== "work") return fail(`"${after[after.length - 1].raw}" after the times contradicts them. Times mean working. To mark the day ${last === "busy" ? "off" : last}, leave out the times.`);
+      if (NEGATION.test(rest.slice(times.index)) && after.some((t) => statusOf(t.w))) return fail("I can't read \"not\" next to a shift. Leave the times out and use off, open or clear.");
+      if (DOUBT_WORDS.test(rest)) return fail("I can't tell if this shift is still on. If it was cancelled, mark the day open or clear instead.");
     }
-    if (/(?:^|\s)\d{1,2}\/\d{1,2}(?:\/\d{2,4})?(?=\s|$|[,.;:])/.test(rest) || new RegExp("\\b" + MONTH + "\\s*\\d{1,2}\\b", "i").test(rest)) {
+    if (/(?:^|[\s-])\d{1,2}\/\d{1,2}(?:st|nd|rd|th)?(?:\/\d{2,4})?(?=\s|$|[,.;:])/i.test(rest) || new RegExp("\\b" + MONTH + "\\s*\\d{1,2}\\b", "i").test(rest)) {
       return fail("Put each date (or date range) at the start of its own line.");
     }
 
     // Paid hours: "8h", "7.5 hrs", "(8.00 hrs)" at the end of the line or before punctuation. Not "24 Hour Fitness".
     let hours = null, rejectedHours = "";
     // A lone "h" counts only in lowercase, so "Unit 4H" stays a site name.
-    const hre = /(^|[^\d.:\w])(\d{1,2}(?:\.\d+)?)(\s*)(?:h(?![a-zA-Z])|[Hh][Rr][Ss]?\b|[Hh]ours?\b)\.?/g;
+    const hre = /(^|[^\d.:\w])(\d{1,2}(?:\.\d+)?)(\s*)(?:h(?![a-zA-Z])|[Hh][Rr][Ss]?\b|[Hh][Oo][Uu][Rr][Ss]?\b)\.?/g;
     for (let m; (m = hre.exec(rest));) {
       const after = rest.slice(m.index + m[0].length);
       if (!/^\s*(?:$|[).,;\]]|(?:work|working|shift|scheduled)\b)/i.test(after)) {
-        if (!m[3]) { rejectedHours = m[0].slice(m[1].length).trim(); warnings.push(`"${rejectedHours}" wasn't used as paid hours. Put the hours at the end of the line.`); }
+        rejectedHours = m[0].slice(m[1].length).trim();
+        if (times) warnings.push(`"${rejectedHours}" wasn't used as paid hours. The hours come from the times. To set them, put the hours at the end of the line.`);
         continue;
       }
       hours = +m[2];
@@ -406,6 +467,7 @@
         return fail("Add work times (2300-0700) or one word: open, off, work or clear.");
       }
       if ((hours != null || rejectedHours) && status !== "work") return fail("Paid hours only go with working days.");
+      if (status === "work" && hours == null && rejectedHours) return fail(`Put the paid hours at the end of the line (like 10/7 work ${rejectedHours.replace(/\s+/g, "")}), or leave them out.`);
     }
 
     let willing = null;
@@ -420,9 +482,6 @@
       .replace(/\s+/g, " ")
       .replace(/^[\s\-–—,;:|•/&+]+|[\s\-–—,;:|•/&+]+$/g, "")
       .slice(0, 100);
-    if (dates.keys.length > 1 && new RegExp("\\b" + DOW + "\\b", "i").test(note)) {
-      warnings.push("Day names later in the line don't pick days. To pick days, put them right after the dates.");
-    }
 
     const rec = { s: status };
     if (status === "work") {
