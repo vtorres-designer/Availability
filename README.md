@@ -11,7 +11,7 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
-A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**; uncheck Overnight and the note goes away.
+A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away. Your own note to supervisors goes on that same line, after it (or alone, in the same small grey text, when Overnight is off).
 
 When a supervisor taps a green or yellow day, they get a short form. Every box is optional: their name, the shift type, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name and the site address. Each box they fill in adds a sentence to the text:
 
@@ -42,7 +42,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number and your note at the top.
+Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number, your note under the shifts, and when you last saved.
 
 The public calendar file (`data.json`) holds only that public part. Your times, hours and notes are kept in a private repository variable named `AVAILABILITY_PRIVATE` (**Settings → Secrets and variables → Actions → Variables**). Only you can see it.
 
@@ -113,7 +113,7 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 - **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, and an optional note (shown under the shifts you'll pick up). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.

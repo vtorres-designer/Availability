@@ -642,18 +642,22 @@
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
     $("#empIdValue").textContent = pub.empId;
-    $("#note").hidden = !pub.note;
-    $("#note").textContent = pub.note;
-    $("#updated").textContent = loadError
-      ? "Couldn't load the latest calendar. Check your connection and refresh."
-      : updated
-        ? `Updated ${new Date(updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-        : "";
+    // A failed load is said at the top, where it's seen. The last-updated time sits at the bottom, under the employee ID.
+    $("#loadErr").hidden = !loadError;
+    $("#updated").hidden = loadError || !updated;
+    $("#updated").textContent = updated && !loadError
+      ? `Updated ${new Date(updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+      : "";
 
     $("#willing").hidden = !pub.willing.length;
     $("#willingValue").textContent = pub.willing.map((k) => SHIFT_LABEL[k]).join(" · ");
-    // How night shifts sit on the calendar only matters when he takes overnights.
-    $("#nightNote").hidden = !pub.willing.includes("overnight");
+    // The line under the shifts: how night shifts sit on the calendar (only when he takes overnights),
+    // then his own note. Under the shifts it starts with ** so it reads as a footnote to them.
+    const lines = [];
+    if (pub.willing.includes("overnight")) lines.push("A night shift is listed under the day it starts. Tue means Tue night into Wed morning.");
+    if (pub.note.trim()) lines.push(pub.note.trim());
+    $("#nightNote").hidden = !lines.length;
+    $("#nightNote").textContent = lines.length ? `${pub.willing.length ? "**" : ""}${lines.join(" ")}` : "";
 
     $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
