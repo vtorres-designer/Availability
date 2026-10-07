@@ -463,30 +463,32 @@ dialog:not([open]) { display: none; }
 .otbar { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
 @media (max-width: 359px) { .otbar { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .hr { min-width: 0; }
-.hr-fill { position: relative; height: 46px; border-radius: 6px; overflow: hidden; }
+.hr-fill { position: relative; height: 46px; border-radius: 6px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
 .hr-part { position: absolute; top: 0; bottom: 0; }
 .hr-part.reg { background: var(--open); }
 .hr-part.ot { background: var(--ot); }
 .hr-text {
   position: absolute; top: 0; right: 0; bottom: 0; left: 0;
   display: grid; align-content: center; justify-items: center; gap: 2px;
-  color: var(--ot-ink); font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .hr-text.on-reg { color: var(--open-ink); }
-.hr-text b { font: 700 17px/1 var(--font-display); }
+.hr-text.on-ot { color: var(--ot-ink); }
+.hr-text b { font: 700 var(--hr-size, 17px)/1 var(--font-display); }
 .hr-text small { font: 700 9px/1 var(--font-body); letter-spacing: 0.06em; }
 .otsum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .otsum span { display: inline-flex; align-items: center; gap: 6px; }
 .otsum .sw { width: 14px; height: 14px; border-radius: 4px; }
 .pot-btns { display: grid; gap: 8px; }
 @media (min-width: 480px) { .pot-btns { grid-template-columns: 1fr 1fr; } }
-.btn.go.off { opacity: 0.45; pointer-events: none; }
+.btn.go.off, .send-opts .btn:disabled { opacity: 0.45; pointer-events: none; cursor: default; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); -webkit-clip-path: inset(50%); clip-path: inset(50%); white-space: nowrap; }
 
 /* The message form: one column on phones; on a laptop the boxes sit beside the message, so nothing needs scrolling. */
 .tx-grid, .tx-col { display: grid; gap: 8px; align-content: start; min-width: 0; }
 @media (min-width: 900px) {
-  #daySheet.split { max-width: 1000px; }
+  #daySheet.split { max-width: 1000px; max-height: 96vh; max-height: 96dvh; }
+  #daySheet.split .sheet-in { gap: 10px; padding-top: 14px; }
   #daySheet.split .send-opts .btn { padding-inline: 12px; white-space: nowrap; }
   .tx-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; }
   #daySheet.split #txMsg { min-height: 150px; }
