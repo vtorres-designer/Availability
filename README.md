@@ -17,7 +17,7 @@ When a supervisor taps a green or yellow day, they get a short form. Every box i
 
 > Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. Let me know. Thanks!
 
-They can edit the message before tapping **Open in Messages**. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site and address for next time.
+They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site and address for next time.
 
 ## Works on any device
 
@@ -25,8 +25,8 @@ Supervisors can open the link in any current browser on an iPhone, Android phone
 
 - **Phone or tablet:** **Open in Messages** opens their texting app with the message filled in.
 - **Mac:** it opens Messages, which sends from their iPhone if the two are linked.
-- **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code. They point their phone's camera at it, and the text opens on their phone, ready to send.
-- **Copy message** and **Copy number** work everywhere.
+- **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code beside the buttons. They point their phone's camera at it, and the text opens on their phone, ready to send.
+- **Copy Message** and **Copy Number** work everywhere.
 
 ## Sharing
 

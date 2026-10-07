@@ -305,10 +305,9 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
 }
 .options { display: grid; gap: 8px; }
-.option-note { font-size: 13px; font-weight: 400; opacity: 0.9; }
-.btn.go { flex-direction: column; gap: 2px; padding-block: 10px; }
-.contact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 15px; }
-.contact b { font-variant-numeric: tabular-nums; user-select: all; -webkit-user-select: all; }
+/* A field label with a small link at the other end (Undo My Edits). */
+.field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.field-head .linkish { padding: 0; font-size: 13px; }
 .error { color: var(--busy); font-weight: 700; }
 .steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; }
 
@@ -429,3 +428,15 @@ dialog:not([open]) { display: none; }
 /* Share this calendar */
 .share-row { margin: 10px 0 0; }
 #shareUrl { font-size: 15px; }
+
+/* Texting: one heading, three matching buttons, and on computers a QR code beside them. */
+.send { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.send-body { display: grid; gap: 12px; }
+.send-opts { display: grid; gap: 8px; align-content: center; }
+.send-opts .btn { width: 100%; gap: 10px; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.send-qr p { max-width: 220px; margin: 0; }
+@media (min-width: 600px) {
+  .send.has-qr:not(.wide-qr) .send-body { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+  .send.has-qr:not(.wide-qr) .send-qr { grid-column: 1; grid-row: 1; }
+}

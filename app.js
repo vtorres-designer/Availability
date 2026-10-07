@@ -823,6 +823,27 @@
       if (!e || e.name !== "AbortError") onShareCopy(); // couldn't open the share menu: copy instead
     }
   }
+  // Line icons from Feather (feathericons.com, MIT license), drawn in the button's own text color.
+  const ICONS = {
+    message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    check: '<polyline points="20 6 9 17 4 12"/>',
+  };
+  function iconLabel(el, icon, text) {
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[icon]}</svg><span></span>`;
+    el.lastChild.textContent = text;
+    return el;
+  }
+  // A copy button says "Copied!" for a moment. If the browser won't copy, a short note says what to do instead.
+  async function copyWithFeedback(btn, icon, label, text, fallback) {
+    const ok = await copyText(text);
+    if (!ok) { toast(fallback, 4500); return false; }
+    iconLabel(btn, "check", "Copied!");
+    clearTimeout(btn.copiedTimer);
+    btn.copiedTimer = setTimeout(() => iconLabel(btn, icon, label), 2500);
+    return true;
+  }
   const smsHref = (body) => `sms:${smsNumber()}${apple() ? "&" : "?"}body=${encodeURIComponent(body)}`;
   const hhmm24 = (t) => t.replace(":", "");
 
@@ -865,12 +886,15 @@
     const typeButtons = shifts.length > 1 ? shifts.map((sk) => h("button", { type: "button", class: "pick", "aria-pressed": "false", "data-type": sk, text: SHIFT_LABEL[sk] })) : [];
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish", text: "Undo My Edits", hidden: true });
-    const send = h("a", { class: `btn go wide${info.kind === "ot" ? " ot" : ""}` }, h("span", { text: "Open in Messages" }),
-      info.kind === "ot" ? h("span", { class: "option-note", text: "Would be overtime for me" }) : null);
-    const copyMsg = h("button", { type: "button", class: "btn ghost sm", text: "Copy Message" });
-    const qrBox = isPhone() ? null : h("div", { class: "qr" },
+    // Send options: three matching buttons. On a computer, a QR code sits beside them.
+    const send = iconLabel(h("a", { class: `btn go${info.kind === "ot" ? " ot" : ""}` }), "message", "Open in Messages");
+    const copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
+    const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
+    const qrBox = isPhone() ? null : h("div", { class: "qr send-qr" },
       h("div", { class: "qr-code", "aria-hidden": "true" }),
-      h("p", { class: "small", text: "On a computer? Point your phone's camera at this code to open the text, ready to send." }));
+      h("p", { class: "label", text: "Scan with your phone's camera to text from it" }));
+    const sendBody = h("div", { class: "send-body" }, h("div", { class: "send-opts" }, send, copyMsg, copyNum), qrBox);
+    const sendBox = h("div", { class: `send${qrBox ? " has-qr" : ""}` }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }), sendBody);
     let qrTimer = 0;
     const drawQr = () => {
       if (!qrBox) return;
@@ -879,9 +903,12 @@
         loadQr().then((lib) => {
           // A very long message can be too big for a QR code. Hide it until the text fits again.
           try {
-            const qr = qrSvg(lib, msg.value), box = qrBox.firstChild;
+            const qr = qrSvg(lib, msg.value), box = qrBox.querySelector(".qr-code");
             box.innerHTML = qr.svg;
-            const room = qrBox.clientWidth - 24; // the box's padding
+            // Beside the buttons the code is at most 240 px. A long message needs a bigger code to scan well,
+            // so then it moves under the buttons, where it can use the sheet's full width.
+            sendBox.classList.toggle("wide-qr", qr.size > 240);
+            const room = qr.size > 240 ? sendBody.clientWidth - 24 : 240; // 24: the card's padding
             box.firstChild.style.width = box.firstChild.style.height = `${room > 0 ? Math.min(qr.size, room) : qr.size}px`;
             qrBox.hidden = false;
           } catch (e) { qrBox.hidden = true; }
@@ -911,16 +938,12 @@
     msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); drawQr(); });
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
     copyMsg.addEventListener("click", async () => {
-      const ok = await copyText(msg.value);
-      copyMsg.textContent = ok ? "Copied" : "Press and hold the message to copy";
-      setTimeout(() => { copyMsg.textContent = "Copy Message"; }, 2500);
+      if (!(await copyWithFeedback(copyMsg, "copy", "Copy Message", msg.value, "Couldn't copy here. The message is selected: use your device's Copy."))) {
+        msg.focus();
+        msg.select();
+      }
     });
-    const copyNum = h("button", { type: "button", class: "btn ghost sm", text: "Copy Number" });
-    copyNum.addEventListener("click", async () => {
-      const ok = await copyText(prettyPhone());
-      copyNum.textContent = ok ? "Copied" : "Press and hold the number";
-      setTimeout(() => { copyNum.textContent = "Copy Number"; }, 2500);
-    });
+    copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
     refresh();
     return [
       h("p", { class: "muted small", text: "Every box is optional. What you fill in is added to the message." }),
@@ -929,12 +952,10 @@
       h("div", { class: "field" }, time.el, timeHint),
       site.el,
       addr.el,
-      h("label", { class: "field" }, h("span", { class: "label", text: "Message (you can edit it)" }), msg),
-      reset,
-      send,
-      qrBox,
-      h("div", { class: "row-btns" }, copyMsg),
-      h("p", { class: "contact" }, h("span", { text: "Or text" }), h("b", { text: prettyPhone() }), copyNum),
+      h("div", { class: "field" },
+        h("div", { class: "field-head" }, h("label", { class: "label", for: "txMsg", text: "Message (you can edit it)" }), reset),
+        msg),
+      sendBox,
     ];
   }
 
@@ -1431,9 +1452,11 @@
     box.replaceChildren();
     for (let i = 0; i < 7; i++) {
       const d = (pub.weekStart + i) % 7;
-      const r = priv.weekly.filter((x) => x.d === d)[0] || null;
+      const on = ruleFor(priv.weekly, d);
+      // An unchecked day shows its saved setting, so checking it again brings back the same times and hours.
+      const r = on || ruleFor(saved ? saved.priv.weekly : [], d);
       const cb = h("input", { type: "checkbox", id: `wk-${d}`, "data-f": "on" });
-      cb.checked = !!r;
+      cb.checked = !!on;
       const sel = h("select", { "data-f": "s" }, h("option", { value: "work", text: "Working" }), h("option", { value: "busy", text: "Busy (Not Working)" }));
       sel.value = r ? r.s : "work";
       const input = (f, attrs, value) => { const el = h("input", Object.assign({ "data-f": f }, attrs)); el.value = value; return el; };
@@ -1443,8 +1466,8 @@
         h("label", { class: "field" }, h("span", { class: "label", text: "Paid hours" }),
           input("hours", { type: "number", min: "0.25", max: "24", step: "any", inputmode: "decimal" }, num(r && r.s === "work" ? r.hours : priv.pickup))));
       const fields = h("div", { class: "wk-fields" }, h("label", { class: "field" }, h("span", { class: "label", text: `Every ${DOW_LONG[d]} I'm` }), sel), work);
-      fields.hidden = !r;
-      work.hidden = !r || r.s !== "work";
+      fields.hidden = !on;
+      work.hidden = !on || on.s !== "work";
       box.append(h("div", { class: "wk-row", "data-d": String(d) }, h("label", { class: "check", for: `wk-${d}` }, cb, h("span", { text: DOW_LONG[d] })), fields));
     }
   }
@@ -1481,16 +1504,20 @@
     if (!saved) return;
     const today = todayKey();
     for (let k = addDays(weekStartOf(today, pub.weekStart), -1); k <= today; k = addDays(k, 1)) {
-      if (priv.days[k]) continue;
       const dow = dateOf(k).getDay();
       const was = ruleFor(saved.priv.weekly, dow), now = ruleFor(priv.weekly, dow);
       if (!was || (was.from && k < was.from)) continue;
-      if (now && (ruleCore(now) === ruleCore(was) || k === today)) continue;
-      const rec = Object.assign({}, was);
-      delete rec.d;
-      delete rec.from;
-      priv.days[k] = rec;
-      autoCopies[k] = rec;
+      const copy = Object.assign({}, was);
+      delete copy.d;
+      delete copy.from;
+      if (now && (ruleCore(now) === ruleCore(was) || k === today)) {
+        // The rule is back to its saved form: an unsaved copy of it (one restored after a reload) isn't needed.
+        if (ruleCore(now) === ruleCore(was) && priv.days[k] && !saved.priv.days[k] && same(priv.days[k], copy)) delete priv.days[k];
+        continue;
+      }
+      if (priv.days[k]) continue;
+      priv.days[k] = copy;
+      autoCopies[k] = copy;
     }
   }
   const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
