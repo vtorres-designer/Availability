@@ -82,9 +82,10 @@
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
+  let leaving = false; // Stop Editing: from then on nothing is written, so a save still running can't put his hours back
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
+    set(k, v) { if (leaving) return; try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
     del(k) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } },
     keys(prefix) { try { return Object.keys(localStorage).filter((k) => k.startsWith(prefix)); } catch { return []; } },
   };
@@ -331,7 +332,10 @@
   // shorter than the shift) is spread evenly. A shift without times counts on the day it's listed.
   const dayNumber = (k) => { const [y, m, d] = k.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const minutesOf = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  function hoursInWeek(weekStartKey, v) {
+  // forSupervisors: count the way the public numbers do. A shift that runs past midnight is counted as if it ended
+  // at 7 AM (the default overnight end), so the hours left before overtime never depend on his real start and end times.
+  // Otherwise a shift on the pay week's last day would give them away: the hours before midnight are midnight minus the start.
+  function hoursInWeek(weekStartKey, v, forSupervisors) {
     const from = dayNumber(weekStartKey) * 1440, to = from + 7 * 1440;
     let total = 0;
     for (let i = -1; i < 7; i++) {
@@ -339,10 +343,15 @@
       const rec = dayRec(k, v);
       if (!rec || rec.s !== "work") continue;
       const paid = Number(rec.hours) || 0;
+      if (paid <= 0) continue;
       if (rec.start && rec.end) {
-        const start = dayNumber(k) * 1440 + minutesOf(rec.start);
+        let start = dayNumber(k) * 1440 + minutesOf(rec.start);
         let len = minutesOf(rec.end) - minutesOf(rec.start);
         if (len <= 0) len += 1440;
+        if (forSupervisors && minutesOf(rec.start) + len > 1440) {
+          len = paid * 60;
+          start = dayNumber(k) * 1440 + 1860 - len; // ends 7 AM the next morning
+        }
         const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
         total += (paid * inside) / len;
       } else if (i >= 0) {
@@ -390,7 +399,8 @@
     }
     return { hours: round2(span.len / 60), ot: round2(ot) };
   }
-  const otState = (r) => (!r || r.ot <= 0 ? "open" : r.ot >= r.hours ? "ot" : "pot");
+  // r: {hours, ot}, or true when an older calendar file only says the shift is overtime.
+  const otState = (r) => (r === true ? "ot" : !r || r.ot <= 0 ? "open" : r.ot >= r.hours ? "ot" : "pot");
   // A day's color: green when one more usual shift has no overtime, yellow when all of it would be overtime,
   // and P-OT (half green, half yellow) when part of it would. With several shifts, the one with the most overtime decides.
   function otKind(k, types, len, weekStart, left) {
@@ -403,7 +413,9 @@
     }
     return kind;
   }
-  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
+  // Hours left before overtime as supervisors' numbers count them (see hoursInWeek). His colors use the same count,
+  // so what he sees is what they see.
+  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v, true);
   const typesOf = (rec, p) => (rec && rec.w ? rec.w : p.willing);
   // Which of the day's shifts would have any overtime.
   const otShifts = (k, v, p, rec) => typesOf(rec, p).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
@@ -445,7 +457,7 @@
   function derivePublicOt(p, v, days) {
     const left = {};
     for (const w of otWeeks(p, days)) {
-      const l = Math.max(0, round2(v.otAfter - hoursInWeek(w, v)));
+      const l = Math.max(0, round2(privLeft(v)(w)));
       if (l < v.pickup) left[w] = l;
     }
     return { shift: v.pickup, left };
@@ -991,8 +1003,8 @@
     return out.join(" ");
   }
 
-  // The message window for one shift. back() returns to the shift choice; status(ot) updates the line at the top
-  // as the overtime changes with the shift time.
+  // The message window for one shift. back() returns to the shift choice; status(ot, timed) updates the line at
+  // the top as the overtime changes with the shift time.
   function textForm(k, info, type, back, status) {
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
@@ -1008,7 +1020,7 @@
     const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
     // How much of the shift would be overtime: counted from the typed time, or from his usual shift until there is one.
     // An older calendar file only says whether the day is overtime (and, on a pay week's last day, for which shifts).
-    const otFor = (t) => shiftOt(k, type, t) || (info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+    const otFor = (t) => shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
     // Send options: three matching buttons. On a computer, a QR code sits beside them.
@@ -1051,14 +1063,15 @@
       const v = values(), t = v.read;
       if (!edited) msg.value = composeMessage(k, v);
       send.href = smsHref(msg.value);
-      send.classList.toggle("ot", v.ot === true || otState(v.ot) !== "open");
-      status(v.ot);
+      send.classList.toggle("ot", otState(v.ot) !== "open");
+      status(v.ot, !!t);
       drawQr();
-      // Until a time is read, overtime is counted for his usual shift. Say which one, so a different shift time gets typed in.
-      const usual = !t && v.ot && v.ot !== true && v.ot.ot > 0 ? `a usual ${spanText(defaultSpan(type, pubOt.shift))} shift` : "";
-      timeHint.textContent = !v.time ? `Either format works.${usual ? ` Until you enter one, overtime is counted for ${usual}.` : ""}`
+      // When only part of the shift would be overtime, the count depends on the time. Until one is read, it's
+      // counted for his usual shift: say which, so a different shift time gets typed in. Otherwise no note.
+      const assumed = !t && otState(v.ot) === "pot" ? `the usual ${spanText(defaultSpan(type, pubOt.shift))} shift` : "";
+      timeHint.textContent = !v.time ? `Either format works.${assumed ? ` Until you enter one, overtime is assumed for ${assumed}.` : ""}`
         : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.`
-        : `Couldn't read that as a time. It will be sent as you typed it.${usual ? ` Overtime is counted for ${usual}.` : ""}`;
+        : `Couldn't read that as a time. It will be sent as you typed it.${assumed ? ` Overtime is assumed for ${assumed}.` : ""}`;
     };
     for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay], [time, null]]) {
       f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
@@ -1111,13 +1124,14 @@
       swatch.className = `sw ${sw}`;
       say(mixedOt(k, info) || headline);
     };
-    const shiftStatus = (ot) => {
-      const st = ot === true ? "ot" : otState(ot);
+    // timed: the count comes from a shift time the supervisor typed. Without one, part-overtime says "some".
+    const shiftStatus = (ot, timed) => {
+      const st = otState(ot);
       swatch.className = `sw ${st}`;
       say(st === "open" ? "I'm available"
         : ot === true ? "I'm available, but it would be overtime"
         : st === "ot" ? `I'm available, but all ${hoursText(ot.hours)} would be overtime`
-        : `I'm available, but ${num(ot.ot)} of the ${hoursText(ot.hours)} would be overtime`);
+        : `I'm available, but ${timed ? num(ot.ot) : "some"} of the ${hoursText(ot.hours)} would be overtime`);
     };
     dayStatus();
     if (info.kind === "unset") {
@@ -1454,6 +1468,9 @@
     const info = ownerInfo(k);
     const ws = weekStartOf(k, pub.weekStart);
     let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
+    // A shift that runs past midnight at a pay-week edge counts as ending at 7 AM for supervisors' numbers.
+    const theirs = hoursInWeek(ws, priv, true);
+    if (theirs !== info.booked) line += ` For supervisors it counts as ${num(theirs)}, since a shift past midnight is counted as ending at 7 AM to keep your times private.`;
     const shift = `One more ${num(priv.pickup)}-hr shift`;
     if (info.kind === "ot") line += ` ${shift} would be all overtime, so supervisors see yellow.`;
     else if (info.kind === "pot") line += ` Part of ${shift.toLowerCase()} would be overtime, so supervisors see P-OT (half green, half yellow).`;
@@ -1647,7 +1664,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. To count them, the public calendar file has how many hours you have left before overtime in weeks within one ${num(priv.pickup)}-hour shift of it (not your times).`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. To count them, the public calendar file has how many hours you have left before overtime in weeks within one ${num(priv.pickup)}-hour shift of it. It never has your times: in that count, a shift that runs past midnight is taken to end at 7 AM, whatever its real times.`;
   }
 
   // ---------- owner: every-week days ----------
@@ -2156,19 +2173,22 @@
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
     $("#signOut").addEventListener("click", () => {
-      for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush]) store.del(k);
+      leaving = true;
+      for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly]) store.del(k);
       location.reload();
     });
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));
     $("#importBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openImport()));
     $("#unlockDiscard").addEventListener("click", () => {
-      for (const k of [...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText]) store.del(k);
+      for (const k of [...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.lastWeekly]) store.del(k);
       $("#unlockDraft").hidden = true;
       toast("Discarded");
     });
     // Two tabs editing at once would overwrite each other's unsaved changes.
     window.addEventListener("storage", (e) => {
       if (owner && e.key === LS.savedSignal) rebase();
+      // Stop Editing in another tab: this one stops too (even mid-load), so it doesn't keep his hours on screen or write new drafts.
+      if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; location.reload(); }
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
