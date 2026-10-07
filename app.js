@@ -1892,12 +1892,6 @@
   // ---------- wiring ----------
   function wire() {
     for (const el of document.querySelectorAll(".repo-name")) el.textContent = REPO.name;
-    $("#empIdCopy").addEventListener("click", async () => {
-      const b = $("#empIdCopy");
-      const ok = await copyText(pub.empId);
-      b.textContent = ok ? "Copied" : "Press and hold to copy";
-      setTimeout(() => { b.textContent = "Copy"; }, 2500);
-    });
     for (const x of document.querySelectorAll(".sheet .x")) {
       x.type = "button";
       x.addEventListener("click", () => x.closest("dialog").close(""));

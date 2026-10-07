@@ -96,7 +96,7 @@ h2 { font-size: 28px; line-height: 1.05; }
   font-size: 15px; color: var(--muted);
 }
 .shifts-top b { color: var(--ink); font-size: 19px; letter-spacing: 0.02em; }
-.empid-value { font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; user-select: all; -webkit-user-select: all; }
+
 .btn.xs { min-height: 30px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 .picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .pick {
@@ -211,8 +211,13 @@ body.owner .day.past.work, body.owner .day.past.busy { background-color: var(--b
 body.owner .day.past.open { background-color: var(--open); color: var(--open-ink); box-shadow: none; }
 body.owner .day.past.ot { background-color: var(--ot); color: var(--ot-ink); box-shadow: none; }
 
-.foot { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; padding-top: 8px; }
-.foot > * { margin: 2px 8px; }
+/* Bottom of the page: credentials and sharing, then bug reports and login, then the employee ID. */
+.foot { display: grid; justify-items: center; gap: 2px; padding-top: 8px; }
+.foot-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; }
+.foot-row > * { margin: 2px 6px; }
+@media (max-width: 359px) { .foot-row > * { margin: 2px 3px; } .foot .linkish { font-size: 13px; } } /* keeps each pair on one line on the smallest phones */
+.empid { margin: 10px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.empid span { user-select: all; -webkit-user-select: all; }
 a.linkish { display: inline-block; }
 .linkish {
   background: none; border: 0; padding: 6px 4px; cursor: pointer;
@@ -426,7 +431,6 @@ dialog:not([open]) { display: none; }
 @media (min-width: 420px) { .wk-work { grid-template-columns: 1fr 1fr 0.8fr; } .wk-work .field:last-child { grid-column: auto; } }
 
 /* Share this calendar */
-.share-row { margin: 10px 0 0; }
 #shareUrl { font-size: 15px; }
 
 /* Texting: one heading, three matching buttons, and on computers a QR code beside them. */
