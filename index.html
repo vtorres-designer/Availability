@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=15">
+<link rel="stylesheet" href="app.css?v=16">
 </head>
 <body>
 <main class="page">
@@ -22,6 +22,7 @@
     <p class="eyebrow">Shift Coverage</p>
     <h1 id="title">Shift Availability</h1>
     <p class="shifts-top" id="willing" hidden><span>Shifts I'll Pick Up</span> <b id="willingValue"></b></p>
+    <p class="night-note" id="nightNote" hidden>A night shift is listed under the day it starts. Tue means Tue night into Wed morning.</p>
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
@@ -44,7 +45,6 @@
       <li><span class="sw none"></span>Not Set Yet</li>
     </ul>
     <div class="willing" id="empId" hidden><span class="lbl">Employee ID:</span><span class="chip empid-value" id="empIdValue"></span><button type="button" class="btn ghost xs" id="empIdCopy">Copy</button></div>
-    <p class="fine">A night shift is listed under the day it starts. Tue means Tue night into Wed morning.</p>
   </section>
 
   <section class="cal" aria-label="Calendar">
@@ -374,7 +374,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="parser.js?v=16"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
