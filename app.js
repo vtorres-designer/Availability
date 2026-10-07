@@ -915,7 +915,7 @@
     q.addData(data, "Byte");
     q.make();
     // At least 3 screen pixels per square so a phone camera can read a long message from a monitor.
-    return { svg: q.createSvgTag({ cellSize: 4, margin: 16, scalable: true, alt }), size: Math.max(200, (q.getModuleCount() + 8) * 3) };
+    return { svg: q.createSvgTag({ cellSize: 4, margin: 16, scalable: true, alt }), size: Math.max(200, (q.getModuleCount() + 8) * 3), cells: q.getModuleCount() + 8 };
   }
 
   // ---------- share the calendar ----------
@@ -1067,31 +1067,36 @@
   }
   const clockText = (mins) => { const t = Math.round(mins) % 1440, hr = Math.floor(t / 60); return { n: `${hr % 12 || 12}${t % 60 ? `:${pad(t % 60)}` : ""}`, ap: hr < 12 ? "AM" : "PM" }; };
   // The shift hour by hour: one block per hour, green (regular) or yellow (overtime), labeled with the hour it starts.
-  // A block where overtime starts partway is split, and a last part-hour is a narrower block.
+  // A block where overtime starts partway is split, and a last part-hour fills only part of its block.
   function otBar(span, stretches) {
     const blocks = [];
     for (let m = 0; m < span.len; m += 60) {
-      const end = Math.min(m + 60, span.len), len = end - m, c = clockText(span.start + m);
+      const end = Math.min(m + 60, span.len), c = clockText(span.start + m);
       const label = () => h("span", { class: "hr-text" }, h("b", { text: c.n }), h("small", { text: c.ap }));
-      const fill = h("div", { class: "hr-fill", style: `width:${(len / 60) * 100}%` });
+      const fill = h("div", { class: "hr-fill" });
       const parts = [];
       for (const s of stretches) {
         const a = Math.max(s.from, m), b = Math.min(s.to, end);
-        if (b > a) parts.push({ left: ((a - m) / len) * 100, right: ((end - b) / len) * 100, ot: s.ot });
+        if (b > a) parts.push({ left: ((a - m) / 60) * 100, right: ((m + 60 - b) / 60) * 100, ot: s.ot });
       }
       for (const p of parts) fill.append(h("span", { class: `hr-part ${p.ot ? "ot" : "reg"}`, style: `left:${p.left}%;right:${p.right}%` }));
+      // The label in the page's ink (over an empty part-hour), then again in each color's own ink, cut to that color.
       fill.append(label());
-      // The label again in the green's own ink, cut to the green part, so it reads on both colors.
       for (const p of parts) {
-        if (p.ot) continue;
         const l = label();
-        l.classList.add("on-reg");
+        l.classList.add(p.ot ? "on-ot" : "on-reg");
         l.style.webkitClipPath = l.style.clipPath = `inset(0 ${p.right}% 0 ${p.left}%)`;
         fill.append(l);
       }
       blocks.push(h("div", { class: "hr" }, fill));
     }
     return h("div", { class: "otbar", "aria-hidden": "true" }, blocks);
+  }
+  // Once the bar is on screen: shrink its hour labels until the widest fits its block, whatever font loaded.
+  function fitBar(bar) {
+    const labels = Array.prototype.map.call(bar.querySelectorAll(".hr-fill"), (f) => [f, f.querySelector(".hr-text b")]);
+    const tooWide = () => labels.some(([f, b]) => Math.max(b.scrollWidth, b.getBoundingClientRect().width) > f.clientWidth - 4);
+    for (let size = 17; size > 10 && tooWide(); size--) bar.style.setProperty("--hr-size", `${size - 1}px`);
   }
   // "8 hours: 1 regular, 7 overtime." and, for screen readers, which hours are which.
   function otSummary(span, stretches, r) {
@@ -1172,7 +1177,9 @@
       }
       shiftStatus(c.r, true);
       const stretches = otStretches(k, c.span, pub.weekStart, pubLeft);
-      out.replaceChildren(otBar(c.span, stretches), otSummary(c.span, stretches, c.r), h("div", { class: "pot-btns" }, yes, again));
+      const bar = otBar(c.span, stretches);
+      out.replaceChildren(bar, otSummary(c.span, stretches, c.r), h("div", { class: "pot-btns" }, yes, again));
+      fitBar(bar);
     };
     show(steps, null);
   }
@@ -1212,13 +1219,16 @@
       h("div", { class: "qr-code", "aria-hidden": "true" }),
       h("p", { class: "label", text: "Scan with your phone's camera to text from it" }));
     const sendBody = h("div", { class: "send-body" }, h("div", { class: "send-opts" }, send, copyMsg, copyNum), qrBox);
-    const sendBox = h("div", { class: `send${qrBox ? " has-qr" : ""}` }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }), sendBody);
+    const sendBox = h("div", { class: "send" }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }), sendBody);
+    if (qrBox) qrBox.hidden = true; // until the code is drawn
     let blocked = false; // a P-OT shift time he doesn't take: nothing to send
     let qrTimer = 0;
+    // The buttons take the whole width whenever there's no code beside them.
+    const showQr = (on) => { qrBox.hidden = !on; sendBox.classList.toggle("has-qr", on); };
     const drawQr = () => {
       if (!qrBox) return;
       clearTimeout(qrTimer);
-      if (blocked) { qrBox.hidden = true; return; }
+      if (blocked) { showQr(false); return; }
       qrTimer = setTimeout(() => {
         loadQr().then((lib) => {
           if (blocked) return;
@@ -1226,15 +1236,19 @@
           try {
             const qr = qrSvg(lib, msg.value), box = qrBox.querySelector(".qr-code");
             box.innerHTML = qr.svg;
-            // Beside the buttons the code is at most 240 px (200 in the side-by-side laptop layout). A long message
-            // needs a bigger code to scan well, so then it moves under the buttons, where it can use the full width.
-            const side = $("#daySheet").classList.contains("split") && window.innerWidth >= 900 ? 200 : 240;
-            sendBox.classList.toggle("wide-qr", qr.size > side);
-            const room = qr.size > side ? sendBody.clientWidth - 24 : side; // 24: the card's padding
+            // Beside the buttons the code is at most 240 px. A long message needs a bigger code to scan well, so then
+            // it moves under the buttons, where it can use the full width. In the side-by-side laptop layout it stays
+            // beside them (at most 200 px, leaving the buttons room for one line), so nothing needs scrolling, unless
+            // its squares would be under 2 px.
+            const split = $("#daySheet").classList.contains("split") && window.innerWidth >= 900;
+            const side = split ? Math.max(120, Math.min(200, sendBody.clientWidth - 246)) : 240; // 246: buttons, gap, card padding
+            const under = split ? side / qr.cells < 2 : qr.size > side;
+            sendBox.classList.toggle("wide-qr", under);
+            const room = under ? sendBody.clientWidth - 24 : side; // 24: the card's padding
             box.firstChild.style.width = box.firstChild.style.height = `${room > 0 ? Math.min(qr.size, room) : qr.size}px`;
-            qrBox.hidden = false;
-          } catch (e) { qrBox.hidden = true; }
-        }).catch(() => { qrBox.hidden = true; });
+            showQr(true);
+          } catch (e) { showQr(false); }
+        }).catch(() => showQr(false));
       }, 250);
     };
     const shiftLabel = h("span", { class: "label" });
