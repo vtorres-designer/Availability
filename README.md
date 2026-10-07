@@ -11,7 +11,7 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
-A night shift is listed under the day it starts. Tue means Tue night into Wed morning.
+A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**; uncheck Overnight and the note goes away.
 
 When a supervisor taps a green or yellow day, they get a short form. Every box is optional: their name, the shift type, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name and the site address. Each box they fill in adds a sentence to the text:
 

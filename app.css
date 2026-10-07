@@ -139,7 +139,7 @@ h2 { font-size: 28px; line-height: 1.05; }
 }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
-.fine { margin: 0; font-size: 13px; color: var(--muted); }
+.night-note { margin: 0; font-size: 14px; color: var(--muted); }
 
 /* Calendar */
 .cal { display: grid; gap: 6px; }

@@ -652,6 +652,8 @@
 
     $("#willing").hidden = !pub.willing.length;
     $("#willingValue").textContent = pub.willing.map((k) => SHIFT_LABEL[k]).join(" · ");
+    // How night shifts sit on the calendar only matters when he takes overnights.
+    $("#nightNote").hidden = !pub.willing.includes("overnight");
 
     $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
