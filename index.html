@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=21">
+<link rel="stylesheet" href="app.css?v=22">
 </head>
 <body>
 <main class="page">
@@ -38,7 +38,6 @@
   <section class="key" aria-label="Color key">
     <ul class="legend">
       <li><span class="sw open"></span>Available</li>
-      <li><span class="sw pot"></span>Available, but Partly Overtime</li>
       <li><span class="sw ot"></span>Available, but Overtime</li>
       <li><span class="sw busy"></span>Not Available</li>
       <li><span class="sw none"></span>Not Set Yet</li>
@@ -153,7 +152,7 @@
 
 <!-- Owner: edit a day -->
 <dialog class="sheet" id="editSheet" aria-labelledby="editTitle">
-  <form method="dialog" class="sheet-in" id="editForm" novalidate>
+  <form method="dialog" class="sheet-in" id="editForm" novalidate autocomplete="off">
     <div class="sheet-head">
       <div>
         <p class="eyebrow">Edit Day</p>
@@ -245,7 +244,7 @@ Thu 10/15 2300-0700</pre>
 
 <!-- Owner: settings -->
 <dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
-  <form method="dialog" class="sheet-in" id="settingsForm" novalidate>
+  <form method="dialog" class="sheet-in" id="settingsForm" novalidate autocomplete="off">
     <div class="sheet-head">
       <div>
         <p class="eyebrow">Settings</p>
@@ -381,7 +380,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="parser.js?v=22"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Color | Meaning |
 |---|---|
 | Green **OPEN** | Available. |
-| Half yellow, half green **P-OT** | Available, but part of one more shift would be overtime. The day is split corner to corner, top left to bottom right. |
+| Half yellow, half green **P-OT** | Available, but part of one more shift would be overtime. The day is split corner to corner, top left to bottom right. The color key on the page lists only the four plain colors; the split speaks for itself. |
 | Yellow **OT** | Available, but all of one more shift would be overtime (that pay week is already at 40 hours). |
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
@@ -20,7 +20,7 @@ When a supervisor taps a green or yellow day, they're first asked **Which shift 
 
 The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
 
-When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it. Until they type one, it's counted for your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM), and the form says which. On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
+When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it ("I'm available, but 2 of the 8 hours would be overtime"). Until they type a time the site can read, the text counts your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM). When the shift they picked would be only partly overtime (a P-OT day, or the partly overtime shift on a yellow last day of the pay week), the top line then says "some of the 8 hours" instead of a number, and the note under Shift Time says "overtime is assumed for the usual 11 PM to 7 AM shift". Otherwise that note just says "Either format works." On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
 
 They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
 
@@ -49,9 +49,9 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your first name, your number, your note under the shifts, and when you last saved.
 
-To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"). A determined person could sometimes work out a little more:
-- **Older copies:** GitHub keeps every older copy of the file. Comparing two copies can show how many hours a newly red day added.
-- **Last day of the pay week:** an odd number like 1 hour can hint that a shift crossed midnight there.
+To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
+
+Your shift times are never in the page or the file, and the numbers can't be used to work them out. A shift on the last day of the pay week is split at midnight between two weeks, and a real split would give away the start time (1.5 hours before midnight means 10:30 PM). So in the public count, every shift that runs past midnight is taken to end at 7 AM, whatever its real times. For an 11 PM to 7 AM shift, that's exact. For others, the overtime count near the end of a pay week can be off by the difference. Your own hour totals in edit mode still use your real times.
 
 A shorter shift than your usual one is always counted right. A longer one typed into a week that isn't listed (one with room for a full usual shift) is counted as no overtime.
 
@@ -137,5 +137,5 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a Test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
 - After you publish a new version of the site, reload any calendar tab you left open on your phone or computer before editing there. An old tab doesn't know about newer settings.
 - A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
-- Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub.
+- Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub. Stop Editing also clears that browser's unsaved changes and its backup copy of your every-week days and times, and closes edit mode in that browser's other tabs.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.
