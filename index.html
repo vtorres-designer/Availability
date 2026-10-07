@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=16">
+<link rel="stylesheet" href="app.css?v=17">
 </head>
 <body>
 <main class="page">
@@ -26,7 +26,6 @@
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
     <p class="note" id="note" hidden></p>
     <p class="updated" id="updated"></p>
-    <p class="share-row"><button type="button" class="btn ghost sm" id="shareBtn">Share This Calendar</button></p>
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
@@ -44,7 +43,6 @@
       <li><span class="sw busy"></span>Not Available</li>
       <li><span class="sw none"></span>Not Set Yet</li>
     </ul>
-    <div class="willing" id="empId" hidden><span class="lbl">Employee ID:</span><span class="chip empid-value" id="empIdValue"></span><button type="button" class="btn ghost xs" id="empIdCopy">Copy</button></div>
   </section>
 
   <section class="cal" aria-label="Calendar">
@@ -53,9 +51,15 @@
   </section>
 
   <footer class="foot">
-    <a class="linkish" id="credLink" href="credentials.pdf" target="_blank" rel="noopener" hidden>See My Credentials</a>
-    <button type="button" class="linkish" id="feedbackLink" hidden>Report Bugs</button>
-    <button type="button" class="linkish" id="ownerLink">Admin Login</button>
+    <div class="foot-row">
+      <a class="linkish" id="credLink" href="credentials.pdf" target="_blank" rel="noopener" hidden>See My Credentials</a>
+      <button type="button" class="linkish" id="shareBtn">Share This Calendar</button>
+    </div>
+    <div class="foot-row">
+      <button type="button" class="linkish" id="feedbackLink" hidden>Report Bugs</button>
+      <button type="button" class="linkish" id="ownerLink">Admin Login</button>
+    </div>
+    <p class="empid" id="empId" hidden>Employee ID <span id="empIdValue"></span></p>
   </footer>
 </main>
 
@@ -266,7 +270,7 @@ Thu 10/15 2300-0700</pre>
     <div class="group">
       <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
         <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
-      <label class="field"><span class="label">Employee ID (shown under the color key)</span>
+      <label class="field"><span class="label">Employee ID (shown at the bottom of the page)</span>
         <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
       <label class="field"><span class="label">Cell number (texts come here)</span>
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
@@ -374,7 +378,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="parser.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

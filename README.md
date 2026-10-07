@@ -30,13 +30,15 @@ Supervisors can open the link in any current browser on an iPhone, Android phone
 
 ## Sharing
 
-Anyone can tap **Share This Calendar** under the title. It shows the link with a **Copy Link** button, the device's own share menu (on phones, tablets and most computers), and a QR code someone can scan with a phone camera.
+Anyone can tap **Share This Calendar** at the bottom of the page, next to **See My Credentials**. It shows the link with a **Copy Link** button, the device's own share menu (on phones, tablets and most computers), and a QR code someone can scan with a phone camera.
 
 ## Links at the bottom of the page
 
 - **See My Credentials** opens your credentials PDF. It shows only after you upload one in Settings.
+- **Share This Calendar** shows the link to copy or share (see Sharing above).
 - **Report Bugs** opens a short form. Supervisors describe the problem or suggest a fix, tap **Submit Feedback**, and it's emailed to you with their device and browser type. It shows only after you add your email in Settings.
 - **Admin Login** is how you get into edit mode.
+- Your **employee ID**, if you set one, is in small grey text under these links.
 
 ## What supervisors never see
 
@@ -111,7 +113,7 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 - **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown under the color key), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom), your cell number, and an optional note. Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
