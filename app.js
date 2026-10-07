@@ -51,7 +51,10 @@
       e.preventDefault();
       if (!handled) d.close(lastButton && form.contains(lastButton) ? lastButton.value || "" : "");
     });
-    backdrop.addEventListener("click", () => { const o = openOnes(); if (o.length) o[o.length - 1].close(""); });
+    backdrop.addEventListener("click", () => {
+      const o = openOnes();
+      if (o.length && Date.now() - (o[o.length - 1].openedAt || 0) >= 350) o[o.length - 1].close("");
+    });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       const o = openOnes();
@@ -352,10 +355,15 @@
   // Would picking up one more usual-length shift on day k go past the overtime line?
   // An overnight shift picked up on the last day of a pay week is paid mostly in the next week, so that week counts too.
   function otFor(k, v, p, type) {
-    const ws = weekStartOf(k, p.weekStart);
-    if (hoursInWeek(ws, v) + v.pickup > v.otAfter) return true;
-    const next = addDays(ws, 7);
-    return type === "overnight" && addDays(k, 1) === next && hoursInWeek(next, v) + v.pickup > v.otAfter;
+    const ws = weekStartOf(k, p.weekStart), next = addDays(ws, 7);
+    const cur = hoursInWeek(ws, v);
+    if (type === "overnight" && addDays(k, 1) === next) {
+      // An overnight picked up on the pay week's last day is split like a scheduled one: the hours before midnight
+      // count this week, the rest next week. It's taken to end at 7 AM (8 hours: 2300-0700 is 1 hour + 7 hours).
+      const before = Math.max(0, v.pickup - 7);
+      return cur + before > v.otAfter || hoursInWeek(next, v) + (v.pickup - before) > v.otAfter;
+    }
+    return cur + v.pickup > v.otAfter;
   }
   // Which of the day's shifts would be overtime (the day turns yellow if any would).
   const otShifts = (k, v, p, rec) => (rec && rec.w ? rec.w : p.willing).filter((t) => otFor(k, v, p, t));
@@ -883,8 +891,8 @@
     else if (f.site) out.push(`It's at ${f.site}.`);
     else if (f.addr) out.push(`The address is ${f.addr}.`);
     if (f.pay) out.push(`The pay is ${payText(f.pay)}.`);
-    if (f.ot) out.push("You'd get overtime pay for this shift.");
     out.push("Let me know. Thanks!");
+    if (f.ot) out.push("You'd get overtime pay for covering this shift.");
     return out.join(" ");
   }
 
@@ -985,40 +993,59 @@
       busy: "I'm not available this day",
       unset: "Not set yet",
     }[info.kind];
-    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line" }, h("span", { class: `sw ${sw}` }), headline));
+    const swatch = h("span", { class: `sw ${sw}` }), statusText = h("span", { text: headline });
+    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line" }, swatch, statusText));
+    // When only some shifts would be overtime, say which. Once a shift is picked, the line matches that shift.
+    const dayStatus = () => {
+      swatch.className = `sw ${sw}`;
+      statusText.textContent = info.kind === "ot" && info.x ? `I'm available. ${info.x.map((t) => SHIFT_LABEL[t]).join(" and ")} would be overtime.` : headline;
+    };
+    const shiftStatus = (ot) => {
+      swatch.className = `sw ${ot ? "ot" : "open"}`;
+      statusText.textContent = ot ? "I'm available, but it would be overtime" : "I'm available";
+    };
+    dayStatus();
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
     } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
-      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area); }
+      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus); }
     }
     $("#dayBody").replaceChildren(wrap);
+    $("#daySheet").openedAt = Date.now();
     $("#daySheet").showModal();
   }
 
   // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
   const SHIFT_ORDER = ["morning", "swing", "overnight"];
-  function shiftChoice(k, info, area) {
+  function shiftChoice(k, info, area, dayStatus, shiftStatus) {
     const accepts = info.w || pub.willing;
     const show = (nodes, focus) => {
       area.replaceChildren(...nodes);
-      $("#daySheet").scrollTop = 0;
+      const sheet = $("#daySheet");
+      sheet.scrollTop = 0;
+      sheet.openedAt = Date.now(); // a fast second tap shouldn't land on what just appeared
       const f = focus && area.querySelector(focus);
       if (f) f.focus();
     };
-    const choose = (focusFirst) => show([
-      h("p", { class: "label", text: "Which shift do you need covered?" }),
-      h("div", { class: "shift-choice" }, SHIFT_ORDER.map((t) =>
-        h("button", { type: "button", class: "btn ghost", "data-type": t, text: SHIFT_LABEL[t], onclick: () => pick(t) }))),
-    ], focusFirst === true ? ".shift-choice button" : null);
+    const choose = (focusFirst) => {
+      dayStatus();
+      show([
+        h("p", { class: "label", id: "shiftQ", text: "Which shift do you need covered?" }),
+        h("div", { class: "shift-choice", role: "group", "aria-labelledby": "shiftQ" }, SHIFT_ORDER.map((t) =>
+          h("button", { type: "button", class: "btn ghost", "data-type": t, text: SHIFT_LABEL[t], onclick: () => pick(t) }))),
+      ], focusFirst === true ? ".shift-choice button" : null);
+    };
     const pick = (t) => {
       if (accepts.indexOf(t) < 0) {
+        // The answer itself takes focus, so a screen reader reads it out.
         show([
-          h("p", { class: "decline", text: `Sorry, I'm not accepting ${SHIFT_LABEL[t]} shifts right now.` }),
+          h("p", { class: "decline", tabindex: "-1", text: `Sorry, I'm not accepting ${SHIFT_LABEL[t]} shifts right now.` }),
           h("button", { type: "button", class: "btn ghost", text: "Pick a Different Shift", onclick: () => choose(true) }),
-        ], "button");
+        ], ".decline");
         return;
       }
+      shiftStatus(info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0));
       show(textForm(k, info, t, () => choose(true)), ".shift-chosen .linkish");
     };
     choose(false);
@@ -1486,7 +1513,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks. A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
   }
 
   // ---------- owner: every-week days ----------
@@ -1938,6 +1965,10 @@
       x.addEventListener("click", () => x.closest("dialog").close(""));
     }
     // close("") clears returnValue, so dismissing a sheet never repeats the last button's action.
+    // A double tap on a day would otherwise land its second tap on a shift button or the backdrop.
+    $("#daySheet").addEventListener("click", (e) => {
+      if (Date.now() - ($("#daySheet").openedAt || 0) < 350) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });
