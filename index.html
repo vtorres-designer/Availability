@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=20">
+<link rel="stylesheet" href="app.css?v=21">
 </head>
 <body>
 <main class="page">
@@ -28,7 +28,7 @@
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
-    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>, and they only see colors: never your times, hours or notes.</p>
+    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>. They see colors and, in weeks within one shift of overtime, how many hours you have left before it. Not your times or notes.</p>
     <p id="ownerHints"></p>
     <div class="row-btns">
       <button type="button" class="btn ghost sm" id="previewBtn">See What Supervisors See</button>
@@ -38,6 +38,7 @@
   <section class="key" aria-label="Color key">
     <ul class="legend">
       <li><span class="sw open"></span>Available</li>
+      <li><span class="sw pot"></span>Available, but Partly Overtime</li>
       <li><span class="sw ot"></span>Available, but Overtime</li>
       <li><span class="sw busy"></span>Not Available</li>
       <li><span class="sw none"></span>Not Set Yet</li>
@@ -221,7 +222,7 @@ Thu 10/15 2300-0700</pre>
       <ul class="rules">
         <li><b>One line per day:</b> day name (optional), date, then the shift. The day name is checked against the date, which catches typos.</li>
         <li><b>Working:</b> start-end in 24-hour time, like <i>2300-0700</i>. A shift that ends after midnight still goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end, like <i>7.5h</i>.</li>
-        <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow if picking up a shift would mean overtime.</li>
+        <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow (or P-OT, half yellow) if picking up a shift would mean overtime.</li>
         <li><b>Don't want to work:</b> <i>busy</i> (red). <i>off</i> alone is flagged because it could mean either.</li>
         <li><b>Notes go in quotes:</b> <i>2300-0700 "Site B"</i>. Anything in quotes is a private note and is never read as a time or a word like open or clear. To quote something inside a note, use single quotes: <i>"Sgt said 'call me'"</i>. Any other word the site doesn't recognize is flagged.</li>
         <li><b>Every-week days</b> from Settings stay red unless a line here says otherwise for that date. <i>clear</i> puts a date back to its every-week setting.</li>
@@ -260,7 +261,7 @@ Thu 10/15 2300-0700</pre>
 
     <div class="group">
       <span class="label">Every Week (red until you turn it off)</span>
-      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so overtime days still turn yellow. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
+      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow or P-OT. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
     </div>
 
@@ -380,7 +381,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="parser.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

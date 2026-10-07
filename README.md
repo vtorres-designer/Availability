@@ -7,17 +7,20 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Color | Meaning |
 |---|---|
 | Green **OPEN** | Available. |
-| Yellow **OT** | Available, but one more shift would push that pay week past 40 hours. |
+| Half yellow, half green **P-OT** | Available, but part of one more shift would be overtime. The day is split corner to corner, top left to bottom right. |
+| Yellow **OT** | Available, but all of one more shift would be overtime (that pay week is already at 40 hours). |
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
 A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away. Your own note to supervisors goes on that same line, after it (or alone, in the same small grey text, when Overnight is off).
 
-When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form. Every box is optional: their name, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name, the site address and the pay rate. Each box they fill in adds a sentence to the text:
+When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form: Your Name, Shift Time (2300-0700 or 11:00PM to 7:00AM), Site Name, Site Address and Pay Rate. Each label ends in "(optional)", and each box they fill in adds a sentence to the text:
 
 > Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. The pay is $22/hr. Let me know. Thanks!
 
-The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing. When that shift would be overtime for you, the text ends with "You'd get overtime pay for covering this shift." On the last day of a pay week, an overnight is split between the two weeks (a 2300-0700 pickup counts 1 hour this week and 7 the next), so one shift that day can be overtime when another isn't. The window and the text then go by the shift the supervisor picked.
+The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
+
+When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it. Until they type one, it's counted for your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM), and the form says which. On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
 
 They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
 
@@ -44,7 +47,13 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-Your shift times, paid hours, notes (like the site name), and whether a red day is work or something personal. They see the days, the colors, the shift names you'll pick up, your first name, your number, your note under the shifts, and when you last saved.
+The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your first name, your number, your note under the shifts, and when you last saved.
+
+To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"). A determined person could sometimes work out a little more:
+- **Older copies:** GitHub keeps every older copy of the file. Comparing two copies can show how many hours a newly red day added.
+- **Last day of the pay week:** an odd number like 1 hour can hint that a shift crossed midnight there.
+
+A shorter shift than your usual one is always counted right. A longer one typed into a week that isn't listed (one with room for a full usual shift) is counted as no overtime.
 
 The public calendar file (`data.json`) holds only that public part. Your times, hours and notes are kept in a private repository variable named `AVAILABILITY_PRIVATE` (**Settings → Secrets and variables → Actions → Variables**). Only you can see it.
 
@@ -84,7 +93,7 @@ Thu 10/15 2300-0700
 
 - **Day name (optional), date, then what the day is.** The day name is checked against the date, so a typo like "Tue 10/7" (10/7 is a Wednesday) gets flagged. Without a year, the nearest year is used, so in January, 12/30 means the December just past.
 - **Working:** the shift in 24-hour time, start-end: `2300-0700`. A shift that ends after midnight goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours: `2300-0730 8h`. 23:00-07:00 and 11pm-7am also work. A time that could be morning or night, like "11-7", gets flagged.
-- **Not scheduled:** `no shift`. The day turns green, or yellow if one more shift would mean overtime.
+- **Not scheduled:** `no shift`. The day turns green, or P-OT or yellow if one more shift would mean overtime.
 - **Don't want to work:** `busy` (red). A bare `off` is flagged, because it could mean either.
 - **Back to gray:** `clear`.
 - **Notes go in quotes:** `2300-0700 "Site B"`. Anything in quotes is a private note and is never read as a time, hours, or a word like open, clear or covered. Straight or curly quotes both work. To quote something inside a note, use single quotes: `"Sgt said 'call me'"`. Notes are optional. Any word outside quotes that the site doesn't recognize is flagged instead of guessed.
@@ -113,13 +122,14 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 ## Settings
 
-- **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
+- **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow and P-OT days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
 - Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, and an optional note (shown under the shifts you'll pick up). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
-- **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide when a green day turns yellow. A day turns yellow when one more usual-length shift would go past 40 in its pay week. On the last day of a pay week, an overnight pickup also counts toward the next week, since most of it is paid there.
+- **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide the colors. A day is green when one more usual-length shift keeps its pay week at 40 or less, P-OT when only part of that shift would go past 40, and yellow when all of it would. On the last day of a pay week, an overnight pickup is split at midnight, with most of it counted in the next week.
+- After you publish a new version of the site with a new public setting (like the hours left before overtime), opening edit mode shows **Save 1 Change**. Tap **Save** once so supervisors' pages get it.
 
 ## Privacy notes
 
