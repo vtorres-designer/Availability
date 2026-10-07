@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=22">
+<link rel="stylesheet" href="app.css?v=23">
 </head>
 <body>
 <main class="page">
@@ -312,6 +312,17 @@ Thu 10/15 2300-0700</pre>
         <input type="number" id="setPickup" min="1" max="24" step="any" inputmode="decimal"></label>
       <p class="muted small" id="otExplain"></p>
     </div>
+    <div class="group">
+      <span class="label">P-OT Shifts (half yellow, half green days)</span>
+      <p class="muted small">On a P-OT day, a supervisor enters the shift's start and end times, sees hour by hour which hours would be overtime, and then texts you. Set the start times and the longest shift you'd take on those days. Leave a box empty for no limit. Supervisors can see these two settings.</p>
+      <div class="two">
+        <label class="field"><span class="label">Start times I'll accept</span>
+          <input type="text" id="setPotStart" maxlength="30" placeholder='"1900-0300"' autocomplete="off"></label>
+        <label class="field"><span class="label">Longest shift (hrs)</span>
+          <input type="number" id="setPotMax" min="1" max="24" step="any" inputmode="decimal"></label>
+      </div>
+      <p class="error small" id="setPotError" hidden></p>
+    </div>
 
     <div class="group">
       <p class="muted small" id="repoLine"></p>
@@ -380,7 +391,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=22"></script>
-<script src="app.js?v=22"></script>
+<script src="parser.js?v=23"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
