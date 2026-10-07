@@ -72,8 +72,8 @@
   const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
-  const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
-  const OWNER_TAG = { open: "Open", ot: "OT", work: "Work", busy: "Busy", unset: "" };
+  const PUBLIC_TAG = { open: "Open", pot: "P-OT", ot: "OT", busy: "Busy", unset: "" };
+  const OWNER_TAG = { open: "Open", pot: "P-OT", ot: "OT", work: "Work", busy: "Busy", unset: "" };
 
   // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
   // live in a repository variable that only the owner's key can read.
@@ -318,9 +318,10 @@
   }
 
   function readPublicFile(raw) {
-    if (raw && raw.v === 2) return { pub: normalizePub(raw, true), days: normalizePublicDays(raw.days), weekly: cleanDows(raw.weekly), updated: raw.updated || null };
+    if (raw && raw.v === 2) return { pub: normalizePub(raw, true), days: normalizePublicDays(raw.days), weekly: cleanDows(raw.weekly), ot: cleanOt(raw.ot), updated: raw.updated || null };
     const m = migrateV1(raw);
-    return { pub: m.pub, days: derivePublic(m.pub, m.priv), weekly: [], updated: (raw && raw.updated) || null, migrated: m };
+    const days = derivePublic(m.pub, m.priv);
+    return { pub: m.pub, days, weekly: [], ot: derivePublicOt(m.pub, m.priv, days), updated: (raw && raw.updated) || null, migrated: m };
   }
 
   const weekStartOf = (k, ws) => addDays(k, -((dateOf(k).getDay() - ws + 7) % 7));
@@ -352,22 +353,60 @@
   }
   const weekHours = (k, v, ws) => hoursInWeek(weekStartOf(k, ws), v);
 
-  // Would picking up one more usual-length shift on day k go past the overtime line?
-  // An overnight shift picked up on the last day of a pay week is paid mostly in the next week, so that week counts too.
-  function otFor(k, v, p, type) {
-    const ws = weekStartOf(k, p.weekStart), next = addDays(ws, 7);
-    const cur = hoursInWeek(ws, v);
-    if (type === "overnight" && addDays(k, 1) === next) {
-      // An overnight picked up on the pay week's last day is split like a scheduled one: the hours before midnight
-      // count this week, the rest next week. It's taken to end at 7 AM (8 hours: 2300-0700 is 1 hour + 7 hours).
-      const before = Math.max(0, v.pickup - 7);
-      return cur + before > v.otAfter || hoursInWeek(next, v) + (v.pickup - before) > v.otAfter;
-    }
-    return cur + v.pickup > v.otAfter;
+  // ---------- overtime in one more shift ----------
+  // A shift is a span of minutes counted from midnight on the day it's listed under (an overnight runs into the next morning).
+  // Without a typed time, one more shift is his usual length: a morning starts at 7 AM, a swing ends at 11 PM,
+  // and an overnight ends at 7 AM the next morning (8 hours: 11 PM to 7 AM).
+  function defaultSpan(type, len) {
+    const mins = Math.round(len * 60);
+    if (type === "morning") return { start: 420, len: mins };
+    if (type === "swing") return { start: Math.max(0, 1380 - mins), len: mins };
+    return { start: 1860 - mins, len: mins };
   }
-  // Which of the day's shifts would be overtime (the day turns yellow if any would).
-  const otShifts = (k, v, p, rec) => (rec && rec.w ? rec.w : p.willing).filter((t) => otFor(k, v, p, t));
-  const wouldBeOT = (k, v, p, rec) => otShifts(k, v, p, rec).length > 0;
+  // A time a supervisor typed ("2300-0700"). An overnight that starts before noon starts the next morning.
+  function typedSpan(type, t) {
+    let start = minutesOf(t.start), len = minutesOf(t.end) - start;
+    if (len <= 0) len += 1440;
+    if (type === "overnight" && start < 720) start += 1440;
+    return { start, len };
+  }
+  const spanText = (sp) => `${fmtTime(clock(sp.start))} to ${fmtTime(clock(sp.start + sp.len))}`;
+  const clock = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  const round2 = (n) => Math.round(n * 100) / 100;
+
+  // How many of a shift's hours would be overtime: {hours, ot}. left(weekStartKey) is how many hours that pay week
+  // has before overtime. Each pay week starts at midnight, so a shift that crosses into the next week is split
+  // between the two (11 PM to 7 AM on the last day: 1 hour this week, 7 the next). null if a week isn't known.
+  function otIn(k, span, weekStart, left) {
+    const ws = weekStartOf(k, weekStart), next = addDays(ws, 7);
+    const cut = (dayNumber(next) - dayNumber(k)) * 1440;
+    const before = Math.max(0, Math.min(span.start + span.len, cut) - span.start);
+    let ot = 0;
+    for (const [w, mins] of [[ws, before], [next, span.len - before]]) {
+      if (mins <= 0) continue;
+      const l = left(w);
+      if (l == null) return null;
+      ot += Math.max(0, mins / 60 - Math.max(0, l));
+    }
+    return { hours: round2(span.len / 60), ot: round2(ot) };
+  }
+  const otState = (r) => (!r || r.ot <= 0 ? "open" : r.ot >= r.hours ? "ot" : "pot");
+  // A day's color: green when one more usual shift has no overtime, yellow when all of it would be overtime,
+  // and P-OT (half green, half yellow) when part of it would. With several shifts, the one with the most overtime decides.
+  function otKind(k, types, len, weekStart, left) {
+    let kind = "open";
+    for (const t of types) {
+      const r = otIn(k, defaultSpan(t, len), weekStart, left);
+      if (!r) return null;
+      if (otState(r) === "ot") return "ot";
+      if (otState(r) === "pot") kind = "pot";
+    }
+    return kind;
+  }
+  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
+  const typesOf = (rec, p) => (rec && rec.w ? rec.w : p.willing);
+  // Which of the day's shifts would have any overtime.
+  const otShifts = (k, v, p, rec) => typesOf(rec, p).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
 
   // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
   // and no difference between working and busy.
@@ -379,12 +418,45 @@
       const rec = v.days[k];
       if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
       if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
-      const types = rec.w || p.willing, ots = otShifts(k, v, p, rec);
+      const types = typesOf(rec, p), ots = otShifts(k, v, p, rec);
       out[k] = rec.w ? { s: ots.length ? "ot" : "open", w: rec.w } : { s: ots.length ? "ot" : "open" };
-      // On the last day of a pay week only an overnight can spill into a full next week: then say which shifts are overtime.
+      // Older copies of this page read "ot" as yellow and x as the shifts that would be overtime.
       if (ots.length && ots.length < types.length) out[k].x = ots;
     }
     return out;
+  }
+
+  // The pay weeks a supervisor's text can touch: the week of each open day, and the next week too when the day
+  // is the last of its week (an overnight then runs into the next week).
+  function otWeeks(p, days) {
+    const out = {};
+    for (const k of Object.keys(days)) {
+      if (days[k].s === "busy") continue;
+      const ws = weekStartOf(k, p.weekStart), next = addDays(ws, 7);
+      out[ws] = true;
+      if (addDays(k, 1) === next) out[next] = true;
+    }
+    return Object.keys(out).sort();
+  }
+  // Hours left before overtime in those weeks, so the page can count the overtime in whatever shift time a
+  // supervisor types. He's fine with supervisors working out his weekly total from it, but it should give away
+  // as little else as it can: only weeks within one usual shift of overtime are listed. A week that's missing
+  // has room for at least one usual shift, so a shift no longer than that has no overtime there.
+  function derivePublicOt(p, v, days) {
+    const left = {};
+    for (const w of otWeeks(p, days)) {
+      const l = Math.max(0, round2(v.otAfter - hoursInWeek(w, v)));
+      if (l < v.pickup) left[w] = l;
+    }
+    return { shift: v.pickup, left };
+  }
+  function cleanOt(raw) {
+    if (!raw || typeof raw !== "object" || !raw.left || typeof raw.left !== "object") return null;
+    const shift = Number(raw.shift);
+    if (!(shift > 0 && shift <= 24)) return null;
+    const left = {};
+    for (const [w, n] of Object.entries(raw.left)) if (isKey(w) && typeof n === "number" && n >= 0) left[w] = n;
+    return { shift, left };
   }
 
   // ---------- state ----------
@@ -402,6 +474,7 @@
   let priv = defaultPriv();
   let pubDays = {}; // what the public page shows
   let pubWeekly = []; // weekdays that are red every week
+  let pubOt = null; // {shift, left}: hours left before overtime in the weeks near it (null in an older calendar file)
   let updated = null;
   let saved = null; // owner: {pub, priv} as last saved
   let pubSha = null;
@@ -610,17 +683,29 @@
     if (!rec) return Object.assign(base, { kind: "unset" });
     if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
     if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
-    return Object.assign(base, { kind: wouldBeOT(k, priv, pub, rec) ? "ot" : "open" });
+    return Object.assign(base, { kind: otKind(k, typesOf(rec, pub), priv.pickup, pub.weekStart, privLeft(priv)) });
   }
 
+  // A week the file doesn't list has room for at least one usual shift, if it's a week the file covers.
+  // Any other week isn't known (a very long typed shift can reach one).
+  const pubLeft = (w) => (!pubOt ? null : w in pubOt.left ? pubOt.left[w] : otWeeks(pub, pubDays).indexOf(w) >= 0 ? Infinity : null);
   function publicInfo(k) {
     const rec = pubDays[k];
-    const kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
+    let kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
+    // The file says how close each week is to overtime, so the page works out green, P-OT or yellow itself.
+    // An older file only says open or ot.
+    if (rec && rec.s !== "busy" && pubOt) kind = otKind(k, rec.w || pub.willing, pubOt.shift, pub.weekStart, pubLeft) || kind;
     return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null, x: rec && rec.x ? rec.x : null };
+  }
+  // Overtime in one more shift of this type on day k: {hours, ot}, from the typed time if there is one,
+  // or else his usual shift. null when the file doesn't have the numbers.
+  function shiftOt(k, type, typed) {
+    if (!pubOt) return null;
+    return otIn(k, typed ? typedSpan(type, typed) : defaultSpan(type, pubOt.shift), pub.weekStart, pubLeft);
   }
 
   function publicStatusText(kind) {
-    return { open: "Available", ot: "Available, but it would be overtime", busy: "Not Available", unset: "Not Set Yet" }[kind];
+    return { open: "Available", pot: "Available, but partly overtime", ot: "Available, but it would be overtime", busy: "Not Available", unset: "Not Set Yet" }[kind];
   }
 
   // ---------- render ----------
@@ -651,7 +736,7 @@
 
   function render() {
     const asOwner = ownerView();
-    if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); }
+    if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); pubOt = derivePublicOt(pub, priv, pubDays); }
     $("#title").textContent = pub.name ? `${possessive(pub.name)} Availability` : "Shift Availability";
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
@@ -703,10 +788,16 @@
         }
         if (k === today) cls.push("today");
         if (pending.has(k)) cls.push("pending");
-        days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null },
+        const text = () => [
           h("span", { class: "mon", text: showMonth ? fmt(k, { month: "short" }) : "" }),
           h("span", { class: "num", text: d.getDate() }),
           h("span", { class: "tag", text: tag }),
+        ];
+        // A P-OT day is split corner to corner, yellow and green. Its text is drawn twice, in each half's own ink,
+        // so it reads on both colors.
+        const split = cls.indexOf("pot") >= 0 ? h("span", { class: "ink2", "aria-hidden": "true" }, text()) : null;
+        days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null },
+          text(), split,
           weekly ? h("span", { class: showMonth ? "rep alt" : "rep", "aria-hidden": "true", text: "↻" }) : null));
       }
       const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
@@ -747,7 +838,7 @@
     } else if (!Object.keys(priv.days).length) {
       hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
     } else {
-      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow shows up on its own when a shift would be overtime.");
+      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow (all overtime) and P-OT (part overtime) show up on their own.");
     }
     if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
     if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
@@ -874,6 +965,7 @@
     return m ? `$${m[1]}/hr` : raw.trim();
   }
 
+  const hoursText = (n) => `${num(n)} hour${n === 1 ? "" : "s"}`;
   function composeMessage(k, f) {
     const first = firstName();
     const out = [first ? `Hi ${first}.` : "Hi."];
@@ -892,30 +984,35 @@
     else if (f.addr) out.push(`The address is ${f.addr}.`);
     if (f.pay) out.push(`The pay is ${payText(f.pay)}.`);
     out.push("Let me know. Thanks!");
-    if (f.ot) out.push("You'd get overtime pay for covering this shift.");
+    // f.ot: {hours, ot} counted from the shift time, or true when the calendar only says the shift is overtime.
+    if (f.ot === true) out.push("You'd get overtime pay for covering this shift.");
+    else if (otState(f.ot) === "ot") out.push(`You'd get overtime pay for all ${hoursText(f.ot.hours)} of this shift.`);
+    else if (otState(f.ot) === "pot") out.push(`You'd get overtime pay for ${num(f.ot.ot)} of the ${hoursText(f.ot.hours)} of this shift.`);
     return out.join(" ");
   }
 
-  // The message window for one shift. back() returns to the shift choice.
-  function textForm(k, info, type, back) {
+  // The message window for one shift. back() returns to the shift choice; status(ot) updates the line at the top
+  // as the overtime changes with the shift time.
+  function textForm(k, info, type, back, status) {
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
       input.value = value || "";
       return { input, el: h("label", { class: "field" }, h("span", { class: "label", text: label }), input) };
     };
-    const who = field("txWho", "Your name", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
-    const time = field("txTime", "Shift time", { maxlength: "40", placeholder: "2300-0700 or 11:00PM to 7:00AM", autocomplete: "off" });
-    const site = field("txSite", "Site name", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
-    const addr = field("txAddr", "Site address", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
-    const pay = field("txPay", "Pay rate", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
+    const who = field("txWho", "Your Name (optional)", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
+    const time = field("txTime", "Shift Time (optional)", { maxlength: "40", placeholder: "2300-0700 or 11:00PM to 7:00AM", autocomplete: "off" });
+    const site = field("txSite", "Site Name (optional)", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
+    const addr = field("txAddr", "Site Address (optional)", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
+    const pay = field("txPay", "Pay Rate (optional)", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
     const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
-    // Overtime depends on the shift: on a pay week's last day only an overnight may spill into a full week.
-    const isOT = info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0);
+    // How much of the shift would be overtime: counted from the typed time, or from his usual shift until there is one.
+    // An older calendar file only says whether the day is overtime (and, on a pay week's last day, for which shifts).
+    const otFor = (t) => shiftOt(k, type, t) || (info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
     // Send options: three matching buttons. On a computer, a QR code sits beside them.
-    const send = iconLabel(h("a", { class: `btn go${isOT ? " ot" : ""}` }), "message", "Open in Messages");
+    const send = iconLabel(h("a", { class: "btn go" }), "message", "Open in Messages");
     const copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
     const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
     const qrBox = isPhone() ? null : h("div", { class: "qr send-qr" },
@@ -944,14 +1041,24 @@
       }, 250);
     };
     let edited = false;
-    const values = () => ({ who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type, ot: isOT });
+    const values = () => {
+      const v = { who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type };
+      v.read = v.time ? window.ScheduleParser.readShift(v.time) : null;
+      v.ot = otFor(v.read);
+      return v;
+    };
     const refresh = () => {
-      const v = values();
+      const v = values(), t = v.read;
       if (!edited) msg.value = composeMessage(k, v);
       send.href = smsHref(msg.value);
+      send.classList.toggle("ot", v.ot === true || otState(v.ot) !== "open");
+      status(v.ot);
       drawQr();
-      const t = v.time ? window.ScheduleParser.readShift(v.time) : null;
-      timeHint.textContent = !v.time ? "Optional. Either format works." : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.` : "Couldn't read that as a time. It will be sent as you typed it.";
+      // Until a time is read, overtime is counted for his usual shift. Say which one, so a different shift time gets typed in.
+      const usual = !t && v.ot && v.ot !== true && v.ot.ot > 0 ? `a usual ${spanText(defaultSpan(type, pubOt.shift))} shift` : "";
+      timeHint.textContent = !v.time ? `Either format works.${usual ? ` Until you enter one, overtime is counted for ${usual}.` : ""}`
+        : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.`
+        : `Couldn't read that as a time. It will be sent as you typed it.${usual ? ` Overtime is counted for ${usual}.` : ""}`;
     };
     for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay], [time, null]]) {
       f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
@@ -969,7 +1076,7 @@
     return [
       h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
         h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: back })),
-      h("p", { class: "muted small", text: "Every box is optional. What you fill in is added to the message." }),
+      h("p", { class: "muted small", text: "What you fill in is added to the message." }),
       who.el,
       h("div", { class: "field" }, time.el, timeHint),
       site.el,
@@ -986,34 +1093,60 @@
     const info = publicInfo(k);
     $("#dayKicker").textContent = fmt(k, { weekday: "long" });
     $("#dayTitle").textContent = fmt(k, { month: "long", day: "numeric" });
-    const sw = { open: "open", ot: "ot", busy: "busy", unset: "none" }[info.kind];
+    const sw = { open: "open", pot: "pot", ot: "ot", busy: "busy", unset: "none" }[info.kind];
     const headline = {
       open: "I'm available",
+      pot: "I'm available, but part of the shift would be overtime",
       ot: "I'm available, but it would be overtime",
       busy: "I'm not available this day",
       unset: "Not set yet",
     }[info.kind];
     const swatch = h("span", { class: `sw ${sw}` }), statusText = h("span", { text: headline });
-    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line" }, swatch, statusText));
-    // When only some shifts would be overtime, say which. Once a shift is picked, the line matches that shift.
+    // The line changes as a supervisor types the shift time, so screen readers hear the new overtime hours.
+    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText));
+    const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; };
+    // When his shifts differ (only an overnight runs into the next pay week), say which would be overtime.
+    // Once a shift is picked, the line matches that shift.
     const dayStatus = () => {
       swatch.className = `sw ${sw}`;
-      statusText.textContent = info.kind === "ot" && info.x ? `I'm available. ${info.x.map((t) => SHIFT_LABEL[t]).join(" and ")} would be overtime.` : headline;
+      say(mixedOt(k, info) || headline);
     };
     const shiftStatus = (ot) => {
-      swatch.className = `sw ${ot ? "ot" : "open"}`;
-      statusText.textContent = ot ? "I'm available, but it would be overtime" : "I'm available";
+      const st = ot === true ? "ot" : otState(ot);
+      swatch.className = `sw ${st}`;
+      say(st === "open" ? "I'm available"
+        : ot === true ? "I'm available, but it would be overtime"
+        : st === "ot" ? `I'm available, but all ${hoursText(ot.hours)} would be overtime`
+        : `I'm available, but ${num(ot.ot)} of the ${hoursText(ot.hours)} would be overtime`);
     };
     dayStatus();
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
-    } else if (info.kind === "open" || info.kind === "ot") {
+    } else if (info.kind === "open" || info.kind === "pot" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
       else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus); }
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").openedAt = Date.now();
     $("#daySheet").showModal();
+  }
+
+  // "I'm available. Morning and Swing would be overtime." when the shifts he takes differ; null when they don't.
+  function mixedOt(k, info) {
+    const types = info.w || pub.willing;
+    const full = [], part = [];
+    for (const t of types) {
+      const r = shiftOt(k, t, null);
+      if (!r) {
+        // An older calendar file only lists the overtime shifts.
+        return info.kind === "ot" && info.x ? `I'm available. ${info.x.map((x) => SHIFT_LABEL[x]).join(" and ")} would be overtime.` : null;
+      }
+      if (otState(r) === "ot") full.push(t);
+      else if (otState(r) === "pot") part.push(t);
+    }
+    if (full.length === types.length || part.length === types.length || !(full.length + part.length)) return null;
+    const names = (list) => list.map((t) => SHIFT_LABEL[t]).join(" and ");
+    return ["I'm available.", full.length ? `${names(full)} would be overtime.` : "", part.length ? `${names(part)} would be partly overtime.` : ""].filter(Boolean).join(" ");
   }
 
   // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
@@ -1045,8 +1178,7 @@
         ], ".decline");
         return;
       }
-      shiftStatus(info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0));
-      show(textForm(k, info, t, () => choose(true)), ".shift-chosen .linkish");
+      show(textForm(k, info, t, () => choose(true), shiftStatus), ".shift-chosen .linkish");
     };
     choose(false);
   }
@@ -1322,7 +1454,9 @@
     const info = ownerInfo(k);
     const ws = weekStartOf(k, pub.weekStart);
     let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
-    if (info.kind === "ot") line += ` One more ${num(priv.pickup)}-hr shift would go past ${num(priv.otAfter)}, so supervisors see yellow.`;
+    const shift = `One more ${num(priv.pickup)}-hr shift`;
+    if (info.kind === "ot") line += ` ${shift} would be all overtime, so supervisors see yellow.`;
+    else if (info.kind === "pot") line += ` Part of ${shift.toLowerCase()} would be overtime, so supervisors see P-OT (half green, half yellow).`;
     else if (info.kind === "open") line += " Supervisors see green.";
     return line;
   }
@@ -1513,7 +1647,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A green day turns yellow when one more ${num(priv.pickup)}-hour shift would push its pay week past ${num(priv.otAfter)} hours.`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. To count them, the public calendar file has how many hours you have left before overtime in weeks within one ${num(priv.pickup)}-hour shift of it (not your times).`;
   }
 
   // ---------- owner: every-week days ----------
@@ -1653,7 +1787,12 @@
     const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
     // The private schedule is the source of truth and the public file is built from it. If they differ
     // (a save stopped after storing the hours), the public file just needs publishing again.
-    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derivePublic(p, v)) || !same(file.weekly, weeklyPublic(v));
+    const derived = derivePublic(p, v), weeks = otWeeks(p, derived);
+    // Hours left before overtime, compared only for the weeks that matter from today on. A schedule rebuilt from
+    // the public file has no hours to compare.
+    const nearOt = (o) => (o ? JSON.stringify([o.shift, weeks.map((w) => (w in o.left ? o.left[w] : null))]) : "");
+    const otBehind = privRes.status === 200 && nearOt(file.ot) !== nearOt(derivePublicOt(p, v, derived));
+    const behind = !!file.migrated || upcoming(file.days) !== upcoming(derived) || !same(file.weekly, weeklyPublic(v)) || otBehind;
     // Older copies of this page don't know every-week days and save without them. The new version always writes the key.
     const weeklyLost = privRes.status === 200 && !/"weekly"\s*:/.test(privRes.value || "");
     return { weeklyLost, pub: p, priv: v, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
@@ -1831,7 +1970,8 @@
     renderOwnerBits();
     const stamp = new Date().toISOString();
     const rev = `${stamp}~${Math.random().toString(36).slice(2, 6)}`;
-    const pubOut = Object.assign({ v: 2 }, snapPub, { days: derivePublic(snapPub, payload.priv), weekly: weeklyPublic(payload.priv), updated: stamp, rev });
+    const pubDaysOut = derivePublic(snapPub, payload.priv);
+    const pubOut = Object.assign({ v: 2 }, snapPub, { days: pubDaysOut, weekly: weeklyPublic(payload.priv), ot: derivePublicOt(snapPub, payload.priv, pubDaysOut), updated: stamp, rev });
     const privText = JSON.stringify(Object.assign(JSON.parse(payload.text), { rev }));
     let stage = "check";
     try {
@@ -2060,6 +2200,7 @@
       pub = file.pub;
       pubDays = file.days;
       pubWeekly = file.weekly;
+      pubOt = file.ot;
       updated = file.updated;
     } catch {
       loadError = true;
