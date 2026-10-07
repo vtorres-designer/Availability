@@ -14,13 +14,31 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 
 A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away. Your own note to supervisors goes on that same line, after it (or alone, in the same small grey text, when Overnight is off).
 
-When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form: Your Name, Shift Time (2300-0700 or 11:00PM to 7:00AM), Site Name, Site Address and Pay Rate. Each label ends in "(optional)", and each box they fill in adds a sentence to the text:
+When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form: Your Name, Shift Time (the grey example inside the box reads "2300-0700" or "11:00PM-7:00AM"), Site Name, Site Address and Pay Rate. Each label ends in "(optional)", and each box they fill in adds a sentence to the text:
 
 > Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. The pay is $22/hr. Let me know. Thanks!
 
 The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
 
-When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it ("I'm available, but 2 of the 8 hours would be overtime"). Until they type a time the site can read, the text counts your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM). When the shift they picked would be only partly overtime (a P-OT day, or the partly overtime shift on a yellow last day of the pay week), the top line then says "some of the 8 hours" instead of a number, and the note under Shift Time says "overtime is assumed for the usual 11 PM to 7 AM shift". Otherwise that note just says "Either format works." On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
+When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it ("I'm available, but 2 of the 8 hours would be overtime"). Until they type a time the site can read, it counts your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM), and if only part of it would be overtime the top line says "some of the 8 hours" instead of a number. On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
+
+### P-OT days
+
+A P-OT day (half yellow, half green) works differently, because there the shift's times decide everything. The window has the same top ("Wednesday, October 7", then "I'm available, but part of the shift would be overtime"), and instead of the shift buttons it says "Let's work out how many hours of the shift you need covered would be overtime." and asks **When does the shift start?** and **When does the shift end?**, each a box for the time ("11", "1130" or "11:30") with **AM** and **PM** buttons. A 24-hour time like 2300 picks PM by itself.
+
+Once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour is a half-width block. The top line gives the number ("5 of the 8 hours would be overtime").
+
+Then they pick **Yes, Let's Do It**, which opens the message form with Shift Time filled in ("11:00PM-7:00AM") and the overtime hours at the end of the text, or **Pick Another Day**, which goes back to the calendar. On the form, **Change Times** goes back to the bar with their times kept. The message says "a shift on the night of…", "on the evening of…" or "on the day of…" depending on the start time (from 7 PM, from 3 PM, from 5 AM).
+
+Your **P-OT Shifts** settings decide what you'll take on those days:
+- **Start times I'll accept**, like `1900-0300`. A range can run past midnight; then a start after midnight (like 1 AM) means the next morning. A start outside the range gets "Sorry, I can only start a shift between 7 PM and 3 AM that day."
+- **Longest shift**, like 10 hours. A longer one gets "Sorry, I can't take a shift longer than 10 hours that day."
+
+Either box can be left empty for no limit. A shift you'd turn down shows no bar and no Yes button, and if a supervisor changes the Shift Time on the form to one you'd turn down, the top line says why and the send buttons turn off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
+
+### On a laptop
+
+On a wide screen (a laptop, or a tablet turned sideways) the message form sits side by side: the boxes on the left, and the message, the send buttons and the QR code on the right, so the message updates in view as they type and nothing needs scrolling.
 
 They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
 
@@ -47,7 +65,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your first name, your number, your note under the shifts, and when you last saved.
+The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your first name, your number, your note under the shifts, and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -128,6 +146,7 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
+- **P-OT Shifts:** the start times and longest shift you'd take on a P-OT day (see P-OT days above).
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide the colors. A day is green when one more usual-length shift keeps its pay week at 40 or less, P-OT when only part of that shift would go past 40, and yellow when all of it would. On the last day of a pay week, an overnight pickup is split at midnight, with most of it counted in the next week.
 - After you publish a new version of the site with a new public setting (like the hours left before overtime), opening edit mode shows **Save 1 Change**. Tap **Save** once so supervisors' pages get it.
 

@@ -77,7 +77,9 @@
 
   // Public settings live in data.json, which anyone can read. Private ones (hours, notes, overtime rules)
   // live in a repository variable that only the owner's key can read.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0, feedback: "" });
+  // potFrom/potTo/potMax: on P-OT days, the start times he takes ("19:00" to "03:00") and the longest shift (hours).
+  // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0 });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
@@ -185,6 +187,8 @@
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
+    if (isTime(r.potFrom) && isTime(r.potTo)) { d.potFrom = r.potFrom; d.potTo = r.potTo; }
+    if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
@@ -379,8 +383,6 @@
     if (type === "overnight" && start < 720) start += 1440;
     return { start, len };
   }
-  const spanText = (sp) => `${fmtTime(clock(sp.start))} to ${fmtTime(clock(sp.start + sp.len))}`;
-  const clock = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
   const round2 = (n) => Math.round(n * 100) / 100;
 
   // How many of a shift's hours would be overtime: {hours, ot}. left(weekStartKey) is how many hours that pay week
@@ -400,7 +402,8 @@
     return { hours: round2(span.len / 60), ot: round2(ot) };
   }
   // r: {hours, ot}, or true when an older calendar file only says the shift is overtime.
-  const otState = (r) => (r === true ? "ot" : !r || r.ot <= 0 ? "open" : r.ot >= r.hours ? "ot" : "pot");
+  // On a P-OT day, {part: true} is overtime of unknown size and {no: [...]} a shift he doesn't take.
+  const otState = (r) => (r === true ? "ot" : r && r.part ? "pot" : !r || r.no || !(r.ot > 0) ? "open" : r.ot >= r.hours ? "ot" : "pot");
   // A day's color: green when one more usual shift has no overtime, yellow when all of it would be overtime,
   // and P-OT (half green, half yellow) when part of it would. With several shifts, the one with the most overtime decides.
   function otKind(k, types, len, weekStart, left) {
@@ -438,15 +441,16 @@
     return out;
   }
 
-  // The pay weeks a supervisor's text can touch: the week of each open day, and the next week too when the day
-  // is the last of its week (an overnight then runs into the next week).
+  // The pay weeks a supervisor's shift can touch: the week of each open day, and the next week too when the day
+  // is one of the last two of its week (an overnight runs into the next morning, and on a P-OT day a start time
+  // after midnight puts the shift on the next day).
   function otWeeks(p, days) {
     const out = {};
     for (const k of Object.keys(days)) {
       if (days[k].s === "busy") continue;
       const ws = weekStartOf(k, p.weekStart), next = addDays(ws, 7);
       out[ws] = true;
-      if (addDays(k, 1) === next) out[next] = true;
+      if (addDays(k, 2) >= next) out[next] = true;
     }
     return Object.keys(out).sort();
   }
@@ -978,6 +982,7 @@
   }
 
   const hoursText = (n) => `${num(n)} hour${n === 1 ? "" : "s"}`;
+  const PART_OF_DAY = { overnight: "night", morning: "day", swing: "evening" };
   function composeMessage(k, f) {
     const first = firstName();
     const out = [first ? `Hi ${first}.` : "Hi."];
@@ -985,7 +990,9 @@
     const label = f.type ? SHIFT_LABEL[f.type].toLowerCase() : "";
     const shift = f.type ? `${/^[aeiou]/.test(label) ? "an" : "a"} ${label} shift` : "a shift";
     const day = fmt(k, { weekday: "long", month: "short", day: "numeric" });
-    const when = { overnight: `on the night of ${day}`, morning: `on the day of ${day}`, swing: `on the evening of ${day}` }[f.type] || `on ${day}`;
+    // A shift from a P-OT day has no type: its start time picks the words (f.part).
+    const part = f.type ? PART_OF_DAY[f.type] : f.part;
+    const when = part ? `on the ${part} of ${day}` : `on ${day}`;
     const t = f.time ? window.ScheduleParser.readShift(f.time) : null;
     const twelve = (x) => { const [hh, mm] = x.split(":").map(Number); return `${hh % 12 || 12}:${pad(mm)} ${hh < 12 ? "AM" : "PM"}`; };
     const from = t ? (t.twelveHour ? `, from ${twelve(t.start)} to ${twelve(t.end)}` : `, from ${hhmm24(t.start)} to ${hhmm24(t.end)}`) : "";
@@ -996,16 +1003,183 @@
     else if (f.addr) out.push(`The address is ${f.addr}.`);
     if (f.pay) out.push(`The pay is ${payText(f.pay)}.`);
     out.push("Let me know. Thanks!");
-    // f.ot: {hours, ot} counted from the shift time, or true when the calendar only says the shift is overtime.
+    // f.ot: {hours, ot} counted from the shift time; true when the calendar only says the shift is overtime;
+    // {part: true} on a P-OT day without a time it can read.
     if (f.ot === true) out.push("You'd get overtime pay for covering this shift.");
+    else if (f.ot && f.ot.part) out.push("You'd get overtime pay for part of this shift.");
     else if (otState(f.ot) === "ot") out.push(`You'd get overtime pay for all ${hoursText(f.ot.hours)} of this shift.`);
     else if (otState(f.ot) === "pot") out.push(`You'd get overtime pay for ${num(f.ot.ot)} of the ${hoursText(f.ot.hours)} of this shift.`);
     return out.join(" ");
   }
 
+  // ---------- P-OT days: which hours of a shift would be overtime ----------
+  // A start or end time as typed: "11", "1130", "11:30". 13-23 and 0 are 24-hour times and set AM or PM themselves.
+  function readClock(raw) {
+    const m = String(raw || "").trim().match(/^(\d{1,2})(?:[:.]?(\d{2}))?$/);
+    if (!m) return null;
+    const hr = Number(m[1]), min = m[2] ? Number(m[2]) : 0;
+    if (hr > 23 || min > 59) return null;
+    return { h: hr, m: min, ap: hr === 0 ? "am" : hr > 12 ? "pm" : null };
+  }
+  // Minutes from midnight, or null until the time and its AM or PM are both known.
+  const clockMins = (c, ap) => (!c ? null : c.ap ? c.h * 60 + c.m : ap ? ((c.h % 12) + (ap === "pm" ? 12 : 0)) * 60 + c.m : null);
+  // Where a start time falls. When his P-OT start times run past midnight (1900-0300), a start after midnight is
+  // the next morning; otherwise it's on the day itself. ok: one of the start times he takes (any, if none are set).
+  function potPlace(mins) {
+    if (!pub.potFrom || !pub.potTo) return { start: mins, ok: true };
+    const a = minutesOf(pub.potFrom), b = minutesOf(pub.potTo);
+    if (a <= b) return { start: mins, ok: mins >= a && mins <= b };
+    if (mins >= a) return { start: mins, ok: true };
+    if (mins <= b) return { start: mins + 1440, ok: true };
+    return { start: mins, ok: false };
+  }
+  // One shift on a P-OT day (it ends the next day when the end isn't after the start), checked against his P-OT
+  // settings: {span, no: why he'd say no, r: {hours, ot}}.
+  function potShift(k, startMins, endMins) {
+    const p = potPlace(startMins);
+    let len = endMins - startMins;
+    if (len <= 0) len += 1440;
+    const span = { start: p.start, len };
+    const no = [];
+    if (!p.ok) no.push(`Sorry, I can only start a shift between ${fmtTime(pub.potFrom)} and ${fmtTime(pub.potTo)} that day.`);
+    if (pub.potMax > 0 && len > pub.potMax * 60 + 0.001) no.push(`Sorry, I can't take a shift longer than ${hoursText(pub.potMax)} that day.`);
+    return { span, no, r: otIn(k, span, pub.weekStart, pubLeft) };
+  }
+  // The message's words for a start time: from 7 PM (or after midnight) "the night of", from 3 PM "the evening of",
+  // from 5 AM "the day of".
+  const partOfDay = (start) => (start >= 1140 ? "night" : start >= 900 ? "evening" : start >= 300 ? "day" : "");
+
+  // The shift's regular and overtime stretches, in minutes from its start. The hours a pay week has left before
+  // overtime are regular, the rest is overtime, and a shift that runs into the next pay week starts that count again.
+  function otStretches(k, span, weekStart, left) {
+    const ws = weekStartOf(k, weekStart), next = addDays(ws, 7);
+    const cut = Math.max(0, Math.min(span.len, (dayNumber(next) - dayNumber(k)) * 1440 - span.start));
+    const out = [];
+    const week = (from, to, w) => {
+      if (to <= from) return;
+      const reg = Math.min(to - from, Math.max(0, left(w)) * 60);
+      if (reg > 0) out.push({ from, to: from + reg, ot: false });
+      if (from + reg < to) out.push({ from: from + reg, to, ot: true });
+    };
+    week(0, cut, ws);
+    week(cut, span.len, next);
+    return out;
+  }
+  const clockText = (mins) => { const t = Math.round(mins) % 1440, hr = Math.floor(t / 60); return { n: `${hr % 12 || 12}${t % 60 ? `:${pad(t % 60)}` : ""}`, ap: hr < 12 ? "AM" : "PM" }; };
+  // The shift hour by hour: one block per hour, green (regular) or yellow (overtime), labeled with the hour it starts.
+  // A block where overtime starts partway is split, and a last part-hour is a narrower block.
+  function otBar(span, stretches) {
+    const blocks = [];
+    for (let m = 0; m < span.len; m += 60) {
+      const end = Math.min(m + 60, span.len), len = end - m, c = clockText(span.start + m);
+      const label = () => h("span", { class: "hr-text" }, h("b", { text: c.n }), h("small", { text: c.ap }));
+      const fill = h("div", { class: "hr-fill", style: `width:${(len / 60) * 100}%` });
+      const parts = [];
+      for (const s of stretches) {
+        const a = Math.max(s.from, m), b = Math.min(s.to, end);
+        if (b > a) parts.push({ left: ((a - m) / len) * 100, right: ((end - b) / len) * 100, ot: s.ot });
+      }
+      for (const p of parts) fill.append(h("span", { class: `hr-part ${p.ot ? "ot" : "reg"}`, style: `left:${p.left}%;right:${p.right}%` }));
+      fill.append(label());
+      // The label again in the green's own ink, cut to the green part, so it reads on both colors.
+      for (const p of parts) {
+        if (p.ot) continue;
+        const l = label();
+        l.classList.add("on-reg");
+        l.style.webkitClipPath = l.style.clipPath = `inset(0 ${p.right}% 0 ${p.left}%)`;
+        fill.append(l);
+      }
+      blocks.push(h("div", { class: "hr" }, fill));
+    }
+    return h("div", { class: "otbar", "aria-hidden": "true" }, blocks);
+  }
+  // "8 hours: 1 regular, 7 overtime." and, for screen readers, which hours are which.
+  function otSummary(span, stretches, r) {
+    const at = (mins) => { const c = clockText(span.start + mins); return `${c.n} ${c.ap}`; };
+    return h("p", { class: "otsum" },
+      h("b", { text: `${hoursText(r.hours)}:` }),
+      h("span", null, h("i", { class: "sw open" }), `${num(round2(r.hours - r.ot))} regular,`),
+      h("span", null, h("i", { class: "sw ot" }), `${num(r.ot)} overtime.`),
+      h("span", { class: "sr", text: stretches.map((s) => `${s.ot ? "Overtime" : "Regular"} from ${at(s.from)} to ${at(s.to)}.`).join(" ") }));
+  }
+
+  // A step in the day window's lower area: back to the top, and a fast second tap can't land on what just appeared.
+  // The message form is laid out side by side on a laptop.
+  const showIn = (area) => (nodes, focus) => {
+    area.replaceChildren(...nodes);
+    const sheet = $("#daySheet");
+    sheet.classList.toggle("split", !!area.querySelector(".tx-grid"));
+    sheet.scrollTop = 0;
+    sheet.openedAt = Date.now();
+    const f = focus && area.querySelector(focus);
+    if (f) f.focus();
+  };
+
+  // A P-OT day: the supervisor enters the shift's start and end, sees hour by hour which hours would be overtime,
+  // then goes on to the message with the shift time filled in, or picks another day.
+  function potWindow(k, info, area, dayStatus, shiftStatus) {
+    const show = showIn(area);
+    const out = h("div", { class: "stack", "aria-live": "polite" });
+    const clockField = (id, question) => {
+      const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "5", autocomplete: "off", placeholder: "e.g. 11:00" });
+      const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
+      const pm = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "PM" });
+      let picked = null;
+      const sync = () => {
+        const c = readClock(input.value), cur = c && c.ap ? c.ap : picked;
+        am.setAttribute("aria-pressed", String(cur === "am"));
+        pm.setAttribute("aria-pressed", String(cur === "pm"));
+      };
+      am.addEventListener("click", () => { picked = "am"; sync(); update(); });
+      pm.addEventListener("click", () => { picked = "pm"; sync(); update(); });
+      input.addEventListener("input", () => { sync(); update(); });
+      return {
+        el: h("div", { class: "field" }, h("label", { class: "label", for: id, text: question }),
+          h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
+        mins: () => clockMins(readClock(input.value), picked),
+      };
+    };
+    const startF = clockField("potStart", "When does the shift start?");
+    const endF = clockField("potEnd", "When does the shift end?");
+    const steps = [
+      h("p", { class: "pot-intro", text: "Let's work out how many hours of the shift you need covered would be overtime." }),
+      startF.el,
+      endF.el,
+      out,
+    ];
+    const back = () => { show(steps, "#potStart"); update(); };
+    const go = () => {
+      const t = (mins) => { const c = clockText(mins); return `${c.n.indexOf(":") < 0 ? `${c.n}:00` : c.n}${c.ap}`; };
+      show(textForm(k, info, null, back, shiftStatus, { time: `${t(startF.mins())}-${t(endF.mins())}` }), ".shift-chosen .linkish");
+    };
+    const update = () => {
+      const s = startF.mins(), e = endF.mins();
+      if (s == null || e == null) { dayStatus(); out.replaceChildren(); return; }
+      const c = potShift(k, s, e);
+      const again = h("button", { type: "button", class: "btn ghost", text: "Pick Another Day", onclick: () => $("#daySheet").close() });
+      if (c.no.length) {
+        dayStatus();
+        out.replaceChildren(...c.no.map((t) => h("p", { class: "decline", text: t })), again);
+        return;
+      }
+      const yes = smsNumber()
+        ? h("button", { type: "button", class: "btn primary", text: "Yes, Let's Do It", onclick: go })
+        : h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." });
+      if (!c.r) {
+        dayStatus();
+        out.replaceChildren(h("p", { class: "muted", text: "Couldn't work out the overtime for those times." }), h("div", { class: "pot-btns" }, yes, again));
+        return;
+      }
+      shiftStatus(c.r, true);
+      const stretches = otStretches(k, c.span, pub.weekStart, pubLeft);
+      out.replaceChildren(otBar(c.span, stretches), otSummary(c.span, stretches, c.r), h("div", { class: "pot-btns" }, yes, again));
+    };
+    show(steps, null);
+  }
+
   // The message window for one shift. back() returns to the shift choice; status(ot, timed) updates the line at
-  // the top as the overtime changes with the shift time.
-  function textForm(k, info, type, back, status) {
+  // the top as the overtime changes with the shift time. pot: {time} when it comes from a P-OT day's estimate.
+  function textForm(k, info, type, back, status, pot) {
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
@@ -1013,14 +1187,21 @@
       return { input, el: h("label", { class: "field" }, h("span", { class: "label", text: label }), input) };
     };
     const who = field("txWho", "Your Name (optional)", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
-    const time = field("txTime", "Shift Time (optional)", { maxlength: "40", placeholder: "2300-0700 or 11:00PM to 7:00AM", autocomplete: "off" });
+    const time = field("txTime", "Shift Time (optional)", { maxlength: "40", placeholder: '"2300-0700" or "11:00PM-7:00AM"', autocomplete: "off" }, pot ? pot.time : "");
     const site = field("txSite", "Site Name (optional)", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
     const addr = field("txAddr", "Site Address (optional)", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
     const pay = field("txPay", "Pay Rate (optional)", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
-    const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
-    // How much of the shift would be overtime: counted from the typed time, or from a usual-length shift at the default times until there is one.
+    // How much of the shift would be overtime, counted from the typed time. Without one: a usual-length shift at the
+    // default times, or on a P-OT day just "part of this shift". On a P-OT day a time he doesn't take is a no.
     // An older calendar file only says whether the day is overtime (and, on a pay week's last day, for which shifts).
-    const otFor = (t) => shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+    const otFor = (t) => {
+      if (pot) {
+        if (!t) return { part: true };
+        const c = potShift(k, minutesOf(t.start), minutesOf(t.end));
+        return c.no.length ? { no: c.no } : c.r || { part: true };
+      }
+      return shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+    };
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
     // Send options: three matching buttons. On a computer, a QR code sits beside them.
@@ -1032,51 +1213,57 @@
       h("p", { class: "label", text: "Scan with your phone's camera to text from it" }));
     const sendBody = h("div", { class: "send-body" }, h("div", { class: "send-opts" }, send, copyMsg, copyNum), qrBox);
     const sendBox = h("div", { class: `send${qrBox ? " has-qr" : ""}` }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }), sendBody);
+    let blocked = false; // a P-OT shift time he doesn't take: nothing to send
     let qrTimer = 0;
     const drawQr = () => {
       if (!qrBox) return;
       clearTimeout(qrTimer);
+      if (blocked) { qrBox.hidden = true; return; }
       qrTimer = setTimeout(() => {
         loadQr().then((lib) => {
+          if (blocked) return;
           // A very long message can be too big for a QR code. Hide it until the text fits again.
           try {
             const qr = qrSvg(lib, msg.value), box = qrBox.querySelector(".qr-code");
             box.innerHTML = qr.svg;
-            // Beside the buttons the code is at most 240 px. A long message needs a bigger code to scan well,
-            // so then it moves under the buttons, where it can use the sheet's full width.
-            sendBox.classList.toggle("wide-qr", qr.size > 240);
-            const room = qr.size > 240 ? sendBody.clientWidth - 24 : 240; // 24: the card's padding
+            // Beside the buttons the code is at most 240 px (200 in the side-by-side laptop layout). A long message
+            // needs a bigger code to scan well, so then it moves under the buttons, where it can use the full width.
+            const side = $("#daySheet").classList.contains("split") && window.innerWidth >= 900 ? 200 : 240;
+            sendBox.classList.toggle("wide-qr", qr.size > side);
+            const room = qr.size > side ? sendBody.clientWidth - 24 : side; // 24: the card's padding
             box.firstChild.style.width = box.firstChild.style.height = `${room > 0 ? Math.min(qr.size, room) : qr.size}px`;
             qrBox.hidden = false;
           } catch (e) { qrBox.hidden = true; }
         }).catch(() => { qrBox.hidden = true; });
       }, 250);
     };
+    const shiftLabel = h("span", { class: "label" });
     let edited = false;
     const values = () => {
       const v = { who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type };
       v.read = v.time ? window.ScheduleParser.readShift(v.time) : null;
       v.ot = otFor(v.read);
+      if (pot) v.part = v.read ? partOfDay(potPlace(minutesOf(v.read.start)).start) : "";
       return v;
     };
     const refresh = () => {
       const v = values(), t = v.read;
+      shiftLabel.textContent = !pot ? `Shift: ${SHIFT_LABEL[type]}` : t ? `Shift: ${fmtTime(t.start)} to ${fmtTime(t.end)}` : `Shift: ${v.time || "Not Set"}`;
+      blocked = !!(v.ot && v.ot.no);
       if (!edited) msg.value = composeMessage(k, v);
-      send.href = smsHref(msg.value);
       send.classList.toggle("ot", otState(v.ot) !== "open");
+      send.classList.toggle("off", blocked);
+      send.setAttribute("aria-disabled", String(blocked));
+      if (blocked) send.removeAttribute("href");
+      else send.href = smsHref(msg.value);
+      copyMsg.disabled = blocked;
       status(v.ot, !!t);
       drawQr();
-      // When only part of the shift would be overtime, the count depends on the time. Until one is read, it's
-      // counted for a usual-length shift at the default times: say which, so a different time gets typed in. Otherwise no note.
-      const assumed = !t && otState(v.ot) === "pot" ? `the usual ${spanText(defaultSpan(type, pubOt.shift))} shift` : "";
-      timeHint.textContent = !v.time ? `Either format works.${assumed ? ` Until you enter one, overtime is assumed for ${assumed}.` : ""}`
-        : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.`
-        : `Couldn't read that as a time. It will be sent as you typed it.${assumed ? ` Overtime is assumed for ${assumed}.` : ""}`;
     };
     for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay], [time, null]]) {
       f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
     }
-    msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); drawQr(); });
+    msg.addEventListener("input", () => { edited = true; reset.hidden = false; if (!blocked) send.href = smsHref(msg.value); drawQr(); });
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
     copyMsg.addEventListener("click", async () => {
       if (!(await copyWithFeedback(copyMsg, "copy", "Copy Message", msg.value, "Couldn't copy here. The message is selected: use your device's Copy."))) {
@@ -1086,26 +1273,29 @@
     });
     copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
     refresh();
-    return [
-      h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
-        h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: back })),
-      h("p", { class: "muted small", text: "What you fill in is added to the message." }),
-      who.el,
-      h("div", { class: "field" }, time.el, timeHint),
-      site.el,
-      addr.el,
-      pay.el,
-      h("div", { class: "field" },
-        h("div", { class: "field-head" }, h("label", { class: "label", for: "txMsg", text: "Message (you can edit it)" }), reset),
-        msg),
-      sendBox,
-    ];
+    // Two columns on a laptop: the boxes on the left, the message and send buttons on the right.
+    return [h("div", { class: "tx-grid" },
+      h("div", { class: "tx-col" },
+        h("div", { class: "field-head shift-chosen" }, shiftLabel,
+          h("button", { type: "button", class: "linkish", text: pot ? "Change Times" : "Change Shift", onclick: back })),
+        h("p", { class: "muted small", text: "What you fill in is added to the message." }),
+        who.el,
+        time.el,
+        site.el,
+        addr.el,
+        pay.el),
+      h("div", { class: "tx-col" },
+        h("div", { class: "field" },
+          h("div", { class: "field-head" }, h("label", { class: "label", for: "txMsg", text: "Message (you can edit it)" }), reset),
+          msg),
+        sendBox))];
   }
 
   function openDay(k) {
     const info = publicInfo(k);
     $("#dayKicker").textContent = fmt(k, { weekday: "long" });
     $("#dayTitle").textContent = fmt(k, { month: "long", day: "numeric" });
+    $("#daySheet").classList.remove("split");
     const sw = { open: "open", pot: "pot", ot: "ot", busy: "busy", unset: "none" }[info.kind];
     const headline = {
       open: "I'm available",
@@ -1119,24 +1309,30 @@
     const wrap = h("div", { class: "stack" }, h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText));
     const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; };
     // When his shifts differ (only an overnight runs into the next pay week), say which would be overtime.
-    // Once a shift is picked, the line matches that shift.
+    // Once a shift is picked, the line matches that shift. A P-OT day is about times, not shift names.
     const dayStatus = () => {
       swatch.className = `sw ${sw}`;
-      say(mixedOt(k, info) || headline);
+      say(info.kind === "pot" ? headline : mixedOt(k, info) || headline);
     };
     // timed: the count comes from a shift time the supervisor typed. Without one, part-overtime says "some".
     const shiftStatus = (ot, timed) => {
+      if (ot && ot.no) { swatch.className = "sw busy"; say(ot.no.join(" ")); return; }
       const st = otState(ot);
       swatch.className = `sw ${st}`;
       say(st === "open" ? "I'm available"
         : ot === true ? "I'm available, but it would be overtime"
+        : ot.part ? "I'm available, but part of the shift would be overtime"
         : st === "ot" ? `I'm available, but all ${hoursText(ot.hours)} would be overtime`
         : `I'm available, but ${timed ? num(ot.ot) : "some"} of the ${hoursText(ot.hours)} would be overtime`);
     };
     dayStatus();
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
-    } else if (info.kind === "open" || info.kind === "pot" || info.kind === "ot") {
+    } else if (info.kind === "pot") {
+      const area = h("div", { class: "stack" });
+      wrap.append(area);
+      potWindow(k, info, area, dayStatus, shiftStatus);
+    } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
       else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus); }
     }
@@ -1167,14 +1363,7 @@
   const SHIFT_ORDER = ["morning", "swing", "overnight"];
   function shiftChoice(k, info, area, dayStatus, shiftStatus) {
     const accepts = info.w || pub.willing;
-    const show = (nodes, focus) => {
-      area.replaceChildren(...nodes);
-      const sheet = $("#daySheet");
-      sheet.scrollTop = 0;
-      sheet.openedAt = Date.now(); // a fast second tap shouldn't land on what just appeared
-      const f = focus && area.querySelector(focus);
-      if (f) f.focus();
-    };
+    const show = showIn(area);
     const choose = (focusFirst) => {
       dayStatus();
       show([
@@ -1744,6 +1933,7 @@
   const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
 
   let fbAtOpen = "";
+  let potAtOpen = { from: "", to: "" };
   function openSettings() {
     $("#setNote").value = pub.note;
     $("#setName").value = pub.name;
@@ -1759,6 +1949,10 @@
     $("#setOt").value = num(priv.otAfter);
     $("#setPickup").value = num(priv.pickup);
     $("#otExplain").textContent = otExplain();
+    $("#setPotStart").value = pub.potFrom ? `${hhmm24(pub.potFrom)}-${hhmm24(pub.potTo)}` : "";
+    $("#setPotMax").value = pub.potMax ? num(pub.potMax) : "";
+    $("#setPotError").hidden = true;
+    potAtOpen = { from: pub.potFrom, to: pub.potTo };
     $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
@@ -1777,6 +1971,20 @@
       $("#setFeedbackError").hidden = !typed || !!id;
       // While the box doesn't hold a whole address, keep the one from when Settings opened, never a half-typed one.
       pub.feedback = !typed ? "" : id || fbAtOpen;
+    }
+    else if (t.id === "setPotStart") {
+      const typed = t.value.trim(), r = typed ? window.ScheduleParser.readShift(typed) : null;
+      $("#setPotError").textContent = "Couldn't read that as a range of start times, like 1900-0300. Until it's fixed, the range you had stays.";
+      $("#setPotError").hidden = !typed || !!r;
+      // Like the email box: a half-typed range never replaces the one from when Settings opened.
+      const use = !typed ? { from: "", to: "" } : r ? { from: r.start, to: r.end } : potAtOpen;
+      pub.potFrom = use.from;
+      pub.potTo = use.to;
+    }
+    else if (t.id === "setPotMax") {
+      const n = Number(t.value);
+      if (!t.value.trim()) pub.potMax = 0;
+      else if (n > 0 && n <= 24) pub.potMax = n;
     }
     else if (t.id === "setWeekEnd") { pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7; renderWeekly(); }
     else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
@@ -2163,6 +2371,7 @@
     });
     $("#settingsSheet").addEventListener("close", () => {
       if (!$("#setFeedbackError").hidden) toast("Your bug-report email didn't change, because the new one wasn't a full email address.", 5000);
+      else if (!$("#setPotError").hidden) toast("Your P-OT start times didn't change, because the new ones couldn't be read.", 5000);
     });
     $("#credRemove").addEventListener("click", removeCred);
     $("#fbTest").addEventListener("click", onFeedbackTest);
