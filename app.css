@@ -436,3 +436,4 @@ dialog:not([open]) { display: none; }
 .shift-choice .btn { width: 100%; }
 .decline { font-weight: 700; font-size: 17px; }
 .shift-chosen .label { color: var(--ink); }
+.decline:focus { outline: none; }

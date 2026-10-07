@@ -17,7 +17,7 @@ When a supervisor taps a green or yellow day, they're first asked **Which shift 
 
 > Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. The pay is $22/hr. Let me know. Thanks!
 
-The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing. When that shift would be overtime for you, the text adds "You'd get overtime pay for this shift." before the sign-off. (On the last day of a pay week, only an overnight is paid mostly in the next week, so it can be overtime when a swing that day isn't; the text says so only for the shift that is.)
+The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing. When that shift would be overtime for you, the text ends with "You'd get overtime pay for covering this shift." On the last day of a pay week, an overnight is split between the two weeks (a 2300-0700 pickup counts 1 hour this week and 7 the next), so one shift that day can be overtime when another isn't. The window and the text then go by the shift the supervisor picked.
 
 They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
 
