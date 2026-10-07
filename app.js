@@ -364,7 +364,7 @@
 
   // ---------- overtime in one more shift ----------
   // A shift is a span of minutes counted from midnight on the day it's listed under (an overnight runs into the next morning).
-  // Without a typed time, one more shift is his usual length: a morning starts at 7 AM, a swing ends at 11 PM,
+  // Without a typed time, one more shift is the usual length at default times: a morning starts at 7 AM, a swing ends at 11 PM,
   // and an overnight ends at 7 AM the next morning (8 hours: 11 PM to 7 AM).
   function defaultSpan(type, len) {
     const mins = Math.round(len * 60);
@@ -710,7 +710,7 @@
     return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null, x: rec && rec.x ? rec.x : null };
   }
   // Overtime in one more shift of this type on day k: {hours, ot}, from the typed time if there is one,
-  // or else his usual shift. null when the file doesn't have the numbers.
+  // or else a usual-length shift at the default times. null when the file doesn't have the numbers.
   function shiftOt(k, type, typed) {
     if (!pubOt) return null;
     return otIn(k, typed ? typedSpan(type, typed) : defaultSpan(type, pubOt.shift), pub.weekStart, pubLeft);
@@ -1018,7 +1018,7 @@
     const addr = field("txAddr", "Site Address (optional)", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
     const pay = field("txPay", "Pay Rate (optional)", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
     const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
-    // How much of the shift would be overtime: counted from the typed time, or from his usual shift until there is one.
+    // How much of the shift would be overtime: counted from the typed time, or from a usual-length shift at the default times until there is one.
     // An older calendar file only says whether the day is overtime (and, on a pay week's last day, for which shifts).
     const otFor = (t) => shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
@@ -1067,7 +1067,7 @@
       status(v.ot, !!t);
       drawQr();
       // When only part of the shift would be overtime, the count depends on the time. Until one is read, it's
-      // counted for his usual shift: say which, so a different shift time gets typed in. Otherwise no note.
+      // counted for a usual-length shift at the default times: say which, so a different time gets typed in. Otherwise no note.
       const assumed = !t && otState(v.ot) === "pot" ? `the usual ${spanText(defaultSpan(type, pubOt.shift))} shift` : "";
       timeHint.textContent = !v.time ? `Either format works.${assumed ? ` Until you enter one, overtime is assumed for ${assumed}.` : ""}`
         : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.`
