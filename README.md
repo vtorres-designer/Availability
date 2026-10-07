@@ -13,11 +13,13 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 
 A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away. Your own note to supervisors goes on that same line, after it (or alone, in the same small grey text, when Overnight is off).
 
-When a supervisor taps a green or yellow day, they get a short form. Every box is optional: their name, the shift type, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name and the site address. Each box they fill in adds a sentence to the text:
+When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form. Every box is optional: their name, the shift time (2300-0700 or 11:00PM to 7:00AM), the site name, the site address and the pay rate. Each box they fill in adds a sentence to the text:
 
-> Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. Let me know. Thanks!
+> Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. The pay is $22/hr. Let me know. Thanks!
 
-They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site and address for next time.
+The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing. When that shift would be overtime for you, the text adds "You'd get overtime pay for this shift." before the sign-off. (On the last day of a pay week, only an overnight is paid mostly in the next week, so it can be overtime when a swing that day isn't; the text says so only for the shift that is.)
+
+They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
 
 ## Works on any device
 

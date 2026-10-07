@@ -66,7 +66,7 @@
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", fbContact: "sa.fbContact", lastWeekly: "sa.weekly" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", ot: "OT", busy: "Busy", unset: "" };
@@ -308,6 +308,8 @@
       if (!isKey(k) || !v || !["open", "ot", "busy"].includes(v.s)) continue;
       const w = v.s !== "busy" ? cleanWilling(v.w) : null;
       out[k] = w ? { s: v.s, w } : { s: v.s };
+      const x = v.s === "ot" ? cleanWilling(v.x) : null;
+      if (x && x.length) out[k].x = x;
     }
     return out;
   }
@@ -349,13 +351,15 @@
 
   // Would picking up one more usual-length shift on day k go past the overtime line?
   // An overnight shift picked up on the last day of a pay week is paid mostly in the next week, so that week counts too.
-  function wouldBeOT(k, v, p, rec) {
+  function otFor(k, v, p, type) {
     const ws = weekStartOf(k, p.weekStart);
     if (hoursInWeek(ws, v) + v.pickup > v.otAfter) return true;
-    const shifts = rec && rec.w ? rec.w : p.willing;
     const next = addDays(ws, 7);
-    return addDays(k, 1) === next && shifts.includes("overnight") && hoursInWeek(next, v) + v.pickup > v.otAfter;
+    return type === "overnight" && addDays(k, 1) === next && hoursInWeek(next, v) + v.pickup > v.otAfter;
   }
+  // Which of the day's shifts would be overtime (the day turns yellow if any would).
+  const otShifts = (k, v, p, rec) => (rec && rec.w ? rec.w : p.willing).filter((t) => otFor(k, v, p, t));
+  const wouldBeOT = (k, v, p, rec) => otShifts(k, v, p, rec).length > 0;
 
   // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
   // and no difference between working and busy.
@@ -367,8 +371,10 @@
       const rec = v.days[k];
       if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
       if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
-      const ot = wouldBeOT(k, v, p, rec);
-      out[k] = rec.w ? { s: ot ? "ot" : "open", w: rec.w } : { s: ot ? "ot" : "open" };
+      const types = rec.w || p.willing, ots = otShifts(k, v, p, rec);
+      out[k] = rec.w ? { s: ots.length ? "ot" : "open", w: rec.w } : { s: ots.length ? "ot" : "open" };
+      // On the last day of a pay week only an overnight can spill into a full next week: then say which shifts are overtime.
+      if (ots.length && ots.length < types.length) out[k].x = ots;
     }
     return out;
   }
@@ -602,7 +608,7 @@
   function publicInfo(k) {
     const rec = pubDays[k];
     const kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
-    return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null };
+    return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null, x: rec && rec.x ? rec.x : null };
   }
 
   function publicStatusText(kind) {
@@ -854,6 +860,12 @@
   const hhmm24 = (t) => t.replace(":", "");
 
   // The text a supervisor sends. Some sentences are always there; the rest appear only when that box is filled.
+  // "22", "$22", "22.50/hr" all read as $22/hr. Anything else (like "$25 flat") is used as typed.
+  function payText(raw) {
+    const m = raw.trim().match(/^\$?\s*(\d{1,4}(?:\.\d{1,2})?)\s*(?:\/?\s*(?:hr|hour|h)\.?|an hour|per hour)?$/i);
+    return m ? `$${m[1]}/hr` : raw.trim();
+  }
+
   function composeMessage(k, f) {
     const first = firstName();
     const out = [first ? `Hi ${first}.` : "Hi."];
@@ -861,7 +873,7 @@
     const label = f.type ? SHIFT_LABEL[f.type].toLowerCase() : "";
     const shift = f.type ? `${/^[aeiou]/.test(label) ? "an" : "a"} ${label} shift` : "a shift";
     const day = fmt(k, { weekday: "long", month: "short", day: "numeric" });
-    const when = f.type === "overnight" ? `on the night of ${day}` : `on ${day}`;
+    const when = { overnight: `on the night of ${day}`, morning: `on the day of ${day}`, swing: `on the evening of ${day}` }[f.type] || `on ${day}`;
     const t = f.time ? window.ScheduleParser.readShift(f.time) : null;
     const twelve = (x) => { const [hh, mm] = x.split(":").map(Number); return `${hh % 12 || 12}:${pad(mm)} ${hh < 12 ? "AM" : "PM"}`; };
     const from = t ? (t.twelveHour ? `, from ${twelve(t.start)} to ${twelve(t.end)}` : `, from ${hhmm24(t.start)} to ${hhmm24(t.end)}`) : "";
@@ -870,12 +882,14 @@
     if (f.site && f.addr) out.push(`It's at ${f.site}, ${f.addr}.`);
     else if (f.site) out.push(`It's at ${f.site}.`);
     else if (f.addr) out.push(`The address is ${f.addr}.`);
+    if (f.pay) out.push(`The pay is ${payText(f.pay)}.`);
+    if (f.ot) out.push("You'd get overtime pay for this shift.");
     out.push("Let me know. Thanks!");
     return out.join(" ");
   }
 
-  function textForm(k, info) {
-    const shifts = info.w || pub.willing;
+  // The message window for one shift. back() returns to the shift choice.
+  function textForm(k, info, type, back) {
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
@@ -886,14 +900,14 @@
     const time = field("txTime", "Shift time", { maxlength: "40", placeholder: "2300-0700 or 11:00PM to 7:00AM", autocomplete: "off" });
     const site = field("txSite", "Site name", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
     const addr = field("txAddr", "Site address", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
+    const pay = field("txPay", "Pay rate", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
     const timeHint = h("span", { class: "muted small", id: "txTimeHint" });
-    // Shift type: preset when he takes only one kind; otherwise the supervisor may pick one.
-    let type = shifts.length === 1 ? shifts[0] : null;
-    const typeButtons = shifts.length > 1 ? shifts.map((sk) => h("button", { type: "button", class: "pick", "aria-pressed": "false", "data-type": sk, text: SHIFT_LABEL[sk] })) : [];
+    // Overtime depends on the shift: on a pay week's last day only an overnight may spill into a full week.
+    const isOT = info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0);
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
-    const reset = h("button", { type: "button", class: "linkish", text: "Undo My Edits", hidden: true });
+    const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
     // Send options: three matching buttons. On a computer, a QR code sits beside them.
-    const send = iconLabel(h("a", { class: `btn go${info.kind === "ot" ? " ot" : ""}` }), "message", "Open in Messages");
+    const send = iconLabel(h("a", { class: `btn go${isOT ? " ot" : ""}` }), "message", "Open in Messages");
     const copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
     const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
     const qrBox = isPhone() ? null : h("div", { class: "qr send-qr" },
@@ -922,7 +936,7 @@
       }, 250);
     };
     let edited = false;
-    const values = () => ({ who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), type });
+    const values = () => ({ who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type, ot: isOT });
     const refresh = () => {
       const v = values();
       if (!edited) msg.value = composeMessage(k, v);
@@ -931,15 +945,8 @@
       const t = v.time ? window.ScheduleParser.readShift(v.time) : null;
       timeHint.textContent = !v.time ? "Optional. Either format works." : t ? `Reads as ${hhmm24(t.start)} to ${hhmm24(t.end)}.` : "Couldn't read that as a time. It will be sent as you typed it.";
     };
-    for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [time, null]]) {
+    for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay], [time, null]]) {
       f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
-    }
-    for (const b of typeButtons) {
-      b.addEventListener("click", () => {
-        type = type === b.dataset.type ? null : b.dataset.type;
-        for (const o of typeButtons) o.setAttribute("aria-pressed", String(o.dataset.type === type));
-        refresh();
-      });
     }
     msg.addEventListener("input", () => { edited = true; reset.hidden = false; send.href = smsHref(msg.value); drawQr(); });
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
@@ -952,12 +959,14 @@
     copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
     refresh();
     return [
+      h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
+        h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: back })),
       h("p", { class: "muted small", text: "Every box is optional. What you fill in is added to the message." }),
       who.el,
-      typeButtons.length ? h("div", { class: "field" }, h("span", { class: "label", text: "Shift" }), h("div", { class: "picks" }, typeButtons)) : null,
       h("div", { class: "field" }, time.el, timeHint),
       site.el,
       addr.el,
+      pay.el,
       h("div", { class: "field" },
         h("div", { class: "field-head" }, h("label", { class: "label", for: "txMsg", text: "Message (you can edit it)" }), reset),
         msg),
@@ -981,10 +990,38 @@
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
     } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
-      else wrap.append(...textForm(k, info).filter(Boolean));
+      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area); }
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").showModal();
+  }
+
+  // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
+  const SHIFT_ORDER = ["morning", "swing", "overnight"];
+  function shiftChoice(k, info, area) {
+    const accepts = info.w || pub.willing;
+    const show = (nodes, focus) => {
+      area.replaceChildren(...nodes);
+      $("#daySheet").scrollTop = 0;
+      const f = focus && area.querySelector(focus);
+      if (f) f.focus();
+    };
+    const choose = (focusFirst) => show([
+      h("p", { class: "label", text: "Which shift do you need covered?" }),
+      h("div", { class: "shift-choice" }, SHIFT_ORDER.map((t) =>
+        h("button", { type: "button", class: "btn ghost", "data-type": t, text: SHIFT_LABEL[t], onclick: () => pick(t) }))),
+    ], focusFirst === true ? ".shift-choice button" : null);
+    const pick = (t) => {
+      if (accepts.indexOf(t) < 0) {
+        show([
+          h("p", { class: "decline", text: `Sorry, I'm not accepting ${SHIFT_LABEL[t]} shifts right now.` }),
+          h("button", { type: "button", class: "btn ghost", text: "Pick a Different Shift", onclick: () => choose(true) }),
+        ], "button");
+        return;
+      }
+      show(textForm(k, info, t, () => choose(true)), ".shift-chosen .linkish");
+    };
+    choose(false);
   }
 
   // ---------- credentials PDF ----------
