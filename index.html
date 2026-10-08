@@ -102,14 +102,14 @@
 </dialog>
 
 <!-- Supervisor: a shift starting soon. Asks for a call before texting. -->
-<dialog class="sheet" id="callSheet" aria-labelledby="callTitle">
+<dialog class="sheet" id="callSheet" aria-labelledby="callTitle" aria-describedby="callText">
   <form method="dialog" class="sheet-in">
     <div class="sheet-head">
       <h2 id="callTitle">Please Call</h2>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <p id="callText"></p>
-    <p class="call-number" id="callNumber" hidden><b id="callNumberValue"></b><span class="muted small">Call from your phone.</span></p>
+    <p class="call-number" id="callNumber" tabindex="-1" hidden><b id="callNumberValue"></b><span class="muted small">Call from your phone.</span></p>
     <div class="pot-btns">
       <a class="btn primary" id="callMe">Call Me</a>
       <button type="button" class="btn primary" id="callShow">Call Me</button>
