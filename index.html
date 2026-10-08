@@ -9,19 +9,52 @@
 <meta property="og:title" content="Shift Availability">
 <meta property="og:description" content="Green days I can cover. Tap one to text me.">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0f264a" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#081428" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=24">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="app.css?v=25">
+<!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion. -->
+<script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
 </head>
 <body>
 <main class="page">
   <header class="top">
-    <p class="eyebrow">Shift Coverage</p>
-    <h1 id="title">Shift Availability</h1>
-    <p class="shifts-top" id="willing" hidden><span>Shifts I'll Pick Up</span> <b id="willingValue"></b></p>
+    <div class="hero">
+      <div class="badge-row">
+        <svg class="shield" id="shield" viewBox="0 0 46 52" aria-hidden="true" hidden>
+          <defs>
+            <clipPath id="shieldClip"><path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z"/></clipPath>
+            <linearGradient id="glintFill" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          </defs>
+          <path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z" fill="#1d4f8f" stroke="#9fc0ea" stroke-width="2"/>
+          <path d="M23 7 38 12.5V24c0 10-6.3 16.8-15 20.6C14.3 40.8 8 34 8 24V12.5z" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+          <text id="shieldText" x="23" y="31" text-anchor="middle"></text>
+          <g clip-path="url(#shieldClip)"><rect class="glint" x="-24" y="-6" width="16" height="64" fill="url(#glintFill)"/></g>
+          <path class="sparkle" d="M40 2l1.3 3.2L44.5 6.5l-3.2 1.3L40 11l-1.3-3.2L35.5 6.5l3.2-1.3z" fill="#fff"/>
+        </svg>
+        <div class="who">
+          <p class="eyebrow">Security Officer</p>
+          <h1 id="title">Shift Availability</h1>
+        </div>
+      </div>
+      <p class="accepting" id="accepting" hidden><span class="live-dot" aria-hidden="true"></span><span id="acceptingText"></span></p>
+      <div class="hchips" id="heroChips" hidden>
+        <button type="button" class="hchip" id="heroCallBtn" aria-expanded="false" aria-controls="heroCall" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6.2C2 4.4 4.7 3 8 3s6 1.4 6 3.2c0 .5-.4.8-.9.8h-1.5c-.4 0-.7-.3-.7-.7V5.6C10.2 5.2 9.2 5 8 5s-2.2.2-2.9.6v.7c0 .4-.3.7-.7.7H2.9c-.5 0-.9-.3-.9-.8z" fill="currentColor"/><path d="M4.6 7.6h6.8l1.4 5.1c.1.4-.2.8-.6.8H3.8c-.4 0-.7-.4-.6-.8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="10.6" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Call Me</button>
+        <button type="button" class="hchip" id="heroLicBtn" aria-expanded="false" aria-controls="heroLic" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.3" cy="7.3" r="1.6" fill="currentColor"/><path d="M2.9 11c.4-1.3 1.3-2 2.4-2s2 .7 2.4 2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 6.5h3.6M9.5 9h2.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span id="heroLicText"></span></button>
+      </div>
+      <div class="hero-box" id="heroCall" hidden>
+        <p class="hb-lead" id="heroCallLead"></p>
+        <p id="heroCallRest"></p>
+        <button type="button" class="hb-btn" id="pickDay">Pick a Day</button>
+      </div>
+      <div class="hero-box" id="heroLic" hidden>
+        <p class="hb-mono" id="heroLicNo"></p>
+        <p id="heroLicDates"></p>
+      </div>
+    </div>
+    <div class="stripe" aria-hidden="true"></div>
     <p class="night-note" id="nightNote" hidden></p>
     <aside class="note-box" id="noteBox" hidden><b class="note-tag">Note</b> <span id="noteText"></span></aside>
     <p class="lede">Tap a green or yellow day to text me about covering it.</p>
@@ -56,7 +89,7 @@
       <button type="button" class="linkish" id="shareBtn">Share This Calendar</button>
     </div>
     <div class="foot-row">
-      <button type="button" class="linkish" id="feedbackLink" hidden>Report Bugs</button>
+      <button type="button" class="linkish" id="feedbackLink" hidden>Send Feedback</button>
       <button type="button" class="linkish" id="ownerLink">Admin Login</button>
     </div>
     <div class="foot-meta">
@@ -91,7 +124,8 @@
 <dialog class="sheet" id="daySheet" aria-labelledby="dayTitle">
   <form method="dialog" class="sheet-in">
     <div class="sheet-head">
-      <div>
+      <button type="button" class="back" id="dayBack" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</button>
+      <div class="sheet-title">
         <p class="eyebrow" id="dayKicker"></p>
         <h2 id="dayTitle"></h2>
       </div>
@@ -139,19 +173,25 @@
   </form>
 </dialog>
 
-<!-- Anyone: report a bug or suggest a fix -->
+<!-- Anyone: feedback, from bugs to ideas -->
 <dialog class="sheet" id="feedbackSheet" aria-labelledby="feedbackTitle">
   <form method="dialog" class="sheet-in" id="feedbackForm" novalidate>
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">Report Bugs</p>
-        <h2 id="feedbackTitle">Something Not Working?</h2>
+        <p class="eyebrow">Send Feedback</p>
+        <h2 id="feedbackTitle">Help Me Improve This Page</h2>
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
     <div class="stack" id="fbFields">
-      <p>Tell me what went wrong, or suggest a fix. It goes straight to my email.</p>
-      <label class="field"><span class="label">What happened, or what should change?</span>
+      <p>Something confusing, missing, or broken? Tell me. I read every message.</p>
+      <fieldset class="fb-kind" id="fbKind">
+        <legend class="label">What's it about? (optional)</legend>
+        <label><input type="radio" name="fbKind" value="broken"><span>Something's broken</span></label>
+        <label><input type="radio" name="fbKind" value="confusing"><span>Something's confusing</span></label>
+        <label><input type="radio" name="fbKind" value="idea"><span>I have an idea</span></label>
+      </fieldset>
+      <label class="field"><span class="label" id="fbMsgLabel">Your message</span>
         <textarea id="fbMsg" rows="5" maxlength="2000"></textarea></label>
       <label class="field"><span class="label">Your name (optional)</span>
         <input type="text" id="fbName" maxlength="60" autocomplete="name"></label>
@@ -160,7 +200,7 @@
       <label class="hp" aria-hidden="true">Leave this empty <input type="text" id="fbHoney" tabindex="-1" autocomplete="off"></label>
       <p class="muted small">Your device and browser type are included, to help fix bugs.</p>
       <p class="error" id="fbError" role="alert" hidden></p>
-      <button type="submit" class="btn primary wide" id="fbSend">Submit Feedback</button>
+      <button type="submit" class="btn primary wide" id="fbSend">Send Feedback</button>
     </div>
     <div class="stack" id="fbDone" hidden>
       <p class="status-line" role="status">Thanks! Your feedback was sent.</p>
@@ -300,6 +340,22 @@ Thu 10/15 2300-0700</pre>
         <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
       <label class="field"><span class="label">Ask supervisors to call when a shift starts within (hrs; 0 = never)</span>
         <input type="number" id="setCallHours" min="0" max="48" step="any" inputmode="decimal"></label>
+      <p class="muted small">The Call Me button at the top of the page quotes this number too.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">License (a button at the top of the page; tapping it shows the number and dates)</span>
+      <label class="field"><span class="label">License name (leave empty to hide it)</span>
+        <input type="text" id="setLicName" maxlength="60" placeholder="e.g. Denver Security Guard License" autocomplete="off"></label>
+      <label class="field"><span class="label">License number</span>
+        <input type="text" id="setLicNo" maxlength="40" autocomplete="off" spellcheck="false"></label>
+      <div class="two">
+        <label class="field"><span class="label">Issued</span>
+          <input type="date" id="setLicIssued"></label>
+        <label class="field"><span class="label">Expires</span>
+          <input type="date" id="setLicExpires"></label>
+      </div>
+      <p class="muted small">The button says Active until the end of the expiration date, then Expired. When you renew, enter the new dates here and tap Save.</p>
     </div>
 
     <div class="group">
@@ -313,10 +369,10 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Email for bug reports</span>
+      <label class="field"><span class="label">Email for feedback</span>
         <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
       <p class="error" id="setFeedbackError" hidden></p>
-      <p class="muted small">FormSubmit, a free service, forwards reports here. Tap <b>Send a Test</b> first: FormSubmit emails you an <b>Activate Form</b> link, and reports only arrive after you tap it. What you save here is public, and stays in your calendar's history on GitHub even if you change it later. To keep your email private, paste the random code from FormSubmit's activation email here instead, before you tap Save.</p>
+      <p class="muted small">FormSubmit, a free service, forwards feedback here. Tap <b>Send a Test</b> first: FormSubmit emails you an <b>Activate Form</b> link, and messages only arrive after you tap it. What you save here is public, and stays in your calendar's history on GitHub even if you change it later. To keep your email private, paste the random code from FormSubmit's activation email here instead, before you tap Save.</p>
       <div class="row-btns"><button type="button" class="btn ghost sm" id="fbTest">Send a Test</button></div>
       <p class="small" id="fbTestResult" hidden></p>
     </div>
@@ -415,7 +471,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=24"></script>
-<script src="app.js?v=24"></script>
+<script src="parser.js?v=25"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>

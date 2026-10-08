@@ -1,6 +1,7 @@
-/* Layout: one narrow column built for a phone held in one hand; the calendar is a stack of week rows,
-   each a 7-tile strip whose fill color is the answer. Semantic green/yellow/red carry the meaning;
-   patrol navy is the only accent and is used for controls. */
+/* Layout: one narrow column built for a phone held in one hand. A navy header (a faint display grid, his badge,
+   a live status light) sits on top; the calendar is a card of week rows, each a 7-tile strip whose fill color is
+   the answer. Semantic green/yellow/red carry the meaning; patrol navy is the accent. Times and labels read like
+   a device's readout. */
 :root {
   --bg: #f3f5f8;
   --surface: #ffffff;
@@ -20,10 +21,24 @@
   --none-ink: #6d7689;
   --hatch: rgba(255, 255, 255, 0.22);
   --note-bg: #e7edfa;
+  --note-line: #c7dbf5;
+  --card-shadow: 0 2px 10px rgba(16, 40, 77, 0.08);
+
+  /* The header keeps its navy in both themes. */
+  --hero-a: #0f264a;
+  --hero-b: #081831;
+  --hero-grid: rgba(120, 180, 255, 0.07);
+  --hero-glow: rgba(58, 142, 230, 0.25);
+  --hero-ink: #ffffff;
+  --hero-soft: #b9c8de;
+  --hero-label: #9fc0ea;
+  --led: #3dffb0;
+  --today: #3a8ee6;
 
   --shadow: 0 10px 30px rgba(15, 25, 50, 0.18);
-  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
-  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -33,6 +48,7 @@
     --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
     --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
     --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
+    --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
     color-scheme: dark;
   }
 }
@@ -42,6 +58,7 @@
   --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
   --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
   --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
+  --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
   color-scheme: dark;
 }
 
@@ -52,7 +69,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font: 16px/1.45 var(--font-body);
-  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
 }
 body.owner { padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
@@ -64,13 +81,63 @@ a { color: var(--accent); }
   max-width: 560px;
   margin: 0 auto;
   padding-inline: 16px;
-  padding-block: 20px 28px;
+  padding-block: calc(20px + env(safe-area-inset-top, 0px)) 28px;
   display: grid;
   gap: 18px;
 }
 
-/* Header */
-.top { display: grid; gap: 4px; }
+/* Header: the navy band with his badge, name, status light and buttons; then the night-shift line, his note and
+   the how-to line. On a phone the band runs edge to edge (and under the status bar); wider, it's a card. */
+.top { display: grid; gap: 12px; }
+.hero {
+  display: grid; gap: 10px; padding: 18px; border-radius: 16px 16px 0 0;
+  color: var(--hero-ink);
+  background:
+    linear-gradient(var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    linear-gradient(90deg, var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    radial-gradient(120% 90% at 100% 0%, var(--hero-glow), transparent 60%),
+    linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
+}
+.stripe { height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0); }
+@media (max-width: 592px) {
+  .page { padding-top: 0; }
+  .hero, .stripe { margin-inline: -16px; border-radius: 0; }
+  .hero { padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 18px; }
+}
+.badge-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.who { min-width: 0; display: grid; gap: 2px; }
+.shield { width: 46px; height: 52px; flex: none; overflow: visible; }
+#shieldText { font: 700 16px var(--font-display); letter-spacing: 1px; fill: #fff; }
+.shield .sparkle { opacity: 0; transform-origin: 40px 6.5px; transform-box: view-box; }
+.hero .eyebrow { color: var(--hero-label); }
+.hero h1 { color: var(--hero-ink); font-size: 30px; line-height: 1.02; overflow-wrap: anywhere; }
+/* The status line: always lit while he takes any shift. */
+.accepting { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led); box-shadow: 0 0 6px var(--led), 0 0 12px rgba(61, 255, 176, 0.55); }
+.accepting.none { color: var(--hero-soft); }
+.accepting.none .live-dot { background: #6d7f99; box-shadow: none; animation: none; }
+.hchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hchip {
+  appearance: none; display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
+  padding: 7px 11px; border-radius: 999px; cursor: pointer; text-align: left;
+  font: 600 13px/1.15 var(--font-body); color: #e4ecf7;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.hchip svg { width: 15px; height: 15px; flex: none; }
+.hchip:hover, .hchip[aria-expanded="true"] { background: rgba(255, 255, 255, 0.15); }
+.hchip:focus-visible, .hb-btn:focus-visible { outline: 2px solid var(--hero-label); outline-offset: 2px; }
+.hchip.expired { border-color: rgba(255, 140, 140, 0.55); }
+.hero-box {
+  display: grid; gap: 4px; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.4; color: #cfdcef;
+  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hero-box p { margin: 0; }
+.hb-lead { color: #fff; font-weight: 700; font-size: 15px; }
+.hb-mono { color: #fff; font: 600 13px/1.3 var(--font-mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
+.hb-btn {
+  appearance: none; justify-self: start; margin-top: 4px; min-height: 38px; padding: 8px 14px; border: 0; border-radius: 9px;
+  background: #fff; color: #10203a; font: 700 14px/1 var(--font-body); cursor: pointer;
+}
 .eyebrow {
   margin: 0;
   font: 700 12px/1.2 var(--font-body);
@@ -79,15 +146,9 @@ a { color: var(--accent); }
   color: var(--muted);
 }
 h1, h2 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
-h1 { font-size: 38px; line-height: 1; letter-spacing: 0.01em; }
+h1 { font-size: 30px; line-height: 1; letter-spacing: 0.01em; }
 h2 { font-size: 28px; line-height: 1.05; }
-.lede { margin: 6px 0 0; font-size: 17px; }
-/* The shifts he'll pick up: right under the name, the first thing a supervisor reads. */
-.shifts-top {
-  margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
-  font-size: 15px; color: var(--muted);
-}
-.shifts-top b { color: var(--ink); font-size: 19px; letter-spacing: 0.02em; }
+.lede { margin: 0; font-size: 17px; }
 
 .btn.xs { min-height: 30px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 #txMsg { font: 16px/1.45 var(--font-body); min-height: 120px; }
@@ -129,22 +190,23 @@ h2 { font-size: 28px; line-height: 1.05; }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .night-note { margin: 0; font-size: 14px; color: var(--muted); }
-/* His note: a tinted box under the shifts, and again in each day's window. */
+/* His note: a tinted box under the header, and again in each day's window. */
 .note-box {
-  margin: 8px 0 0; padding: 10px 12px; border-radius: 10px;
-  background: var(--note-bg); border-left: 4px solid var(--accent);
+  margin: 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--note-bg); border: 1px solid var(--note-line);
   font-size: 15px; line-height: 1.4; overflow-wrap: anywhere;
 }
 .note-tag { font: 700 12px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-right: 4px; }
 .sheet .note-box { margin: 0; }
 
-/* Calendar */
-.cal { display: grid; gap: 6px; }
+/* Calendar: a card. */
+.cal { display: grid; gap: 6px; padding: 12px; border-radius: 14px; background: var(--surface); box-shadow: var(--card-shadow); }
+@media (max-width: 400px) { .cal { padding: 10px 8px; } }
 .dow, .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .dow span {
   text-align: center;
-  font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.08em;
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
   padding-bottom: 2px;
@@ -156,7 +218,8 @@ h2 { font-size: 28px; line-height: 1.05; }
   font-size: 13px; color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.week-head b { font-family: var(--font-display); font-size: 16px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
+.week-head b { font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
+.week-head .hrs { font: 400 12px/1.2 var(--font-mono); }
 .week-head .hrs.over { color: var(--ink); font-weight: 700; }
 .loading { color: var(--muted); }
 
@@ -197,10 +260,21 @@ h2 { font-size: 28px; line-height: 1.05; }
 .day.unset { background: var(--none); color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); }
 .day.past { background: transparent; color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
 .day.past:active { transform: none; }
+/* Today: a thin glowing outline. */
 .day.today::after {
-  content: ""; position: absolute; top: -4px; right: -4px; bottom: -4px; left: -4px;
-  border: 2px solid var(--ink); border-radius: 13px; pointer-events: none;
+  content: ""; position: absolute; top: -3px; right: -3px; bottom: -3px; left: -3px;
+  border: 1.5px solid var(--today); border-radius: 12px; pointer-events: none;
+  box-shadow: 0 0 10px rgba(58, 142, 230, 0.6);
 }
+/* The days a supervisor can ask about glow a little under a mouse, and twice after Pick a Day. */
+.day.open, .day.ot, .day.pot { transition: transform 0.08s ease, box-shadow 0.2s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .day.open:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 14px rgba(31, 138, 76, 0.55); transform: translateY(-1px); }
+  .day.ot:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px rgba(242, 189, 29, 0.6); transform: translateY(-1px); }
+  .day.pot:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px rgba(130, 170, 50, 0.6); transform: translateY(-1px); }
+}
+#weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { animation: beckon 1.4s ease-in-out 2; }
+@keyframes beckon { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 2px #fff, 0 0 16px rgba(31, 138, 76, 0.75); } }
 .day .rep { position: absolute; top: 4px; left: 5px; font: 700 11px/1 var(--font-body); opacity: 0.9; }
 .day .rep.alt { left: auto; right: 5px; } /* the month label is on top: move the mark out of its way */
 .nb { font-weight: inherit; }
@@ -223,7 +297,8 @@ body.owner .day.past.pot { background: linear-gradient(to top right, var(--ot) c
 .foot-row > * { margin: 2px 6px; }
 @media (max-width: 359px) { .foot-row > * { margin: 2px 3px; } .foot .linkish { font-size: 13px; } } /* keeps each pair on one line on the smallest phones */
 .foot-meta { margin-top: 10px; display: grid; justify-items: center; gap: 2px; }
-.empid { margin: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; }
+.empid { margin: 0; font: 400 12px/1.5 var(--font-mono); color: var(--muted); text-align: center; }
+#updated { text-transform: uppercase; letter-spacing: 0.02em; }
 .empid span { user-select: all; -webkit-user-select: all; }
 a.linkish { display: inline-block; }
 .linkish {
@@ -299,6 +374,14 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 .sheet-in p { margin: 0; }
 .sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sheet-title { flex: 1; min-width: 0; }
+/* Back, opposite the ×: on every step after the first in the day window. */
+.back {
+  appearance: none; border: 0; flex: none; display: inline-flex; align-items: center; gap: 4px;
+  height: 38px; padding: 0 12px 0 8px; border-radius: 19px; cursor: pointer;
+  background: var(--bg); color: var(--ink); font: 700 15px/1 var(--font-body);
+}
+.back svg { width: 16px; height: 16px; }
 .x {
   appearance: none; border: 0; background: var(--bg); color: var(--ink);
   width: 38px; height: 38px; border-radius: 50%; font-size: 24px; line-height: 1; cursor: pointer; flex: none;
@@ -403,7 +486,27 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 @media (prefers-reduced-motion: reduce) {
   .day { transition: none; }
   .day:active { transform: none; }
+  #weeks.beckon .day { animation: none !important; }
 }
+/* The opening: the page breathes in while the tiles settle and the stripe under the header draws out like a smile.
+   A second after everything is still, a glint crosses the badge. The page is only hidden while the calendar loads,
+   and never for more than 4 seconds. People who turn off motion see none of this. */
+@media (prefers-reduced-motion: no-preference) {
+  .intro .page { opacity: 0; animation: intro-failsafe 0s linear 4s forwards; }
+  .page.inhale { animation: inhale 0.42s ease-out backwards; transform-origin: 50% 30%; }
+  .page.inhale .stripe { animation: smile 0.5s 0.3s ease-out backwards; }
+  #weeks.cascade .day { animation: tile-in 0.45s ease-out backwards; animation-delay: calc(var(--i, 0) * 18ms); }
+  .shield.glint-on .glint { animation: glint 0.9s ease-in-out; }
+  .shield.glint-on .sparkle { animation: sparkle 0.7s 0.7s ease-out backwards; }
+  .live-dot { animation: pulse 2.2s ease-in-out infinite; }
+}
+@keyframes intro-failsafe { to { opacity: 1; } }
+@keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
+@keyframes smile { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes tile-in { from { opacity: 0; transform: translateY(4px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes glint { from { transform: translateX(0); } to { transform: translateX(78px); } }
+@keyframes sparkle { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1.15) rotate(45deg); } 100% { opacity: 0; transform: scale(0.4) rotate(90deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* Browsers without <dialog> (Safari before 15.4, Firefox before 98) get the same sheets via a stand-in. */
 dialog:not([open]) { display: none; }
@@ -424,7 +527,18 @@ dialog:not([open]) { display: none; }
 .file-btn.disabled { opacity: 0.55; pointer-events: none; }
 .file-btn:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* Bug reports: a field only bots fill in. */
+/* Feedback: three quick choices, then the message. */
+.fb-kind { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-kind legend { padding: 0 0 6px; }
+.fb-kind label { position: relative; }
+.fb-kind input { position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.fb-kind span {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 999px;
+  font-weight: 700; font-size: 14px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line);
+}
+.fb-kind input:checked + span { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+.fb-kind input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Feedback: a field only bots fill in. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 #fbMsg { font: 16px/1.45 var(--font-body); min-height: 110px; }
 
@@ -521,15 +635,15 @@ dialog:not([open]) { display: none; }
 @media (min-width: 960px) and (min-height: 560px) {
   .page {
     max-width: 1200px; min-height: 100vh; min-height: 100dvh;
-    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
     grid-template-rows: auto auto auto auto 1fr;
-    column-gap: 48px; row-gap: 0; align-items: start; padding-block: 20px;
+    column-gap: 48px; row-gap: 0; align-items: start; padding-block: 20px 8px;
   }
   .page > .top, .page > .owner-banner, .page > .key, .page > .foot { grid-column: 1; margin-bottom: 18px; }
   .page > .top { grid-row: 1; }
   .page > .owner-banner { grid-row: 2; }
   .page > .key { grid-row: 3; }
-  .page > .foot { grid-row: 4; justify-items: start; }
+  .page > .foot { grid-row: 4; justify-items: start; margin-bottom: 0; }
   .page > .foot .foot-row { justify-content: flex-start; }
   .page > .foot .foot-row > *:first-child { margin-left: 0; }
   .page > .foot .foot-meta { justify-items: start; }
@@ -538,10 +652,10 @@ dialog:not([open]) { display: none; }
   .page > .cal {
     grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 20px;
     max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
-    overflow-y: auto; padding: 0 4px 8px; align-content: start;
+    overflow-y: auto; padding: 0 14px 12px; align-content: start;
   }
   /* The weekday names stay in view while the weeks scroll under them. */
-  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-bottom: 4px; }
+  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 12px 0 4px; }
   .day { min-height: 74px; }
   .day .num { font-size: 28px; }
   .day .tag { font-size: 11px; }
@@ -555,9 +669,17 @@ dialog:not([open]) { display: none; }
 }
 /* Shorter laptop windows: a smaller title and tighter spacing keep the left side on one screen. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
-  h1 { font-size: 30px; }
+  .hero { padding: 14px 16px; gap: 8px; }
+  .top { gap: 10px; }
+  .stripe { margin-top: -10px; }
+  .hchip { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+  .shield { width: 40px; height: 45px; }
+  .lede { font-size: 16px; }
   .page > .top, .page > .owner-banner, .page > .key, .page > .foot { margin-bottom: 12px; }
   .foot-meta { margin-top: 6px; }
   body.owner:not(.previewing) .night-note { display: none; }
   body.owner:not(.previewing) .owner-banner { font-size: 13px; }
+  /* Edit mode: Call Me and the license are for supervisors; See What Supervisors See shows them. */
+  body.owner:not(.previewing) .hchips, body.owner:not(.previewing) .hero-box { display: none; }
+  .page > .foot .linkish { padding-block: 3px; }
 }
