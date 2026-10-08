@@ -12,7 +12,18 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
-A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away.
+## The top of the page
+
+A navy header with a faint display grid holds:
+
+- **Your badge:** a shield with your initials (from your name in Settings), "Security Officer" and your name.
+- **The status line,** with a softly pulsing green light: "Accepting overnight requests", built from the shifts you'll pick up in Settings ("Accepting overnight & swing requests", "Accepting overnight, swing & morning requests"). Uncheck them all and it says "Not taking extra shifts right now", with the light off.
+- **Call Me** (a rotary phone): it doesn't show your number. It opens a small box: "Best for shifts starting within 10 hours." and "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me.", with a **Pick a Day** button. That scrolls to the calendar only if it isn't already on screen (on a laptop it is), and makes the days they can ask about glow twice. So every request goes through the calendar's screening first; your number comes at the end, the same as always. The 10 follows your Settings (Ask supervisors to call when a shift starts within). At 0, the box says "Texting is the best way to reach me." instead. It shows only when your cell number is set.
+- **Your license:** "Denver Security Guard License · Active". Tap it to see the number and dates ("Issued Jun 16, 2026 · Expires Jun 16, 2027 · Renews yearly"). After the expiration date it says Expired, and edit mode reminds you to enter the new dates. Set it in Settings → License; leave the name empty to hide it.
+
+When the page opens, it breathes in while the calendar's tiles settle into place and the line under the header draws out from the middle. A second after everything is still, a glint and a sparkle cross the badge. While the calendar loads, the page stays out of sight (never more than 4 seconds; on a slow connection it simply appears after 1.5). People who turn off motion on their device see none of the animation. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, open days glow a little under a mouse, and today has a thin glowing outline.
+
+A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under the header, starting with \*\* like a footnote to the status line; uncheck Overnight and it goes away.
 
 **Your note** (Settings → Note to supervisors) shows in a tinted **Note** box near the top of the page, and again at the top of every day's window, so it's in front of supervisors right when they ask you for a shift. Give it a **Show the note until** date and it hides itself after that day, so a note like "Looking for extra hours this week" doesn't go stale.
 
@@ -26,6 +37,8 @@ A night shift is listed under the day it starts. Tue means Tue night into Wed mo
 
    A supervisor who has customized a text before on that device gets their saved name in it too ("This is Sgt. Martinez."). A short list suggests what else they can add (their name, the site name and address, the pay rate), either in their own texting app before sending or by tapping **Customize Text First**.
 4. **Send Text Now** (it turns on once both times are in) sends it right away. **Customize Text First** opens the full form with the times already filled in: Your Name, Shift Time, Site Name, Site Address and Pay Rate, each "(optional)". Each box they fill in adds a sentence. **Change Times** goes back.
+
+**Going back.** Every step after the first in a day's window has a **Back** button at the top left, opposite the ×. The phone's back gesture (and a browser's Back button) does the same: it steps back one screen at a time, then closes the window, and never leaves the page while a window is open. Going back never loses anything: the times they entered and any edits to the custom text are still there when they go forward again, for as long as that day's window stays open. **Change Shift** and **Change Times** still work as shortcuts. In edit mode, Back also ends **See What Supervisors See**.
 
 The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
 
@@ -41,7 +54,7 @@ Their device remembers their name, site, address and pay rate for next time.
 
 ### Shifts starting soon
 
-If the shift starts in less than 10 hours (or has already started, or no start time was given), any way of sending first shows: "Heads up: this shift starts in less than 10 hours. I may be asleep and not see a text in time. Please call me instead." with **Call Me** and **Text Anyway**. On a phone, Call Me dials you; on a computer it shows your number to call from their phone. Text Anyway goes ahead and isn't asked again for the same times. The 10 hours is a setting (Settings → Ask supervisors to call when a shift starts within); 0 turns the warning off. It goes by the supervisor's device clock.
+If the shift starts in less than 10 hours (or has already started), any way of sending first shows: "Heads up: this shift starts in less than 10 hours. I may be asleep and not see a text in time. Please call me instead." with **Call Me** and **Text Anyway**. Sending from the full form with Shift Time left blank counts from the earliest the shift could start, midnight as that day begins: today always asks ("if this shift starts in less than 10 hours…"), tomorrow only once midnight is less than 10 hours away (from 2 PM today), and later days never. On a phone, Call Me dials you; on a computer it shows your number to call from their phone. Text Anyway goes ahead and isn't asked again for the same times. The 10 hours is a setting (Settings → Ask supervisors to call when a shift starts within); 0 turns the warning off. It goes by the supervisor's device clock.
 
 ### P-OT days
 
@@ -59,7 +72,7 @@ Either box can be left empty for no limit. A shift you'd turn down shows no bar 
 
 ### On a laptop
 
-On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: your name, shifts, note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
+On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: the header (as a card), your note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
 
 ## Works on any device
 
@@ -73,13 +86,13 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 - **See My Credentials** opens your credentials PDF. It shows only after you upload one in Settings.
 - **Share This Calendar** shows the link to copy or share (see Sharing above).
-- **Report Bugs** opens a short form. Supervisors describe the problem or suggest a fix, tap **Submit Feedback**, and it's emailed to you with their device and browser type. It shows only after you add your email in Settings.
+- **Send Feedback** opens a short form: "Something confusing, missing, or broken? Tell me. I read every message." Three optional choices (**Something's broken**, **Something's confusing**, **I have an idea**) change the question over the message box and the email's subject. They tap **Send Feedback**, and it's emailed to you with their device and browser type. It shows only after you add your email in Settings.
 - **Admin Login** is how you get into edit mode.
-- Your **employee ID**, if you set one, is in small grey text under these links.
+- Your **employee ID**, if you set one, is in small grey text under these links, above when you last saved.
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your first name, your number, your note, your short-notice hours, and when you last saved.
+The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -158,7 +171,8 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - The shifts you'll usually pick up. Supervisors see the names only.
 - Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, how many hours ahead a shift has to be before supervisors are asked to call instead (10 by default; 0 turns it off), and an optional note with an optional show-until date (shown in the Note box and in each day's window). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
-- **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
+- **License:** the name, number, issue date and expiration date for the button at the top of the page.
+- **Email for feedback:** where Send Feedback messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
 - **P-OT Shifts:** the start times and longest shift you'd take on a P-OT day (see P-OT days above).
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide the colors. A day is green when one more usual-length shift keeps its pay week at 40 or less, P-OT when only part of that shift would go past 40, and yellow when all of it would. On the last day of a pay week, an overnight pickup is split at midnight, with most of it counted in the next week.
@@ -166,8 +180,8 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 ## Privacy notes
 
-- Anyone with the link can see your name, employee ID, cell number, calendar colors and credentials PDF. The page tells search engines not to list it.
-- Your bug-report email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a Test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
+- Anyone with the link can see your name, employee ID, cell number, license number and dates (if you set them), calendar colors and credentials PDF. The page tells search engines not to list it.
+- Your feedback email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a Test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
 - After you publish a new version of the site, reload any calendar tab you left open on your phone or computer before editing there. An old tab doesn't know about newer settings.
 - A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
 - Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub. Stop Editing also clears that browser's unsaved changes and its backup copy of your every-week days and times, and closes edit mode in that browser's other tabs.

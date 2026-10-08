@@ -94,7 +94,9 @@
   // potFrom/potTo/potMax: on P-OT days, the start times he takes ("19:00" to "03:00") and the longest shift (hours).
   // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
   // noteUntil: the last day the note shows ("" = no end). callHours: a shift starting sooner than this asks for a call.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10 });
+  // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+    licName: "", licNo: "", licIssued: "", licExpires: "" });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
@@ -146,10 +148,63 @@
     return el;
   }
 
+  // ---------- Back: the in-page button, the phone's back gesture, and the browser's Back ----------
+  // Each open sheet, each step inside the day window, and the owner's preview of the supervisor view is one entry
+  // in the browser's history. Back steps back one screen, then closes the window, and only then leaves the page.
+  // Entries are only added right after a tap or click: browsers skip entries a page adds on its own.
+  const nav = (() => {
+    const stack = []; // {sheet, step, undo}, oldest first. undo() puts the screen back the way it was before it.
+    const queued = []; // entries waiting for the browser to finish going back
+    let waiting = false, waitTimer = 0, ok = false;
+    try { history.replaceState({ sa: 0 }, ""); ok = true; } catch (e) { /* no history: only the in-page buttons go back */ }
+    const depth = (st) => (st && typeof st.sa === "number" ? st.sa : 0);
+    const tapped = () => !navigator.userActivation || navigator.userActivation.isActive;
+    const wait = () => { waiting = true; clearTimeout(waitTimer); waitTimer = setTimeout(settle, 1000); }; // in case no popstate comes
+    function settle() { waiting = false; clearTimeout(waitTimer); while (!waiting && queued.length) queued.shift()(); }
+    function add(entry) {
+      if (!ok || !tapped()) return;
+      const run = () => {
+        if (entry.sheet && !entry.sheet.open) return; // closed while it waited
+        stack.push(entry);
+        try { history.pushState({ sa: stack.length }, ""); } catch (e) { stack.pop(); }
+      };
+      if (waiting) queued.push(run); else run();
+    }
+    // The page already closed or stepped back: forget the entries from i up and take the browser back as many.
+    function drop(i) {
+      const n = stack.length - i;
+      if (n <= 0) return;
+      stack.length = i;
+      wait();
+      history.go(-n);
+    }
+    window.addEventListener("popstate", (e) => {
+      const d = depth(e.state);
+      // Forward onto a screen that's gone: return to where the page is.
+      if (d > stack.length) { wait(); history.go(stack.length - d); return; }
+      while (stack.length > d) stack.pop().undo();
+      if (waiting) settle();
+    });
+    return {
+      sheet(d) { add({ sheet: d, undo: () => d.close("") }); },
+      step(d, undo) { add({ sheet: d, step: true, undo }); },
+      page(undo) { add({ sheet: null, undo }); },
+      // The in-page Back for the step (or page state) on top: through history when it's there, so the button and
+      // the gesture always agree. Otherwise (no history entry was added) straight to fallback.
+      back(d, fallback) {
+        if (waiting) { queued.push(() => this.back(d, fallback)); return; }
+        const top = stack[stack.length - 1];
+        if (top && top.sheet === d && (d ? top.step : true)) history.back(); else fallback();
+      },
+      // A sheet the page closed itself (×, Escape, the backdrop, a button): drop its entries and any above them.
+      closed(d) { const i = stack.findIndex((x) => x.sheet === d); if (i >= 0) drop(i); },
+    };
+  })();
+
   function showSheet(sel) {
     const d = $(sel);
     d.returnValue = "";
-    if (!d.open) d.showModal();
+    if (!d.open) { d.showModal(); nav.sheet(d); }
   }
 
   let toastTimer = 0;
@@ -178,7 +233,7 @@
 
   // ---------- data model ----------
   const isEmail = (s) => /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(s);
-  // Where bug reports go: an email address, or the random code FormSubmit emails after activation
+  // Where feedback goes: an email address, or the random code FormSubmit emails after activation
   // (it keeps the address out of the public file). A pasted FormSubmit link works too. Anything else is "".
   function feedbackId(raw) {
     let s = String(raw || "").trim();
@@ -206,6 +261,10 @@
     if (isKey(r.noteUntil)) d.noteUntil = r.noteUntil;
     if (typeof r.callHours === "number" && r.callHours >= 0 && r.callHours <= 48) d.callHours = r.callHours;
     if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
+    if (typeof r.licName === "string") d.licName = r.licName.trim().slice(0, 60);
+    if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
+    if (isKey(r.licIssued)) d.licIssued = r.licIssued;
+    if (isKey(r.licExpires)) d.licExpires = r.licExpires;
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
@@ -520,6 +579,7 @@
   let brush = "edit";
   let saving = false;
   let loadError = false;
+  let dataIn = false; // the calendar file has been read (until then the header shows no status, Call Me or license)
   let needsPublish = false; // the public file is behind the saved private schedule (or still in the old format)
   let lastPrivText = null; // what this device last sent to the private variable
   let lastPubSent = null; // what this device last sent as data.json (without the timestamp)
@@ -767,6 +827,87 @@
     return a.getMonth() === b.getMonth() ? `${m1} ${a.getDate()} – ${b.getDate()}` : `${m1} ${a.getDate()} – ${fmt(we, { month: "short" })} ${b.getDate()}`;
   }
 
+  // ---------- the header: badge, status line, Call Me and license ----------
+  // "Accepting overnight requests", from the shifts he picks up in Settings (in Settings order).
+  function acceptingText(list) {
+    const w = SHIFT_KEYS.filter((x) => list.indexOf(x) >= 0).map((x) => SHIFT_LABEL[x].toLowerCase());
+    if (!w.length) return "Not taking extra shifts right now";
+    return `Accepting ${w.length < 3 ? w.join(" & ") : `${w.slice(0, -1).join(", ")} & ${w[w.length - 1]}`} requests`;
+  }
+  // The badge's letters: first and last initials ("VT").
+  const initials = (name) => { const p = name.trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : ""; };
+  const dateText = (k) => fmt(k, { month: "short", day: "numeric", year: "numeric" });
+  // "19:02 · Oct 8": the readout style the page uses for times (shown in capitals).
+  const readout = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())} · ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  // Active through the whole expiration day, by the viewer's own clock.
+  const licExpired = () => !!pub.licExpires && todayKey() > pub.licExpires;
+  function licRenews() {
+    if (!pub.licIssued || !pub.licExpires) return "";
+    const a = dateOf(pub.licIssued), b = dateOf(pub.licExpires);
+    const months = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+    return months === 12 ? "Renews yearly" : months > 12 && months % 12 === 0 ? `Renews every ${months / 12} years` : "";
+  }
+  // The Call Me box: a shift starting soon is worth a call; anything else starts with picking the day.
+  function callBoxText() {
+    const n = pub.callHours;
+    return n > 0
+      ? { lead: `Best for shifts starting within ${hoursText(n)}.`, rest: "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me." }
+      : { lead: "Texting is the best way to reach me.", rest: "Pick the day below and I'll show you how." };
+  }
+  function renderHero() {
+    const ready = dataIn && (owner || !loadError);
+    const letters = initials(pub.name);
+    $("#shield").toggleAttribute("hidden", !letters); // an <svg> has no hidden property, only the attribute
+    $("#shieldText").textContent = letters;
+    $("#accepting").hidden = !ready;
+    $("#accepting").classList.toggle("none", !pub.willing.length);
+    $("#acceptingText").textContent = acceptingText(pub.willing);
+    const call = ready && !!smsNumber(), lic = ready && !!pub.licName;
+    $("#heroChips").hidden = !(call || lic);
+    $("#heroCallBtn").hidden = !call;
+    $("#heroLicBtn").hidden = !lic;
+    $("#heroLicText").textContent = pub.licName + (pub.licExpires ? ` · ${licExpired() ? "Expired" : "Active"}` : "");
+    $("#heroLicBtn").classList.toggle("expired", licExpired());
+    const t = callBoxText();
+    $("#heroCallLead").textContent = t.lead;
+    $("#heroCallRest").textContent = t.rest;
+    $("#heroLicNo").textContent = pub.licNo ? `No. ${pub.licNo}` : "";
+    $("#heroLicNo").hidden = !pub.licNo;
+    $("#heroLicDates").textContent = [pub.licIssued ? `Issued ${dateText(pub.licIssued)}` : "", pub.licExpires ? `${licExpired() ? "Expired" : "Expires"} ${dateText(pub.licExpires)}` : "", licRenews()].filter(Boolean).join(" · ");
+    $("#heroLicDates").hidden = !$("#heroLicDates").textContent;
+    // A chip that went away (its setting was cleared) takes its open box with it.
+    if (!call) openHeroBox(null, "#heroCall");
+    if (!lic) openHeroBox(null, "#heroLic");
+  }
+  // One box open at a time. which: "#heroCall", "#heroLic", or null to close both (only: just that one).
+  function openHeroBox(which, only) {
+    for (const [box, btn] of [["#heroCall", "#heroCallBtn"], ["#heroLic", "#heroLicBtn"]]) {
+      if (only && box !== only) continue;
+      const on = box === which;
+      $(box).hidden = !on;
+      $(btn).setAttribute("aria-expanded", String(on));
+    }
+  }
+  // Pick a Day: bring the days they can ask about into view (only if they aren't already), and make them glow.
+  function pickADay() {
+    openHeroBox(null);
+    const tiles = [...document.querySelectorAll("#weeks .day.open, #weeks .day.ot, #weeks .day.pot")].filter((b) => !b.disabled && !b.classList.contains("past"));
+    if (!tiles.length) { toast("No open days on the calendar right now."); return; }
+    const first = tiles[0], r = first.getBoundingClientRect(), cal = $(".cal").getBoundingClientRect();
+    const inView = r.top >= Math.max(0, cal.top) && r.bottom <= Math.min(window.innerHeight, cal.bottom);
+    if (!inView) {
+      const smooth = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+      try { first.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" }); } catch (e) { first.scrollIntoView(); }
+    }
+    const weeks = $("#weeks");
+    weeks.classList.remove("beckon");
+    void weeks.offsetWidth; // restart the glow when it's tapped again
+    weeks.classList.add("beckon");
+    clearTimeout(pickADay.timer);
+    pickADay.timer = setTimeout(() => weeks.classList.remove("beckon"), 3000);
+    try { first.focus({ preventScroll: true }); } catch (e) { /* old browser: no focus move */ }
+  }
+
   // His note, unless its show-until date has passed.
   const activeNote = () => { const n = pub.note.trim(); return n && !(pub.noteUntil && todayKey() > pub.noteUntil) ? n : ""; };
   const noteBox = () => { const n = activeNote(); return n ? h("aside", { class: "note-box" }, h("b", { class: "note-tag", text: "Note" }), " ", n) : null; };
@@ -774,21 +915,18 @@
   function render() {
     const asOwner = ownerView();
     if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); pubOt = derivePublicOt(pub, priv, pubDays); }
-    $("#title").textContent = pub.name ? `${possessive(pub.name)} Availability` : "Shift Availability";
+    $("#title").textContent = pub.name || "Shift Availability";
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
     $("#empIdValue").textContent = pub.empId;
     // A failed load is said at the top, where it's seen. The last-updated time sits at the bottom, under the employee ID.
     $("#loadErr").hidden = !loadError;
     $("#updated").hidden = loadError || !updated;
-    $("#updated").textContent = updated && !loadError
-      ? `Updated ${new Date(updated).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-      : "";
+    $("#updated").textContent = updated && !loadError ? `Updated ${readout(new Date(updated))}` : "";
 
-    $("#willing").hidden = !pub.willing.length;
-    $("#willingValue").textContent = pub.willing.map((k) => SHIFT_LABEL[k]).join(" · ");
-    // The line under the shifts says how night shifts sit on the calendar (only when he takes overnights). It starts
-    // with ** so it reads as a footnote to them. His own note gets a box of its own, where it's noticed every visit.
+    renderHero();
+    // The line under the header says how night shifts sit on the calendar (only when he takes overnights). It starts
+    // with ** so it reads as a footnote to the status line. His own note gets a box of its own, noticed every visit.
     const night = pub.willing.includes("overnight");
     $("#nightNote").hidden = !night;
     $("#nightNote").textContent = night ? "**A night shift is listed under the day it starts. Tue means Tue night into Wed morning." : "";
@@ -856,7 +994,7 @@
     if (asOwner) renderOwnerBits();
   }
 
-  // Footer links. Supervisors see Credentials and Report Bugs only once they're set up.
+  // Footer links. Supervisors see Credentials and Send Feedback only once they're set up.
   // The owner always sees them, and gets a pointer to Settings if one isn't set up yet.
   function renderFoot() {
     const asOwner = ownerView();
@@ -880,6 +1018,7 @@
     }
     if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
     if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
+    if (pub.licName && licExpired()) hints.append(h("br"), h("b", { text: "Your license shows Expired at the top. When you renew, enter the new dates in Settings." }));
 
     const c = changes();
     const n = c.days.size + (c.settings ? 1 : 0) + (c.publish ? 1 : 0);
@@ -1168,11 +1307,13 @@
   const spanKey = (sp) => (sp ? `${sp.start}/${sp.len}` : "none");
   // When a shift starts, from the day it's listed under and its start in minutes from that midnight.
   const startAt = (k, span) => { const d = dateOf(k); d.setMinutes(span.start); return d; };
-  // A shift that starts sooner than his call-hours setting (or whose start isn't known) asks for a call first.
+  // A shift that starts sooner than his call-hours setting asks for a call first. Without a time, it's counted from
+  // the earliest it could start, midnight as the day begins: today always asks, tomorrow once midnight is that
+  // close, and later days never.
   function shortNotice(k, span) {
     if (!(pub.callHours > 0)) return false;
-    if (!span) return true;
-    return startAt(k, span).getTime() - Date.now() < pub.callHours * 3600000;
+    const start = span ? startAt(k, span) : dateOf(k);
+    return start.getTime() - Date.now() < pub.callHours * 3600000;
   }
   // Without a time, overtime is told without numbers: "part of this shift" or "covering this shift".
   const untimed = (ot) => (ot && typeof ot === "object" && ot.ot > 0 ? (ot.ot >= ot.hours ? true : { part: true }) : ot);
@@ -1289,6 +1430,8 @@
         h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
       mins: () => clockMins(readClock(input.value), picked),
       unreadable: () => !!input.value.trim() && !readClock(input.value),
+      state: () => ({ v: input.value, ap: picked }),
+      restore(x) { input.value = x.v; picked = x.ap; sync(); },
     };
   }
 
@@ -1296,9 +1439,12 @@
   // when the shift starts and ends, the text as it will go out, a few tips, and two choices: Send Text Now, or
   // Customize Text First (the full form, with the times filled in). On a P-OT day it also shows hour by hour which
   // hours would be overtime, and his P-OT settings can turn a time down. back(): to the shift choice.
-  function sendWindow(k, info, type, area, dayStatus, shiftStatus, back) {
+  function sendWindow(k, info, type, area, dayStatus, shiftStatus, tr) {
     const show = showIn(area);
-    const ctx = { ack: "" }; // the shift a Text Anyway was given for (shared with the full form)
+    // Kept per shift for as long as the day window is open: the times typed, the full form (with any edits to the
+    // message), and the shift a Text Anyway was given for (shared with the form).
+    const m = tr.memo[type || "pot"] || (tr.memo[type || "pot"] = { ctx: { ack: "" }, form: null, formTime: "" });
+    const ctx = m.ctx;
     const phone = isPhone(), texting = !!smsNumber();
     const out = h("div", { class: "stack", "aria-live": "polite" }); // hints, his P-OT no, the overtime bar
     let barWatch = null;
@@ -1373,6 +1519,7 @@
     });
     const update = () => {
       st = compute();
+      m.times = { start: startF.state(), end: endF.state() };
       const nodes = [];
       if (st.hint) nodes.push(h("p", { class: "muted", text: st.hint }));
       if (st.no.length) {
@@ -1416,7 +1563,7 @@
     const steps = [
       type
         ? h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
-          h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: back }))
+          h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: tr.back }))
         : h("p", { class: "pot-intro", text: "Let's work out how many hours of the shift you need covered would be overtime." }),
       startF.el,
       endF.el,
@@ -1427,8 +1574,16 @@
     ];
     const again = () => { show(steps, "#qkStart"); update(); };
     custom.addEventListener("click", () => {
-      show(textForm(k, info, type, again, shiftStatus, { time: st && st.ready ? st.time : "", ctx }), ".shift-chosen .linkish");
+      // The same form comes back each time, with any edits to the message. New times from here replace its Shift Time.
+      const time = st && st.ready ? st.time : "";
+      if (!m.form) m.form = textForm(k, info, type, tr.back, shiftStatus, { time, ctx });
+      else if (time !== m.formTime) m.form.setTime(time);
+      else m.form.refresh();
+      m.formTime = time;
+      show(m.form.nodes, ".shift-chosen .linkish");
+      tr.forward(again);
     });
+    if (m.times) { startF.restore(m.times.start); endF.restore(m.times.end); }
     update();
     show(steps, type ? ".shift-chosen .linkish" : null);
   }
@@ -1546,7 +1701,7 @@
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
     refresh();
     // Two columns on a laptop: the boxes on the left, the message and the way to send it on the right.
-    return [h("div", { class: "tx-grid" },
+    const nodes = [h("div", { class: "tx-grid" },
       h("div", { class: "tx-col" },
         h("div", { class: "field-head shift-chosen" }, shiftLabel,
           h("button", { type: "button", class: "linkish", text: "Change Times", onclick: back })),
@@ -1561,6 +1716,12 @@
           h("div", { class: "field-head" }, h("label", { class: "label", for: "txMsg", text: "Message (you can edit it)" }), reset),
           msg),
         sendBox))];
+    return {
+      nodes,
+      // New times from the simple window. An edited message keeps its edits (Undo My Edits brings the new text).
+      setTime(t) { time.input.value = t; refresh(); },
+      refresh,
+    };
   }
 
   function openDay(k) {
@@ -1599,19 +1760,35 @@
         : `I'm available, but ${timed ? num(ot.ot) : "some"} of the ${hoursText(ot.hours)} would be overtime`);
     };
     dayStatus();
+    // The steps taken in this window, newest last, so Back (the button or the phone's gesture) undoes them in order.
+    // memo keeps what was typed, by shift, so going back and forth never loses it.
+    const sheet = $("#daySheet"), trail = [];
+    const syncBack = () => { $("#dayBack").hidden = !trail.length; };
+    const tr = {
+      forward(undo) {
+        const entry = () => { if (trail[trail.length - 1] === entry) trail.pop(); undo(); syncBack(); };
+        trail.push(entry);
+        nav.step(sheet, entry);
+        syncBack();
+      },
+      back() { if (trail.length) nav.back(sheet, trail[trail.length - 1]); },
+      memo: {},
+    };
+    sheet.goBack = tr.back;
+    syncBack();
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
     } else if (info.kind === "pot") {
       const area = h("div", { class: "stack" });
       wrap.append(area);
-      sendWindow(k, info, null, area, dayStatus, shiftStatus, null);
+      sendWindow(k, info, null, area, dayStatus, shiftStatus, tr);
     } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
-      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus); }
+      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus, tr); }
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").openedAt = Date.now();
-    $("#daySheet").showModal();
+    showSheet("#daySheet");
   }
 
   // "I'm available. Morning and Swing would be overtime." when the shifts he takes differ; null when they don't.
@@ -1634,7 +1811,7 @@
 
   // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
   const SHIFT_ORDER = ["morning", "swing", "overnight"];
-  function shiftChoice(k, info, area, dayStatus, shiftStatus) {
+  function shiftChoice(k, info, area, dayStatus, shiftStatus, tr) {
     const accepts = info.w || pub.willing;
     const show = showIn(area);
     const choose = (focusFirst) => {
@@ -1650,11 +1827,13 @@
         // The answer itself takes focus, so a screen reader reads it out.
         show([
           h("p", { class: "decline", tabindex: "-1", text: `Sorry, I'm not accepting ${SHIFT_LABEL[t]} shifts right now.` }),
-          h("button", { type: "button", class: "btn ghost", text: "Pick a Different Shift", onclick: () => choose(true) }),
+          h("button", { type: "button", class: "btn ghost", text: "Pick a Different Shift", onclick: tr.back }),
         ], ".decline");
+        tr.forward(() => choose(true));
         return;
       }
-      sendWindow(k, info, t, area, dayStatus, shiftStatus, () => choose(true));
+      sendWindow(k, info, t, area, dayStatus, shiftStatus, tr);
+      tr.forward(() => choose(true));
     };
     choose(false);
   }
@@ -1798,7 +1977,7 @@
     }
   }
 
-  // ---------- bug reports ----------
+  // ---------- feedback: bugs, confusing spots and ideas ----------
   // Sent with FormSubmit (formsubmit.co), a free service that emails a form to an address. Nothing to sign up for:
   // the first report to a new address sends that address an "Activate Form" email, and reports arrive after that.
   const FEEDBACK_URL = "https://formsubmit.co/ajax/";
@@ -1826,8 +2005,17 @@
     Sent: new Date().toString(),
   });
 
+  // The three quick choices: what goes in the email, and what the message box asks.
+  const FB_KIND = {
+    broken: { tag: "Something's broken", ask: "What happened?" },
+    confusing: { tag: "Something's confusing", ask: "What was confusing?" },
+    idea: { tag: "Idea", ask: "What's your idea?" },
+  };
+  const fbKind = () => { const c = document.querySelector('#fbKind input:checked'); return c ? c.value : ""; };
+  const syncFbKind = () => { $("#fbMsgLabel").textContent = fbKind() ? FB_KIND[fbKind()].ask : "Your message"; };
+
   function openFeedback() {
-    if (!pub.feedback) { toast("Add your email for bug reports in Settings first."); return; }
+    if (!pub.feedback) { toast("Add your email for feedback in Settings first."); return; }
     $("#fbFields").hidden = false;
     $("#fbDone").hidden = true;
     $("#fbError").hidden = true;
@@ -1843,7 +2031,7 @@
     const text = $("#fbMsg").value.trim();
     const err = $("#fbError");
     if (!text) {
-      err.textContent = "Write what went wrong or what should change first.";
+      err.textContent = "Write your message first.";
       err.hidden = false;
       $("#fbMsg").focus();
       return;
@@ -1851,7 +2039,8 @@
     const name = $("#fbName").value.trim(), contact = $("#fbContact").value.trim();
     if (name) store.set(LS.who, name);
     if (contact) store.set(LS.fbContact, contact); else store.del(LS.fbContact);
-    const fields = Object.assign({ Message: text, Name: name || "(not given)", "Reply to": contact || "(not given)" }, deviceInfo(), { _honey: $("#fbHoney").value });
+    const kind = fbKind();
+    const fields = Object.assign({ About: kind ? FB_KIND[kind].tag : "(not picked)", Message: text, Name: name || "(not given)", "Reply to": contact || "(not given)" }, deviceInfo(), { _honey: $("#fbHoney").value });
     if (isEmail(contact)) fields.email = contact; // FormSubmit makes this the email's Reply-To
     const btn = $("#fbSend");
     fbSending = true;
@@ -1859,7 +2048,7 @@
     btn.textContent = "Sending…";
     err.hidden = true;
     try {
-      const r = await sendFeedback(pub.feedback, fields, `Bug report: ${pub.name ? `${possessive(pub.name)} availability` : "availability calendar"}${name ? ` (from ${name})` : ""}`);
+      const r = await sendFeedback(pub.feedback, fields, `${kind ? FB_KIND[kind].tag : "Feedback"}: ${pub.name ? `${possessive(pub.name)} availability` : "availability calendar"}${name ? ` (from ${name})` : ""}`);
       // Before activation FormSubmit holds reports and delivers them once it's activated, so that counts as sent.
       // The owner is told to activate instead.
       if (r.activate && owner) {
@@ -1867,6 +2056,8 @@
         err.hidden = false;
       } else if (r.ok || r.activate) {
         $("#fbMsg").value = "";
+        for (const i of document.querySelectorAll("#fbKind input")) i.checked = false;
+        syncFbKind();
         $("#fbFields").hidden = true;
         $("#fbDone").hidden = false;
         $("#fbClose").focus();
@@ -1879,7 +2070,7 @@
     } finally {
       fbSending = false;
       btn.disabled = false;
-      btn.textContent = "Submit Feedback";
+      btn.textContent = "Send Feedback";
       if (!err.hidden) btn.focus(); // disabling it dropped the focus; put it back for keyboards and screen readers
     }
   }
@@ -1893,10 +2084,10 @@
     btn.disabled = true;
     btn.textContent = "Sending…";
     try {
-      const r = await sendFeedback(to, Object.assign({ Message: "This is a test from Settings. Bug reports from supervisors will look like this." }, deviceInfo()),
-        "Test: bug reports from your availability calendar");
+      const r = await sendFeedback(to, Object.assign({ About: "(test)", Message: "This is a test from Settings. Feedback from supervisors will look like this." }, deviceInfo()),
+        "Test: feedback from your availability calendar");
       out.textContent = r.ok
-        ? `Sent. Check ${isEmail(to) ? to : "your inbox"} (and the spam folder). If it's there, bug reports work.`
+        ? `Sent. Check ${isEmail(to) ? to : "your inbox"} (and the spam folder). If it's there, feedback works.`
           + (isEmail(to) ? " To keep your email out of the public file, paste the random code from FormSubmit's activation email here instead." : "")
           + (!saved || saved.pub.feedback !== to ? " Then tap Save so supervisors can use it." : "")
         : r.activate
@@ -1923,7 +2114,7 @@
     editKey = k;
     $("#editTitle").textContent = shortDay(k);
     fillEdit(true);
-    $("#editSheet").showModal();
+    showSheet("#editSheet");
   }
 
   function weekLine(k) {
@@ -2120,7 +2311,7 @@
     $("#importText").value = store.get(LS.importText) || "";
     $("#gapGray").checked = true;
     renderImport();
-    $("#importSheet").showModal();
+    showSheet("#importSheet");
   }
 
   // ---------- owner: settings ----------
@@ -2219,6 +2410,10 @@
     $("#setName").value = pub.name;
     $("#setEmpId").value = pub.empId;
     $("#setPhone").value = pub.phone;
+    $("#setLicName").value = pub.licName;
+    $("#setLicNo").value = pub.licNo;
+    $("#setLicIssued").value = pub.licIssued;
+    $("#setLicExpires").value = pub.licExpires;
     $("#setFeedback").value = pub.feedback;
     fbAtOpen = pub.feedback;
     $("#setFeedbackError").hidden = true;
@@ -2236,7 +2431,7 @@
     $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
-    $("#settingsSheet").showModal();
+    showSheet("#settingsSheet");
   }
 
   function onSettingsChange(e) {
@@ -2247,6 +2442,10 @@
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
+    else if (t.id === "setLicName") pub.licName = t.value.trim().slice(0, 60);
+    else if (t.id === "setLicNo") pub.licNo = t.value.trim().slice(0, 40);
+    else if (t.id === "setLicIssued") pub.licIssued = isKey(t.value) ? t.value : "";
+    else if (t.id === "setLicExpires") pub.licExpires = isKey(t.value) ? t.value : "";
     else if (t.id === "setFeedback") {
       const typed = t.value.trim(), id = feedbackId(typed);
       $("#setFeedbackError").textContent = "That doesn't look like an email address. Until it's fixed, the address you had stays.";
@@ -2321,6 +2520,7 @@
       updated = st.updated;
       pub = clone(st.pub);
       priv = clone(st.priv);
+      dataIn = true;
       store.del(LS.draft2); // from a test build; never stored real data
       forgetAutoCopies();
       let lostWeekly = false;
@@ -2394,7 +2594,7 @@
     $("#unlockError").hidden = !msg;
     $("#unlockError").textContent = msg || "";
     $("#unlockDraft").hidden = !(store.keys(LS.draftPrefix).length || store.get(LS.oldDraft) || store.get(LS.importText));
-    $("#unlockSheet").showModal();
+    showSheet("#unlockSheet");
   }
 
   async function onUnlock(e) {
@@ -2625,7 +2825,21 @@
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });
+      d.addEventListener("close", () => nav.closed(d));
     }
+    // Back in the day window: the button, and Android's back gesture, which browsers deliver to an open window as a
+    // request to close it. Escape still closes the window.
+    let escAt = 0;
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") escAt = Date.now(); }, true);
+    $("#daySheet").addEventListener("cancel", (e) => {
+      if (Date.now() - escAt > 500 && !$("#dayBack").hidden) { e.preventDefault(); $("#daySheet").goBack(); }
+    });
+    $("#dayBack").addEventListener("click", () => { if ($("#daySheet").goBack) $("#daySheet").goBack(); });
+    // The header's buttons: Call Me and the license each open a small box (one at a time).
+    $("#heroCallBtn").addEventListener("click", () => openHeroBox($("#heroCall").hidden ? "#heroCall" : null));
+    $("#heroLicBtn").addEventListener("click", () => openHeroBox($("#heroLic").hidden ? "#heroLic" : null));
+    $("#pickDay").addEventListener("click", pickADay);
+    $("#fbKind").addEventListener("change", syncFbKind);
     $("#weeks").addEventListener("click", (e) => {
       const b = e.target.closest(".day");
       if (!b || b.disabled) return;
@@ -2658,7 +2872,7 @@
       uploadCred(file);
     });
     $("#settingsSheet").addEventListener("close", () => {
-      if (!$("#setFeedbackError").hidden) toast("Your bug-report email didn't change, because the new one wasn't a full email address.", 5000);
+      if (!$("#setFeedbackError").hidden) toast("Your feedback email didn't change, because the new one wasn't a full email address.", 5000);
       else if (!$("#setPotError").hidden) toast("Your P-OT start times didn't change, because the new ones couldn't be read.", 5000);
     });
     $("#credRemove").addEventListener("click", removeCred);
@@ -2694,8 +2908,10 @@
     $("#saveBtn").addEventListener("click", () => (busy ? null : save(false)));
     $("#conflictSheet").addEventListener("close", onConflict);
     $("#keySheet").addEventListener("close", onKeyRetry);
-    $("#previewBtn").addEventListener("click", () => { preview = true; render(); window.scrollTo(0, 0); });
-    $("#previewExit").addEventListener("click", () => { preview = false; render(); });
+    // The preview is a screen of its own: Back (the button or the gesture) returns to editing.
+    const endPreview = () => { if (!preview) return; preview = false; render(); };
+    $("#previewBtn").addEventListener("click", () => { preview = true; render(); window.scrollTo(0, 0); nav.page(endPreview); });
+    $("#previewExit").addEventListener("click", () => nav.back(null, endPreview));
     for (const b of document.querySelectorAll(".brushes button")) {
       b.addEventListener("click", () => {
         brush = b.dataset.brush;
@@ -2707,9 +2923,41 @@
     document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
   }
 
+  // ---------- the opening ----------
+  // The page stays out of sight (class "intro", set in the page's head) until the calendar is in. Then it breathes
+  // in while the tiles settle, and a second after everything is still, a glint crosses the badge. A slow connection
+  // shows the page as it is after 1.5 s, with no breathing. Reduced motion: no "intro" class, so none of it.
+  let revealed = false;
+  function reveal(animate) {
+    if (revealed) return;
+    revealed = true;
+    const root = document.documentElement, page = $(".page"), weeks = $("#weeks");
+    if (!root.classList.contains("intro")) return;
+    root.classList.remove("intro");
+    if (animate) {
+      page.classList.add("inhale");
+      page.addEventListener("animationend", function done(e) {
+        if (e.target !== page) return;
+        page.classList.remove("inhale"); // a lasting transform would change how the sticky calendar behaves
+        page.removeEventListener("animationend", done);
+      });
+      // The first 40 tiles come in one after another; the rest with the 40th.
+      document.querySelectorAll("#weeks .day").forEach((t, i) => t.style.setProperty("--i", String(Math.min(i, 40))));
+      weeks.classList.add("cascade");
+      setTimeout(() => weeks.classList.remove("cascade"), 2000);
+    }
+    setTimeout(() => {
+      const shield = $("#shield");
+      if (shield.hasAttribute("hidden")) return;
+      shield.classList.add("glint-on");
+      setTimeout(() => shield.classList.remove("glint-on"), 2000);
+    }, animate ? 2200 : 1000);
+  }
+
   async function boot() {
     wire();
     checkCred();
+    const slow = setTimeout(() => reveal(false), 1500);
     try {
       const r = await fetch(`data.json?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) throw new Error(String(r.status));
@@ -2719,10 +2967,13 @@
       pubWeekly = file.weekly;
       pubOt = file.ot;
       updated = file.updated;
+      dataIn = true;
     } catch {
       loadError = true;
     }
     render();
+    clearTimeout(slow);
+    reveal(true);
     if (token) await enterOwner();
   }
 
