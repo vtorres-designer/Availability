@@ -478,6 +478,7 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 
 @media (max-width: 360px) {
   .dow, .days { gap: 4px; }
+  .cal { padding: 8px 4px; } /* keeps tiles at a tappable 36px+ on 320px phones */
   .day { min-height: 54px; border-radius: 8px; }
   .day .num { font-size: 20px; }
   .day .tag { font-size: 9px; letter-spacing: 0.04em; }
@@ -502,6 +503,9 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 @keyframes intro-failsafe { to { opacity: 1; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
+/* Edge to edge on phones, any swell past full size would widen the page for a moment. */
+@keyframes inhale-flat { 0% { opacity: 0; transform: scale(0.975); } 100% { opacity: 1; transform: none; } }
+@media (max-width: 592px) { .page.inhale { animation-name: inhale-flat; } }
 @keyframes smile { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes tile-in { from { opacity: 0; transform: translateY(4px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes glint { from { transform: translateX(0); } to { transform: translateX(78px); } }
