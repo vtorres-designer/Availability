@@ -79,7 +79,8 @@
   // live in a repository variable that only the owner's key can read.
   // potFrom/potTo/potMax: on P-OT days, the start times he takes ("19:00" to "03:00") and the longest shift (hours).
   // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0 });
+  // noteUntil: the last day the note shows ("" = no end). callHours: a shift starting sooner than this asks for a call.
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10 });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
@@ -188,6 +189,8 @@
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
     if (isTime(r.potFrom) && isTime(r.potTo)) { d.potFrom = r.potFrom; d.potTo = r.potTo; }
+    if (isKey(r.noteUntil)) d.noteUntil = r.noteUntil;
+    if (typeof r.callHours === "number" && r.callHours >= 0 && r.callHours <= 48) d.callHours = r.callHours;
     if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
     if (keepExtra) {
       for (const k of Object.keys(r)) {
@@ -750,6 +753,10 @@
     return a.getMonth() === b.getMonth() ? `${m1} ${a.getDate()} – ${b.getDate()}` : `${m1} ${a.getDate()} – ${fmt(we, { month: "short" })} ${b.getDate()}`;
   }
 
+  // His note, unless its show-until date has passed.
+  const activeNote = () => { const n = pub.note.trim(); return n && !(pub.noteUntil && todayKey() > pub.noteUntil) ? n : ""; };
+  const noteBox = () => { const n = activeNote(); return n ? h("aside", { class: "note-box" }, h("b", { class: "note-tag", text: "Note" }), " ", n) : null; };
+
   function render() {
     const asOwner = ownerView();
     if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); pubOt = derivePublicOt(pub, priv, pubDays); }
@@ -766,13 +773,14 @@
 
     $("#willing").hidden = !pub.willing.length;
     $("#willingValue").textContent = pub.willing.map((k) => SHIFT_LABEL[k]).join(" · ");
-    // The line under the shifts: how night shifts sit on the calendar (only when he takes overnights),
-    // then his own note. Under the shifts it starts with ** so it reads as a footnote to them.
-    const lines = [];
-    if (pub.willing.includes("overnight")) lines.push("A night shift is listed under the day it starts. Tue means Tue night into Wed morning.");
-    if (pub.note.trim()) lines.push(pub.note.trim());
-    $("#nightNote").hidden = !lines.length;
-    $("#nightNote").textContent = lines.length ? `${pub.willing.length ? "**" : ""}${lines.join(" ")}` : "";
+    // The line under the shifts says how night shifts sit on the calendar (only when he takes overnights). It starts
+    // with ** so it reads as a footnote to them. His own note gets a box of its own, where it's noticed every visit.
+    const night = pub.willing.includes("overnight");
+    $("#nightNote").hidden = !night;
+    $("#nightNote").textContent = night ? "**A night shift is listed under the day it starts. Tue means Tue night into Wed morning." : "";
+    const note = activeNote();
+    $("#noteBox").hidden = !note;
+    $("#noteText").textContent = note;
 
     $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
@@ -1135,89 +1143,276 @@
     if (f) f.focus();
   };
 
-  // A P-OT day: the supervisor enters the shift's start and end, sees hour by hour which hours would be overtime,
-  // then goes on to the message with the shift time filled in, or picks another day.
-  function potWindow(k, info, area, dayStatus, shiftStatus) {
-    const show = showIn(area);
-    const out = h("div", { class: "stack", "aria-live": "polite" });
-    let barWatch = null;
-    const clockField = (id, question) => {
-      const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "8", autocomplete: "off", placeholder: "e.g. 11:00" });
-      const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
-      const pm = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "PM" });
-      let picked = null;
-      const sync = () => {
-        const c = readClock(input.value), cur = c && c.ap ? c.ap : picked;
-        am.setAttribute("aria-pressed", String(cur === "am"));
-        pm.setAttribute("aria-pressed", String(cur === "pm"));
-      };
-      // When a press makes the bar appear (or change size), the window grows under the finger: a fast second tap
-      // mustn't land on what moved there.
-      const press = (ap) => {
-        picked = ap;
-        sync();
-        const was = out.offsetHeight;
-        update();
-        if (out.offsetHeight !== was) $("#daySheet").openedAt = Date.now();
-      };
-      am.addEventListener("click", () => press("am"));
-      pm.addEventListener("click", () => press("pm"));
-      input.addEventListener("input", () => { sync(); update(); });
-      return {
-        el: h("div", { class: "field" }, h("label", { class: "label", for: id, text: question }),
-          h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
-        mins: () => clockMins(readClock(input.value), picked),
-        unreadable: () => !!input.value.trim() && !readClock(input.value),
-      };
+  // ---------- sending: the simple window, phones, laptops, and the short-notice check ----------
+  const isMac = () => !isPhone() && /Macintosh|Mac OS X/.test(navigator.userAgent);
+  const hhmm = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  // "11:00PM-7:00AM": how a time from the start/end boxes goes into the message and the form's Shift Time.
+  const timeText = (s, e) => { const t = (m) => { const c = clockText(m); return `${c.n.indexOf(":") < 0 ? `${c.n}:00` : c.n}${c.ap}`; }; return `${t(s)}-${t(e)}`; };
+  const spanKey = (sp) => (sp ? `${sp.start}/${sp.len}` : "none");
+  // When a shift starts, from the day it's listed under and its start in minutes from that midnight.
+  const startAt = (k, span) => { const d = dateOf(k); d.setMinutes(span.start); return d; };
+  // A shift that starts sooner than his call-hours setting (or whose start isn't known) asks for a call first.
+  function shortNotice(k, span) {
+    if (!(pub.callHours > 0)) return false;
+    if (!span) return true;
+    return startAt(k, span).getTime() - Date.now() < pub.callHours * 3600000;
+  }
+  // Without a time, overtime is told without numbers: "part of this shift" or "covering this shift".
+  const untimed = (ot) => (ot && typeof ot === "object" && ot.ot > 0 ? (ot.ot >= ot.hours ? true : { part: true }) : ot);
+
+  // The short-notice warning. go(): what to do on Text Anyway. url: the texting app link it was about to open.
+  let callGo = null;
+  function warnCall(k, span, go, url) {
+    const hrs = hoursText(pub.callHours);
+    $("#callText").textContent = !span
+      ? `Heads up: if this shift starts in less than ${hrs}, I may be asleep and not see a text in time. Please call me instead.`
+      : startAt(k, span).getTime() <= Date.now()
+        ? "Heads up: this shift has already started. I may be asleep and not see a text in time. Please call me instead."
+        : `Heads up: this shift starts in less than ${hrs}. I may be asleep and not see a text in time. Please call me instead.`;
+    const phone = isPhone();
+    // A phone dials. A computer can't, so it shows the number to call from a phone.
+    $("#callMe").hidden = !phone;
+    $("#callMe").href = `tel:${smsNumber()}`;
+    $("#callShow").hidden = phone;
+    $("#callNumber").hidden = true;
+    $("#callNumberValue").textContent = prettyPhone();
+    $("#textAnywayLink").hidden = !url;
+    if (url) $("#textAnywayLink").href = url;
+    $("#textAnyway").hidden = !!url;
+    callGo = go;
+    showSheet("#callSheet");
+    $("#callSheet").openedAt = Date.now();
+  }
+
+  // Laptops: the text goes out by QR code. Scanning it opens the text on their phone. A Mac linked to an iPhone can
+  // also send it from Messages on the Mac.
+  function qrPanel() {
+    const code = h("div", { class: "qr-code", "aria-hidden": "true" });
+    const tooLong = h("p", { class: "muted small", hidden: true, text: "This text is too long for a QR code. Shorten it, or text the number from your phone." });
+    const mac = isMac() ? h("a", { class: "linkish", text: "Open in Messages on this Mac" }) : null;
+    const el = h("div", { class: "qr qr-send", hidden: true }, code, tooLong,
+      h("p", { class: "qr-cap", text: "Scan with your phone's camera to text me." }),
+      h("p", { class: "muted small", text: `Or text ${prettyPhone()} from your phone.` }),
+      mac);
+    let timer = 0, last = null, fresh = false;
+    const draw = (text) => {
+      if (mac) mac.href = smsHref(text);
+      if (text === last && code.firstChild) return;
+      last = text;
+      clearTimeout(timer);
+      // Just shown again: draw at once. While typing: wait for a pause.
+      const wait = fresh ? 0 : 150;
+      fresh = false;
+      timer = setTimeout(() => {
+        loadQr().then((lib) => {
+          try {
+            const qr = qrSvg(lib, text);
+            code.innerHTML = qr.svg;
+            // About 240 px, with at least 2 screen pixels per square so a phone reads it off a monitor.
+            let px = Math.max(200, Math.min(qr.size, 260));
+            if (px / qr.cells < 2) px = Math.min(Math.max(200, el.clientWidth - 24), qr.cells * 2.5);
+            code.firstChild.style.width = code.firstChild.style.height = `${Math.round(px)}px`;
+            code.hidden = false;
+            tooLong.hidden = true;
+          } catch (e) { code.hidden = true; tooLong.hidden = false; }
+        }).catch(() => { code.hidden = true; });
+      }, wait);
     };
-    const startF = clockField("potStart", "When does the shift start?");
-    const endF = clockField("potEnd", "When does the shift end?");
+    // Hidden and shown again: the old code goes first, so a code for earlier text never shows.
+    const show = (on) => {
+      if (on && el.hidden) { code.replaceChildren(); last = null; fresh = true; }
+      el.hidden = !on;
+    };
+    return { el, draw, show };
+  }
+
+  // Phones: "Use a different app, like TextNow?" Copy the message and the number to paste them there.
+  function copyLinks(getText, gate) {
+    const msgLink = h("button", { type: "button", class: "linkish", text: "Copy Message" });
+    const numLink = h("button", { type: "button", class: "linkish", text: "Copy Number" });
+    msgLink.addEventListener("click", () => gate(async () => {
+      toast((await copyText(getText())) ? "Message copied. Paste it into your texting app." : "Couldn't copy here. Press and hold the message to copy it.");
+    }));
+    numLink.addEventListener("click", async () => {
+      toast((await copyText(prettyPhone())) ? `Copied ${prettyPhone()}.` : `Couldn't copy here. The number is ${prettyPhone()}.`);
+    });
+    return h("p", { class: "muted small other-app" }, "Use a different app, like TextNow? ", msgLink, " · ", numLink);
+  }
+
+  // A start or end time box with AM and PM buttons.
+  function clockField(id, question, update, out) {
+    const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "8", autocomplete: "off", placeholder: "e.g. 11:00" });
+    const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
+    const pm = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "PM" });
+    let picked = null;
+    const sync = () => {
+      const c = readClock(input.value), cur = c && c.ap ? c.ap : picked;
+      am.setAttribute("aria-pressed", String(cur === "am"));
+      pm.setAttribute("aria-pressed", String(cur === "pm"));
+    };
+    // When a press makes something appear (the bar, the buttons turning on), the window can grow under the finger:
+    // a fast second tap mustn't land on what moved there.
+    const press = (ap) => {
+      picked = ap;
+      sync();
+      const was = out.offsetHeight;
+      update();
+      if (out.offsetHeight !== was) $("#daySheet").openedAt = Date.now();
+    };
+    am.addEventListener("click", () => press("am"));
+    pm.addEventListener("click", () => press("pm"));
+    input.addEventListener("input", () => { sync(); update(); });
+    return {
+      el: h("div", { class: "field" }, h("label", { class: "label", for: id, text: question }),
+        h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
+      mins: () => clockMins(readClock(input.value), picked),
+      unreadable: () => !!input.value.trim() && !readClock(input.value),
+    };
+  }
+
+  // The simple send window, after a shift is picked (type) or straight away on a P-OT day (type null):
+  // when the shift starts and ends, the text as it will go out, a few tips, and two choices: Send Text Now, or
+  // Customize Text First (the full form, with the times filled in). On a P-OT day it also shows hour by hour which
+  // hours would be overtime, and his P-OT settings can turn a time down. back(): to the shift choice.
+  function sendWindow(k, info, type, area, dayStatus, shiftStatus, back) {
+    const show = showIn(area);
+    const ctx = { ack: "" }; // the shift a Text Anyway was given for (shared with the full form)
+    const phone = isPhone(), texting = !!smsNumber();
+    const out = h("div", { class: "stack", "aria-live": "polite" }); // hints, his P-OT no, the overtime bar
+    let barWatch = null;
+    const startF = clockField("qkStart", "When does the shift start?", () => update(), out);
+    const endF = clockField("qkEnd", "When does the shift end?", () => update(), out);
+    const preview = h("p", { class: "preview", id: "qkMsg" });
+    const sendNow = iconLabel(phone ? h("a", { class: "btn go", id: "sendNow" }) : h("button", { type: "button", class: "btn go", id: "sendNow" }), "message", "Send Text Now");
+    const custom = h("button", { type: "button", class: "btn ghost", id: "customize", text: "Customize Text First" });
+    const qr = phone ? null : qrPanel();
+    let st = null;
+    const other = phone ? copyLinks(() => preview.textContent, (go) => gated(go)) : null;
+    const msgBlock = h("div", { class: "stack" },
+      h("div", { class: "field" }, h("span", { class: "label", text: "Your Text" }), preview),
+      h("div", { class: "tips muted small" },
+        h("p", { text: "You can add these in your text before sending, or tap Customize Text First:" }),
+        h("ul", null, h("li", { text: "Your name" }), h("li", { text: "The site name and address" }), h("li", { text: "The pay rate" }))),
+      h("div", { class: "pot-btns" }, sendNow, custom),
+      other,
+      qr ? qr.el : null);
+    // Texting isn't set up: the times (and on a P-OT day the bar) still work, with no way to send.
+    const noText = h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." });
+    // A P-OT day keeps a quiet way back to the calendar (a declined time gets a full button instead).
+    const another = !type ? h("button", { type: "button", class: "linkish quiet", text: "Pick Another Day", onclick: () => $("#daySheet").close() }) : null;
+
+    // Where things stand: the times read, the shift's span, its overtime, and whether he'd turn it down.
+    const compute = () => {
+      const s = startF.mins(), e = endF.mins();
+      const r = { s, e, span: null, ot: null, no: [], hint: "", ready: false, part: "", day: null, time: "" };
+      if (startF.unreadable() || endF.unreadable()) r.hint = "Enter a time like 11, 1130 or 11:30, then pick AM or PM.";
+      else if (s != null && e != null && s === e) r.hint = "The start and end can't be the same time.";
+      else if (s != null && e != null) {
+        r.time = timeText(s, e);
+        if (type) {
+          r.span = typedSpan(type, { start: hhmm(s), end: hhmm(e) });
+          r.ot = shiftOt(k, type, { start: hhmm(s), end: hhmm(e) }) || ((info.kind === "ot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+        } else {
+          const c = potShift(k, s, e);
+          r.span = c.span;
+          r.no = c.no;
+          r.ot = c.r || { part: true };
+          // A start the next morning (from 5 AM, when his start times run that late) is that day's shift.
+          if (c.span.start >= 1440 + 300) { r.part = partOfDay(c.span.start - 1440); r.day = addDays(k, 1); } else r.part = partOfDay(c.span.start);
+        }
+        r.ready = !r.no.length;
+      }
+      if (!r.span) {
+        r.raw = type ? shiftOt(k, type, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null) : null;
+        r.ot = type ? untimed(r.raw) : { part: true };
+      }
+      return r;
+    };
+    const message = (r) => composeMessage(k, { who: store.get(LS.who) || "", type, time: r.time, ot: r.ot, part: r.part, day: r.day });
+    // On a phone: open the texting app, after the short-notice check. On a computer: show the QR code.
+    const gated = (go, url) => {
+      if (!st || !st.ready) return false;
+      const key = spanKey(st.span);
+      if (shortNotice(k, st.span) && ctx.ack !== key) { warnCall(k, st.span, () => { ctx.ack = key; if (!url) go(); }, url); return false; }
+      if (!url) go();
+      return true;
+    };
+    sendNow.addEventListener("click", (e) => {
+      if (phone) { if (!gated(null, sendNow.getAttribute("href"))) e.preventDefault(); return; }
+      gated(() => {
+        qr.show(true);
+        qr.draw(preview.textContent);
+        update();
+        try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { qr.el.scrollIntoView(false); }
+      });
+    });
+    const update = () => {
+      st = compute();
+      const nodes = [];
+      if (st.hint) nodes.push(h("p", { class: "muted", text: st.hint }));
+      if (st.no.length) {
+        nodes.push(...st.no.map((t) => h("p", { class: "decline", text: t })));
+        nodes.push(h("button", { type: "button", class: "btn ghost", text: "Pick Another Day", onclick: () => $("#daySheet").close() }));
+      }
+      let bar = null;
+      if (!type && st.span && !st.no.length) {
+        if (st.ot && !st.ot.part) {
+          const stretches = otStretches(k, st.span, pub.weekStart, pubLeft);
+          bar = otBar(st.span, stretches);
+          nodes.push(bar, otSummary(st.span, stretches, st.ot));
+        } else nodes.push(h("p", { class: "muted", text: "Couldn't work out the overtime for those times." }));
+      }
+      out.replaceChildren(...nodes);
+      if (barWatch) { barWatch.disconnect(); barWatch = null; }
+      if (bar) { fitBar(bar); barWatch = onWidth(bar, () => fitBar(bar)); }
+      // The top line: the day's answer until there's a shift to talk about, then that shift's overtime
+      // (for a picked shift without times, counted for his usual shift, with "some" for a part).
+      if (st.no.length) dayStatus(); // the reason is right under the times
+      else if (st.span) shiftStatus(st.ot, true);
+      else if (type) shiftStatus(st.raw, false);
+      else dayStatus();
+      msgBlock.hidden = !!st.no.length || !texting;
+      noText.hidden = texting;
+      if (another) another.hidden = !!st.no.length;
+      const text = message(st);
+      preview.textContent = text;
+      const on = st.ready;
+      sendNow.classList.toggle("ot", otState(st.ot) !== "open");
+      sendNow.classList.toggle("off", !on);
+      sendNow.setAttribute("aria-disabled", String(!on));
+      if (phone) { if (on) sendNow.href = smsHref(text); else sendNow.removeAttribute("href"); } else sendNow.disabled = !on;
+      if (other) other.hidden = !on;
+      // A QR code already showing follows the text, or hides again if the shift changed to one that needs the check.
+      if (qr && !qr.el.hidden) {
+        if (!on || (shortNotice(k, st.span) && ctx.ack !== spanKey(st.span))) qr.show(false);
+        else qr.draw(text);
+      }
+    };
     const steps = [
-      h("p", { class: "pot-intro", text: "Let's work out how many hours of the shift you need covered would be overtime." }),
+      type
+        ? h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
+          h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: back }))
+        : h("p", { class: "pot-intro", text: "Let's work out how many hours of the shift you need covered would be overtime." }),
       startF.el,
       endF.el,
       out,
+      msgBlock,
+      noText,
+      another,
     ];
-    const back = () => { show(steps, "#potStart"); update(); };
-    const go = () => {
-      const t = (mins) => { const c = clockText(mins); return `${c.n.indexOf(":") < 0 ? `${c.n}:00` : c.n}${c.ap}`; };
-      show(textForm(k, info, null, back, shiftStatus, { time: `${t(startF.mins())}-${t(endF.mins())}` }), ".shift-chosen .linkish");
-    };
-    const update = () => {
-      const s = startF.mins(), e = endF.mins();
-      const note = (text) => { dayStatus(); out.replaceChildren(h("p", { class: "muted", text })); };
-      if (startF.unreadable() || endF.unreadable()) return note("Enter a time like 11, 1130 or 11:30, then pick AM or PM.");
-      if (s == null || e == null) { dayStatus(); out.replaceChildren(); return; }
-      if (s === e) return note("The start and end can't be the same time.");
-      const c = potShift(k, s, e);
-      const again = h("button", { type: "button", class: "btn ghost", text: "Pick Another Day", onclick: () => $("#daySheet").close() });
-      if (c.no.length) {
-        dayStatus();
-        out.replaceChildren(...c.no.map((t) => h("p", { class: "decline", text: t })), again);
-        return;
-      }
-      const yes = smsNumber()
-        ? h("button", { type: "button", class: "btn primary", text: "Yes, Let's Do It", onclick: go })
-        : h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." });
-      if (!c.r) {
-        dayStatus();
-        out.replaceChildren(h("p", { class: "muted", text: "Couldn't work out the overtime for those times." }), h("div", { class: "pot-btns" }, yes, again));
-        return;
-      }
-      shiftStatus(c.r, true);
-      const stretches = otStretches(k, c.span, pub.weekStart, pubLeft);
-      const bar = otBar(c.span, stretches);
-      out.replaceChildren(bar, otSummary(c.span, stretches, c.r), h("div", { class: "pot-btns" }, yes, again));
-      fitBar(bar);
-      if (barWatch) barWatch.disconnect();
-      barWatch = onWidth(bar, () => fitBar(bar));
-    };
+    const again = () => { show(steps, "#qkStart"); update(); };
+    custom.addEventListener("click", () => {
+      show(textForm(k, info, type, again, shiftStatus, { time: st && st.ready ? st.time : "", ctx }), ".shift-chosen .linkish");
+    });
+    update();
     show(steps, null);
   }
 
-  // The message window for one shift. back() returns to the shift choice; status(ot, timed) updates the line at
-  // the top as the overtime changes with the shift time. pot: {time} when it comes from a P-OT day's estimate.
-  function textForm(k, info, type, back, status, pot) {
+  // The full message form. back() returns to the simple window; status(ot, timed) updates the line at the top as the
+  // overtime changes with the shift time. opts: {time} to fill Shift Time with, ctx shared with the simple window.
+  // type null: a P-OT day, where his P-OT settings can turn a time down.
+  function textForm(k, info, type, back, status, opts) {
+    const pot = !type, ctx = (opts && opts.ctx) || { ack: "" };
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
@@ -1225,63 +1420,59 @@
       return { input, el: h("label", { class: "field" }, h("span", { class: "label", text: label }), input) };
     };
     const who = field("txWho", "Your Name (optional)", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
-    const time = field("txTime", "Shift Time (optional)", { maxlength: "40", placeholder: '"2300-0700" or "11:00PM-7:00AM"', autocomplete: "off" }, pot ? pot.time : "");
+    const time = field("txTime", "Shift Time (optional)", { maxlength: "40", placeholder: '"2300-0700" or "11:00PM-7:00AM"', autocomplete: "off" }, opts && opts.time);
     const site = field("txSite", "Site Name (optional)", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
     const addr = field("txAddr", "Site Address (optional)", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
     const pay = field("txPay", "Pay Rate (optional)", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
-    // How much of the shift would be overtime, counted from the typed time. Without one: a usual-length shift at the
-    // default times, or on a P-OT day just "part of this shift". On a P-OT day a time he doesn't take is a no.
-    // An older calendar file only says whether the day is overtime (and, on a pay week's last day, for which shifts).
+    // How much of the shift would be overtime, counted from the typed time. Without one it's told without numbers.
+    // On a P-OT day a time he doesn't take is a no. An older calendar file only says whether the day is overtime
+    // (and, on a pay week's last day, for which shifts).
+    const rawOt = (t) => shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
     const otFor = (t) => {
       if (pot) {
         if (!t) return { part: true };
         const c = potShift(k, minutesOf(t.start), minutesOf(t.end));
         return c.no.length ? { no: c.no } : c.r || { part: true };
       }
-      return shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+      return t ? rawOt(t) : untimed(rawOt(null));
     };
+    const spanOf = (t) => (!t ? null : pot ? potShift(k, minutesOf(t.start), minutesOf(t.end)).span : typedSpan(type, t));
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
-    // Send options: three matching buttons. On a computer, a QR code sits beside them.
-    const send = iconLabel(h("a", { class: "btn go" }), "message", "Open in Messages");
-    const copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
-    const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
-    const qrBox = isPhone() ? null : h("div", { class: "qr send-qr" },
-      h("div", { class: "qr-code", "aria-hidden": "true" }),
-      h("p", { class: "label", text: "Scan with your phone's camera to text from it" }));
-    const sendBody = h("div", { class: "send-body" }, h("div", { class: "send-opts" }, send, copyMsg, copyNum), qrBox);
-    const sendBox = h("div", { class: "send" }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }), sendBody);
-    if (qrBox) qrBox.hidden = true; // until the code is drawn
+    const phone = isPhone();
     let blocked = false; // a P-OT shift time he doesn't take: nothing to send
-    let qrTimer = 0;
-    // The buttons take the whole width whenever there's no code beside them.
-    const showQr = (on) => { qrBox.hidden = !on; sendBox.classList.toggle("has-qr", on); };
-    const drawQr = () => {
-      if (!qrBox) return;
-      clearTimeout(qrTimer);
-      if (blocked) { showQr(false); return; }
-      qrTimer = setTimeout(() => {
-        loadQr().then((lib) => {
-          if (blocked) return;
-          // A very long message can be too big for a QR code. Hide it until the text fits again.
-          try {
-            const qr = qrSvg(lib, msg.value), box = qrBox.querySelector(".qr-code");
-            box.innerHTML = qr.svg;
-            // Beside the buttons the code is at most 240 px. A long message needs a bigger code to scan well, so then
-            // it moves under the buttons, where it can use the full width. In the side-by-side laptop layout it stays
-            // beside them (at most 200 px, leaving the buttons room for one line), so nothing needs scrolling, unless
-            // its squares would be under 2 px.
-            const split = $("#daySheet").classList.contains("split") && window.innerWidth >= 900;
-            const side = split ? Math.max(120, Math.min(200, sendBody.clientWidth - 246)) : 240; // 246: buttons, gap, card padding
-            const under = split ? side / qr.cells < 2 : qr.size > side;
-            sendBox.classList.toggle("wide-qr", under);
-            const room = under ? sendBody.clientWidth - 24 : side; // 24: the card's padding
-            box.firstChild.style.width = box.firstChild.style.height = `${room > 0 ? Math.min(qr.size, room) : qr.size}px`;
-            showQr(true);
-          } catch (e) { showQr(false); }
-        }).catch(() => showQr(false));
-      }, 250);
-    };
+    let cur = null; // {span, key} of the time in the box
+    const needsCheck = () => shortNotice(k, cur.span) && ctx.ack !== cur.key;
+    // Phones and tablets: three buttons that open their texting app or copy the text and number. Computers: the QR code.
+    let send = null, copyMsg = null, qr = null, showQr = null, sendBox;
+    if (phone) {
+      send = iconLabel(h("a", { class: "btn go" }), "message", "Open Texting App");
+      copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
+      const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
+      send.addEventListener("click", (e) => {
+        if (blocked) { e.preventDefault(); return; }
+        if (needsCheck()) { e.preventDefault(); const key = cur.key; warnCall(k, cur.span, () => { ctx.ack = key; }, send.getAttribute("href")); }
+      });
+      const doCopy = async () => {
+        if (!(await copyWithFeedback(copyMsg, "copy", "Copy Message", msg.value, "Couldn't copy here. The message is selected: use your device's Copy."))) {
+          msg.focus();
+          msg.select();
+        }
+      };
+      copyMsg.addEventListener("click", () => {
+        if (needsCheck()) { const key = cur.key; warnCall(k, cur.span, () => { ctx.ack = key; doCopy(); }); } else doCopy();
+      });
+      copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
+      sendBox = h("div", { class: "send" }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }),
+        h("div", { class: "send-opts" }, send, copyMsg, copyNum),
+        h("p", { class: "muted small other-app", text: "Use a different app, like TextNow? Copy the message and number, then paste them there." }));
+    } else {
+      qr = qrPanel();
+      // A shift starting soon shows the code only after the short-notice check.
+      showQr = h("button", { type: "button", class: "btn go", text: "Show QR Code", hidden: true });
+      showQr.addEventListener("click", () => { const key = cur.key; warnCall(k, cur.span, () => { ctx.ack = key; refresh(); }); });
+      sendBox = h("div", { class: "send" }, showQr, qr.el);
+    }
     const shiftLabel = h("span", { class: "label" });
     let edited = false;
     const values = () => {
@@ -1296,40 +1487,44 @@
       }
       return v;
     };
+    const sendState = () => {
+      if (phone) {
+        send.classList.toggle("off", blocked);
+        send.setAttribute("aria-disabled", String(blocked));
+        if (blocked) send.removeAttribute("href");
+        else send.href = smsHref(msg.value);
+        copyMsg.disabled = blocked;
+        return;
+      }
+      const gate = !blocked && needsCheck();
+      showQr.hidden = !gate;
+      qr.show(!blocked && !gate);
+      if (!blocked && !gate) qr.draw(msg.value);
+    };
     const refresh = () => {
       const v = values(), t = v.read;
+      const sp = spanOf(t);
+      cur = { span: sp, key: spanKey(sp) };
       shiftLabel.textContent = !pot ? `Shift: ${SHIFT_LABEL[type]}` : t ? `Shift: ${fmtTime(t.start)} to ${fmtTime(t.end)}` : `Shift: ${v.time || "Not Set"}`;
       blocked = !!(v.ot && v.ot.no);
       if (!edited) msg.value = composeMessage(k, v);
-      send.classList.toggle("ot", otState(v.ot) !== "open");
-      send.classList.toggle("off", blocked);
-      send.setAttribute("aria-disabled", String(blocked));
-      if (blocked) send.removeAttribute("href");
-      else send.href = smsHref(msg.value);
-      copyMsg.disabled = blocked;
-      status(v.ot, !!t);
-      drawQr();
+      if (send) send.classList.toggle("ot", otState(v.ot) !== "open");
+      if (showQr) showQr.classList.toggle("ot", otState(v.ot) !== "open");
+      sendState();
+      // Without a time, a picked shift's line counts his usual shift ("some of the 8 hours").
+      status(t || pot ? v.ot : rawOt(null), !!t);
     };
     for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay], [time, null]]) {
       f.input.addEventListener("input", () => { if (key) store.set(key, f.input.value.trim()); refresh(); });
     }
-    msg.addEventListener("input", () => { edited = true; reset.hidden = false; if (!blocked) send.href = smsHref(msg.value); drawQr(); });
+    msg.addEventListener("input", () => { edited = true; reset.hidden = false; sendState(); });
     reset.addEventListener("click", () => { edited = false; reset.hidden = true; refresh(); });
-    copyMsg.addEventListener("click", async () => {
-      if (!(await copyWithFeedback(copyMsg, "copy", "Copy Message", msg.value, "Couldn't copy here. The message is selected: use your device's Copy."))) {
-        msg.focus();
-        msg.select();
-      }
-    });
-    copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
     refresh();
-    // A window widened into (or out of) the side-by-side layout: place the code again.
-    if (qrBox) onWidth(sendBody, drawQr);
-    // Two columns on a laptop: the boxes on the left, the message and send buttons on the right.
+    // Two columns on a laptop: the boxes on the left, the message and the way to send it on the right.
     return [h("div", { class: "tx-grid" },
       h("div", { class: "tx-col" },
         h("div", { class: "field-head shift-chosen" }, shiftLabel,
-          h("button", { type: "button", class: "linkish", text: pot ? "Change Times" : "Change Shift", onclick: back })),
+          h("button", { type: "button", class: "linkish", text: "Change Times", onclick: back })),
         h("p", { class: "muted small", text: "What you fill in is added to the message." }),
         who.el,
         time.el,
@@ -1358,7 +1553,8 @@
     }[info.kind];
     const swatch = h("span", { class: `sw ${sw}` }), statusText = h("span", { text: headline });
     // The line changes as a supervisor types the shift time, so screen readers hear the new overtime hours.
-    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText));
+    // His note sits right under the answer, where it's read at the moment of asking.
+    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText), noteBox());
     const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; };
     // When his shifts differ (only an overnight runs into the next pay week), say which would be overtime.
     // Once a shift is picked, the line matches that shift. A P-OT day is about times, not shift names.
@@ -1383,7 +1579,7 @@
     } else if (info.kind === "pot") {
       const area = h("div", { class: "stack" });
       wrap.append(area);
-      potWindow(k, info, area, dayStatus, shiftStatus);
+      sendWindow(k, info, null, area, dayStatus, shiftStatus, null);
     } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
       else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus); }
@@ -1433,7 +1629,7 @@
         ], ".decline");
         return;
       }
-      show(textForm(k, info, t, () => choose(true), shiftStatus), ".shift-chosen .linkish");
+      sendWindow(k, info, t, area, dayStatus, shiftStatus, () => choose(true));
     };
     choose(false);
   }
@@ -1986,10 +2182,15 @@
   }
   const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
 
+  // Settings: say so when the note's show-until date has passed (supervisors don't see it then).
+  const showNoteExpired = () => { $("#noteExpired").hidden = !(pub.note.trim() && pub.noteUntil && todayKey() > pub.noteUntil); };
   let fbAtOpen = "";
   let potAtOpen = { from: "", to: "" };
   function openSettings() {
     $("#setNote").value = pub.note;
+    $("#setNoteUntil").value = pub.noteUntil;
+    showNoteExpired();
+    $("#setCallHours").value = num(pub.callHours);
     $("#setName").value = pub.name;
     $("#setEmpId").value = pub.empId;
     $("#setPhone").value = pub.phone;
@@ -2015,7 +2216,9 @@
 
   function onSettingsChange(e) {
     const t = e.target;
-    if (t.id === "setNote") pub.note = t.value.slice(0, 140);
+    if (t.id === "setNote") { pub.note = t.value.slice(0, 140); showNoteExpired(); }
+    else if (t.id === "setNoteUntil") { pub.noteUntil = isKey(t.value) ? t.value : ""; showNoteExpired(); }
+    else if (t.id === "setCallHours") { const n = Number(t.value); if (t.value.trim() !== "" && n >= 0 && n <= 48) pub.callHours = n; }
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
@@ -2385,9 +2588,15 @@
     }
     // close("") clears returnValue, so dismissing a sheet never repeats the last button's action.
     // A double tap on a day would otherwise land its second tap on a shift button or the backdrop.
-    $("#daySheet").addEventListener("click", (e) => {
-      if (Date.now() - ($("#daySheet").openedAt || 0) < 350) { e.preventDefault(); e.stopImmediatePropagation(); }
-    }, true);
+    for (const id of ["#daySheet", "#callSheet"]) {
+      $(id).addEventListener("click", (e) => {
+        if (Date.now() - ($(id).openedAt || 0) < 350) { e.preventDefault(); e.stopImmediatePropagation(); }
+      }, true);
+    }
+    // The short-notice warning: Text Anyway does what they were about to do; a computer shows the number to call.
+    $("#textAnyway").addEventListener("click", () => { const go = callGo; callGo = null; $("#callSheet").close(); if (go) go(); });
+    $("#textAnywayLink").addEventListener("click", () => { const go = callGo; callGo = null; if (go) go(); setTimeout(() => $("#callSheet").close(), 0); });
+    $("#callShow").addEventListener("click", () => { $("#callNumber").hidden = false; });
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });

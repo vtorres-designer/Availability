@@ -12,44 +12,58 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 | Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
-A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away. Your own note to supervisors goes on that same line, after it (or alone, in the same small grey text, when Overnight is off).
+A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under **Shifts I'll Pick Up**, starting with \*\* like a footnote; uncheck Overnight and it goes away.
 
-When a supervisor taps a green or yellow day, they're first asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." A shift you take (from Settings, or a day's own list) opens a short form: Your Name, Shift Time (the grey example inside the box reads "2300-0700" or "11:00PM-7:00AM"), Site Name, Site Address and Pay Rate. Each label ends in "(optional)", and each box they fill in adds a sentence to the text:
+**Your note** (Settings → Note to supervisors) shows in a tinted **Note** box near the top of the page, and again at the top of every day's window, so it's in front of supervisors right when they ask you for a shift. Give it a **Show the note until** date and it hides itself after that day, so a note like "Looking for extra hours this week" doesn't go stale.
 
-> Hi Vincent. This is Sarah. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 2300 to 0700? It's at Site B, 123 Main St. The pay is $22/hr. Let me know. Thanks!
+## How supervisors text you
+
+1. **They tap a green or yellow day** and are asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." (P-OT days skip this step; see below.)
+2. **A simple window** asks **When does the shift start?** and **When does the shift end?**: a box for the time ("11", "1130", "11:30", "11pm") with **AM** and **PM** buttons. A 24-hour time like 2300 or 0700 picks PM or AM by itself.
+3. Under that is **Your Text**, the message as it will go out, updating as they enter the times:
+
+   > Hi Vincent. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 11:00 PM to 7:00 AM? Let me know. Thanks!
+
+   A supervisor who has customized a text before on that device gets their saved name in it too ("This is Sgt. Martinez."). A short list suggests what else they can add (their name, the site name and address, the pay rate), either in their own texting app before sending or by tapping **Customize Text First**.
+4. **Send Text Now** (it turns on once both times are in) sends it right away. **Customize Text First** opens the full form with the times already filled in: Your Name, Shift Time, Site Name, Site Address and Pay Rate, each "(optional)". Each box they fill in adds a sentence. **Change Times** goes back.
 
 The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
 
-When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "You'd get overtime pay for all 8 hours of this shift." The count follows the shift time the supervisor types, and the line at the top of the window changes with it ("I'm available, but 2 of the 8 hours would be overtime"). Until they type a time the site can read, it counts your usual shift length (for an 8-hour shift: a morning is 7 AM to 3 PM, a swing 3 PM to 11 PM, an overnight 11 PM to 7 AM), and if only part of it would be overtime the top line says "some of the 8 hours" instead of a number. On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. So one shift that day can be overtime when another isn't. The day's color shows the shift with the most overtime, and the window says which shift is which.
+When some of the shift would be overtime for you, the text ends with how much: "You'd get overtime pay for 5 of the 8 hours of this shift." or "…for all 8 hours of this shift." The count follows the times they enter, and the line at the top of the window changes with it ("I'm available, but 2 of the 8 hours would be overtime"). Without times, the text just says "…for part of this shift" or "…for covering this shift". On the last day of a pay week, a shift is split at midnight between the two weeks: if this week is full, a 10 PM start gives 2 overtime hours and an 11 PM start gives 1. The day's color shows the shift with the most overtime, and the window says which shift is which.
+
+### Sending, by device
+
+- **Phones and tablets** (iPhone, iPad, Android, Galaxy Tab): **Send Text Now** opens their default texting app with the message filled in. In the full form the buttons are **Open Texting App**, **Copy Message** and **Copy Number**. A small line covers other apps: "Use a different app, like TextNow? Copy the message and number, then paste them there." The text comes from their own number, so you can reply to them directly.
+- **Laptops and desktops:** a computer can't send a text, so there are no texting buttons. **Send Text Now** shows a QR code: "Scan with your phone's camera to text me." Their phone's camera opens the text in its texting app, ready to send. Under it: "Or text (720) 669-4305 from your phone." In the full form the QR code is right beside the message.
+- **Macs:** also get a small **Open in Messages on this Mac** link, which sends the text from Messages if their Mac is linked to an iPhone.
+
+Their device remembers their name, site, address and pay rate for next time.
+
+### Shifts starting soon
+
+If the shift starts in less than 10 hours (or has already started, or no start time was given), any way of sending first shows: "Heads up: this shift starts in less than 10 hours. I may be asleep and not see a text in time. Please call me instead." with **Call Me** and **Text Anyway**. On a phone, Call Me dials you; on a computer it shows your number to call from their phone. Text Anyway goes ahead and isn't asked again for the same times. The 10 hours is a setting (Settings → Ask supervisors to call when a shift starts within); 0 turns the warning off. It goes by the supervisor's device clock.
 
 ### P-OT days
 
-A P-OT day (half yellow, half green) works differently, because there the shift's times decide everything. The window has the same top ("Wednesday, October 7", then "I'm available, but part of the shift would be overtime"), and instead of the shift buttons it says "Let's work out how many hours of the shift you need covered would be overtime." and asks **When does the shift start?** and **When does the shift end?**, each a box for the time ("11", "1130" or "11:30") with **AM** and **PM** buttons. Typing "11pm" or "7 am" works too, and a 24-hour time like 2300 or 0700 picks PM or AM by itself. A time it can't read gets a short hint, and the same start and end time is turned away.
+A P-OT day (half yellow, half green) skips the shift buttons, because there the times decide everything. The window says "I'm available, but part of the shift would be overtime" and "Let's work out how many hours of the shift you need covered would be overtime.", then asks for the start and end times the same way.
 
-Once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour fills half its block. Labels shrink to fit small screens. The top line gives the number ("5 of the 8 hours would be overtime").
+Once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour fills half its block. Labels shrink to fit small screens. The top line gives the number ("5 of the 8 hours would be overtime"). Then come the same **Your Text**, **Send Text Now** and **Customize Text First**, and a small **Pick Another Day** link that goes back to the calendar.
 
-Then they pick **Yes, Let's Do It**, which opens the message form with Shift Time filled in ("11:00PM-7:00AM") and the overtime hours at the end of the text, or **Pick Another Day**, which goes back to the calendar. On the form, **Change Times** goes back to the bar with their times kept. The message says "a shift on the night of…", "on the evening of…" or "on the day of…" depending on the start time (from 7 PM, from 3 PM, from 5 AM). If your start times run past 5 AM (like 1500-0800), a start the next morning from 5 AM on is worded as that next day ("on the day of Friday").
+The message says "a shift on the night of…", "on the evening of…" or "on the day of…" depending on the start time (from 7 PM, from 3 PM, from 5 AM). If your start times run past 5 AM (like 1500-0800), a start the next morning from 5 AM on is worded as that next day ("on the day of Friday").
 
 Your **P-OT Shifts** settings decide what you'll take on those days:
 - **Start times I'll accept**, like `1900-0300`. A range can run past midnight; then a start after midnight (like 1 AM) means the next morning. A start outside the range gets "Sorry, I can only start a shift between 7 PM and 3 AM that day."
 - **Longest shift**, like 10 hours. A longer one gets "Sorry, I can't take a shift longer than 10 hours that day."
 
-Either box can be left empty for no limit. A shift you'd turn down shows no bar and no Yes button, and if a supervisor changes the Shift Time on the form to one you'd turn down, the top line says why and the send buttons turn off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
+Either box can be left empty for no limit. A shift you'd turn down shows no bar and can't be sent, and if a supervisor changes the Shift Time on the full form to one you'd turn down, the top line says why and sending turns off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
 
 ### On a laptop
 
-On a wide screen (a laptop, or a tablet turned sideways) the message form sits side by side: the boxes on the left, and the message, the send buttons and the QR code on the right, so the message updates in view as they type and nothing needs scrolling.
-
-They can edit the message, then pick one of three matching buttons under **Send to** your number: **Open in Messages**, **Copy Message** or **Copy Number**. On a computer, a QR code sits beside them. The text comes from their own number, so you can reply to them directly. Their phone remembers their name, site, address and pay rate for next time.
+On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: your name, shifts, note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
 
 ## Works on any device
 
-Supervisors can open the link in any current browser on an iPhone, Android phone, iPad, Windows PC, Mac, Chromebook or Linux computer. Phones and browsers back to about 2019 work too.
-
-- **Phone or tablet:** **Open in Messages** opens their texting app with the message filled in.
-- **Mac:** it opens Messages, which sends from their iPhone if the two are linked.
-- **Windows, Chromebook or Linux:** a computer usually can't send a text from a link, so the form also shows a QR code beside the buttons. They point their phone's camera at it, and the text opens on their phone, ready to send.
-- **Copy Message** and **Copy Number** work everywhere.
+Supervisors can open the link in any current browser on an iPhone, Android phone, iPad, Windows PC, Mac, Chromebook or Linux computer. Phones and browsers back to about 2019 work too. See "Sending, by device" above for how each one sends.
 
 ## Sharing
 
@@ -65,7 +79,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your first name, your number, your note under the shifts, and when you last saved.
+The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your first name, your number, your note, your short-notice hours, and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -142,7 +156,7 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 - **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow and P-OT days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, and an optional note (shown under the shifts you'll pick up). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, how many hours ahead a shift has to be before supervisors are asked to call instead (10 by default; 0 turns it off), and an optional note with an optional show-until date (shown in the Note box and in each day's window). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **Email for bug reports:** where Report Bugs messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
