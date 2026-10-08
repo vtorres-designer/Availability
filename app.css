@@ -19,6 +19,7 @@
   --none: #e2e6ee;
   --none-ink: #6d7689;
   --hatch: rgba(255, 255, 255, 0.22);
+  --note-bg: #e7edfa;
 
   --shadow: 0 10px 30px rgba(15, 25, 50, 0.18);
   --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
@@ -31,7 +32,7 @@
     --accent: #8db0f2; --accent-ink: #0d1220;
     --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
     --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
-    --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
     color-scheme: dark;
   }
 }
@@ -40,7 +41,7 @@
   --accent: #8db0f2; --accent-ink: #0d1220;
   --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
   --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
-  --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
   color-scheme: dark;
 }
 
@@ -128,6 +129,14 @@ h2 { font-size: 28px; line-height: 1.05; }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .night-note { margin: 0; font-size: 14px; color: var(--muted); }
+/* His note: a tinted box under the shifts, and again in each day's window. */
+.note-box {
+  margin: 8px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--note-bg); border-left: 4px solid var(--accent);
+  font-size: 15px; line-height: 1.4; overflow-wrap: anywhere;
+}
+.note-tag { font: 700 12px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-right: 4px; }
+.sheet .note-box { margin: 0; }
 
 /* Calendar */
 .cal { display: grid; gap: 6px; }
@@ -431,17 +440,17 @@ dialog:not([open]) { display: none; }
 /* Share this calendar */
 #shareUrl { font-size: 15px; }
 
-/* Texting: one heading, three matching buttons, and on computers a QR code beside them. */
+/* Texting. Phones: one heading, three matching buttons that open their texting app or copy. Computers: a QR code. */
 .send { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
-.send-body { display: grid; gap: 12px; }
 .send-opts { display: grid; gap: 8px; align-content: center; }
 .send-opts .btn { width: 100%; gap: 10px; }
 .btn svg { width: 18px; height: 18px; flex: none; }
-.send-qr p { max-width: 220px; margin: 0; }
-@media (min-width: 600px) {
-  .send.has-qr:not(.wide-qr) .send-body { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
-  .send.has-qr:not(.wide-qr) .send-qr { grid-column: 1; grid-row: 1; }
-}
+.other-app { margin: 0; }
+.other-app .linkish { padding: 2px 0; font-size: 13px; }
+.qr-send { gap: 4px; }
+.qr-send .qr-code { margin-bottom: 4px; }
+.qr-cap { font-weight: 700; }
+.qr-send .linkish { margin-top: 2px; }
 
 /* The first step on an available day: which shift? */
 .shift-choice { display: grid; gap: 8px; }
@@ -481,7 +490,18 @@ dialog:not([open]) { display: none; }
 .otsum .sw { width: 14px; height: 14px; border-radius: 4px; }
 .pot-btns { display: grid; gap: 8px; }
 @media (min-width: 480px) { .pot-btns { grid-template-columns: 1fr 1fr; } }
-.btn.go.off, .send-opts .btn:disabled { opacity: 0.45; pointer-events: none; cursor: default; }
+.btn.go.off, .btn.go:disabled, .send-opts .btn:disabled { opacity: 0.45; pointer-events: none; cursor: default; }
+/* The simple send window: the text as it will go out, a few tips, and the two choices. */
+.preview {
+  margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line); font-size: 15px; line-height: 1.45; overflow-wrap: anywhere;
+}
+.tips p { margin: 0; }
+.tips ul { margin: 2px 0 0; padding-left: 18px; }
+.linkish.quiet { justify-self: center; font-size: 13px; padding: 2px 4px; }
+/* Please call: the number, large, for someone on a computer. */
+.call-number { display: grid; justify-items: center; gap: 2px; }
+.call-number b { font: 700 30px/1.1 var(--font-display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; user-select: all; -webkit-user-select: all; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); -webkit-clip-path: inset(50%); clip-path: inset(50%); white-space: nowrap; }
 
 /* The message form: one column on phones; on a laptop the boxes sit beside the message, so nothing needs scrolling. */
@@ -489,10 +509,46 @@ dialog:not([open]) { display: none; }
 @media (min-width: 900px) {
   #daySheet.split { max-width: 1000px; max-height: 96vh; max-height: 96dvh; }
   #daySheet.split .sheet-in { gap: 10px; padding-top: 14px; }
-  #daySheet.split .send-opts .btn { padding-inline: 12px; white-space: nowrap; }
   .tx-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; }
   #daySheet.split #txMsg { min-height: 150px; }
-  #daySheet.split .send-qr p { max-width: 176px; } /* keeps the code's card narrow enough for one-line buttons beside it */
 }
 /* The two example times fit inside the box on the smallest phones. */
 @media (max-width: 400px) { #txTime::placeholder { font-size: 14px; } }
+
+/* Laptops and wide tablets: the name, note, key and links on the left; the calendar on the right, in its own
+   scroll area, so the page itself fits the screen. Phones keep the single column. */
+@media (min-width: 960px) and (min-height: 560px) {
+  .page {
+    max-width: 1200px; min-height: 100vh; min-height: 100dvh;
+    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 48px; row-gap: 0; align-items: start; padding-block: 20px;
+  }
+  .page > .top, .page > .owner-banner, .page > .key, .page > .foot { grid-column: 1; margin-bottom: 18px; }
+  .page > .top { grid-row: 1; }
+  .page > .owner-banner { grid-row: 2; }
+  .page > .key { grid-row: 3; }
+  .page > .foot { grid-row: 4; justify-items: start; }
+  .page > .foot .foot-row { justify-content: flex-start; }
+  .page > .foot .foot-row > *:first-child { margin-left: 0; }
+  .page > .foot .foot-meta { justify-items: start; }
+  .page > .foot .empid { text-align: left; }
+  /* The calendar stays in view (and scrolls by itself) even when the left side is long enough to scroll the page. */
+  .page > .cal {
+    grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 20px;
+    max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+    overflow-y: auto; padding: 0 4px 8px; align-content: start;
+  }
+  /* The weekday names stay in view while the weeks scroll under them. */
+  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-bottom: 4px; }
+  .day { min-height: 74px; }
+  .day .num { font-size: 28px; }
+  .day .tag { font-size: 11px; }
+  /* Edit mode: the supervisors' how-to line isn't needed, which keeps the left side on one screen. */
+  body.owner:not(.previewing) .lede { display: none; }
+  /* Edit mode and the preview have a bar along the bottom. */
+  body.owner .page { min-height: calc(100vh - 132px); min-height: calc(100dvh - 132px - env(safe-area-inset-bottom, 0px)); }
+  body.owner .page > .cal { max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); }
+  body.previewing .page { min-height: calc(100vh - 76px); min-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px)); }
+  body.previewing .page > .cal { max-height: calc(100vh - 116px); max-height: calc(100dvh - 116px - env(safe-area-inset-bottom, 0px)); }
+}
