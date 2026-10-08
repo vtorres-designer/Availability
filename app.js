@@ -16,14 +16,24 @@
     backdrop.className = "shim-backdrop";
     backdrop.hidden = true;
     const openOnes = () => Array.prototype.filter.call(document.querySelectorAll("dialog"), (d) => d.hasAttribute("open"));
+    // The newest sheet sits on top with the dimming right under it, so a sheet underneath can't be tapped.
+    const stack = () => {
+      const o = openOnes().sort((a, b) => (a.openSeq || 0) - (b.openSeq || 0));
+      o.forEach((d, i) => { d.style.zIndex = String(1000 + i * 2); });
+      backdrop.hidden = !o.length;
+      if (o.length) backdrop.style.zIndex = String(999 + (o.length - 1) * 2);
+    };
+    let seq = 0;
     const shim = (d) => {
       if (d.showModal) return;
       d.returnValue = "";
       Object.defineProperty(d, "open", { get() { return this.hasAttribute("open"); } });
       d.showModal = function () {
         if (!backdrop.parentNode) document.body.appendChild(backdrop);
+        this.returnFocus = document.activeElement;
+        this.openSeq = ++seq;
         this.setAttribute("open", "");
-        backdrop.hidden = false;
+        stack();
         const f = this.querySelector("input, select, textarea, button");
         if (f) try { f.focus(); } catch (e) { /* ignore */ }
       };
@@ -31,7 +41,10 @@
         if (!this.hasAttribute("open")) return;
         if (value !== undefined) this.returnValue = value;
         this.removeAttribute("open");
-        if (!openOnes().length) backdrop.hidden = true;
+        stack();
+        const back = this.returnFocus;
+        this.returnFocus = null;
+        if (back && back.focus && document.body.contains(back)) try { back.focus(); } catch (e) { /* ignore */ }
         this.dispatchEvent(new Event("close"));
       };
     };
@@ -53,11 +66,12 @@
     });
     backdrop.addEventListener("click", () => {
       const o = openOnes();
-      if (o.length && Date.now() - (o[o.length - 1].openedAt || 0) >= 350) o[o.length - 1].close("");
+      const top = o.sort((a, b) => (a.openSeq || 0) - (b.openSeq || 0))[o.length - 1];
+      if (top && Date.now() - (top.openedAt || 0) >= 350) top.close("");
     });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      const o = openOnes();
+      const o = openOnes().sort((a, b) => (a.openSeq || 0) - (b.openSeq || 0));
       if (!o.length) return;
       const d = o[o.length - 1];
       d.dispatchEvent(new Event("cancel"));
@@ -898,7 +912,10 @@
   // Phones and tablets can open a texting app from the page. On a computer that often does nothing,
   // so a QR code lets the supervisor send the same text from their phone.
   const isPhone = () => /Android|iPhone|iPad|iPod|Mobile|Windows Phone|IEMobile|Opera Mini|Silk|Kindle/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+    || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+    // Big Android tablets ask for the desktop site, which reads as Linux: a touch screen without a mouse or trackpad.
+    || (navigator.maxTouchPoints > 1 && /Linux/.test(navigator.userAgent) && !/CrOS/.test(navigator.userAgent)
+      && !(window.matchMedia && matchMedia("(any-pointer: fine)").matches));
   let qrLoading = null;
   function loadQr() {
     if (window.qrcode) return Promise.resolve(window.qrcode);
@@ -1134,7 +1151,7 @@
   // A step in the day window's lower area: back to the top, and a fast second tap can't land on what just appeared.
   // The message form is laid out side by side on a laptop.
   const showIn = (area) => (nodes, focus) => {
-    area.replaceChildren(...nodes);
+    area.replaceChildren(...nodes.filter((n) => n != null));
     const sheet = $("#daySheet");
     sheet.classList.toggle("split", !!area.querySelector(".tx-grid"));
     sheet.scrollTop = 0;
@@ -1182,6 +1199,7 @@
     callGo = go;
     showSheet("#callSheet");
     $("#callSheet").openedAt = Date.now();
+    try { $(phone ? "#callMe" : "#callShow").focus(); } catch (e) { /* ignore */ }
   }
 
   // Laptops: the text goes out by QR code. Scanning it opens the text on their phone. A Mac linked to an iPhone can
@@ -1195,9 +1213,9 @@
       h("p", { class: "muted small", text: `Or text ${prettyPhone()} from your phone.` }),
       mac);
     let timer = 0, last = null, fresh = false;
-    const draw = (text) => {
+    const draw = (text, done) => {
       if (mac) mac.href = smsHref(text);
-      if (text === last && code.firstChild) return;
+      if (text === last && code.firstChild) { if (done) done(); return; }
       last = text;
       clearTimeout(timer);
       // Just shown again: draw at once. While typing: wait for a pause.
@@ -1208,14 +1226,18 @@
           try {
             const qr = qrSvg(lib, text);
             code.innerHTML = qr.svg;
-            // About 240 px, with at least 2 screen pixels per square so a phone reads it off a monitor.
-            let px = Math.max(200, Math.min(qr.size, 260));
-            if (px / qr.cells < 2) px = Math.min(Math.max(200, el.clientWidth - 24), qr.cells * 2.5);
-            code.firstChild.style.width = code.firstChild.style.height = `${Math.round(px)}px`;
+            // About 240 px, in whole screen pixels per square (at least 2) so the squares stay sharp and a phone
+            // reads it off a monitor. A long text makes a denser code, which gets bigger, as far as the window allows.
+            const room = Math.max(240, (el.clientWidth || 304) - 24);
+            let per = Math.max(2, Math.round(Math.max(240, Math.min(qr.size, 280)) / qr.cells));
+            if (per * qr.cells < 240) per++;
+            while (per > 2 && per * qr.cells > room) per--;
+            code.firstChild.style.width = code.firstChild.style.height = `${per * qr.cells}px`;
             code.hidden = false;
             tooLong.hidden = true;
           } catch (e) { code.hidden = true; tooLong.hidden = false; }
-        }).catch(() => { code.hidden = true; });
+          if (done) done();
+        }).catch(() => { code.hidden = true; if (done) done(); });
       }, wait);
     };
     // Hidden and shown again: the old code goes first, so a code for earlier text never shows.
@@ -1282,7 +1304,7 @@
     let barWatch = null;
     const startF = clockField("qkStart", "When does the shift start?", () => update(), out);
     const endF = clockField("qkEnd", "When does the shift end?", () => update(), out);
-    const preview = h("p", { class: "preview", id: "qkMsg" });
+    const preview = h("p", { class: "msg-preview", id: "qkMsg" });
     const sendNow = iconLabel(phone ? h("a", { class: "btn go", id: "sendNow" }) : h("button", { type: "button", class: "btn go", id: "sendNow" }), "message", "Send Text Now");
     const custom = h("button", { type: "button", class: "btn ghost", id: "customize", text: "Customize Text First" });
     const qr = phone ? null : qrPanel();
@@ -1341,9 +1363,12 @@
       if (phone) { if (!gated(null, sendNow.getAttribute("href"))) e.preventDefault(); return; }
       gated(() => {
         qr.show(true);
-        qr.draw(preview.textContent);
         update();
-        try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { qr.el.scrollIntoView(false); }
+        // Once the code is in, bring all of it (and the lines under it) into view.
+        qr.draw(preview.textContent, () => {
+          if (qr.el.hidden) return;
+          try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { qr.el.scrollIntoView(false); }
+        });
       });
     });
     const update = () => {
@@ -1405,7 +1430,7 @@
       show(textForm(k, info, type, again, shiftStatus, { time: st && st.ready ? st.time : "", ctx }), ".shift-chosen .linkish");
     });
     update();
-    show(steps, null);
+    show(steps, type ? ".shift-chosen .linkish" : null);
   }
 
   // The full message form. back() returns to the simple window; status(ot, timed) updates the line at the top as the
@@ -2596,7 +2621,7 @@
     // The short-notice warning: Text Anyway does what they were about to do; a computer shows the number to call.
     $("#textAnyway").addEventListener("click", () => { const go = callGo; callGo = null; $("#callSheet").close(); if (go) go(); });
     $("#textAnywayLink").addEventListener("click", () => { const go = callGo; callGo = null; if (go) go(); setTimeout(() => $("#callSheet").close(), 0); });
-    $("#callShow").addEventListener("click", () => { $("#callNumber").hidden = false; });
+    $("#callShow").addEventListener("click", () => { $("#callNumber").hidden = false; $("#callNumber").focus(); });
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });

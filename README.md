@@ -33,7 +33,7 @@ When some of the shift would be overtime for you, the text ends with how much: "
 
 ### Sending, by device
 
-- **Phones and tablets** (iPhone, iPad, Android, Galaxy Tab): **Send Text Now** opens their default texting app with the message filled in. In the full form the buttons are **Open Texting App**, **Copy Message** and **Copy Number**. A small line covers other apps: "Use a different app, like TextNow? Copy the message and number, then paste them there." The text comes from their own number, so you can reply to them directly.
+- **Phones and tablets** (iPhone, iPad, Android, Galaxy Tab, including big Android tablets set to show the desktop site): **Send Text Now** opens their default texting app with the message filled in. In the full form the buttons are **Open Texting App**, **Copy Message** and **Copy Number**. A small line covers other apps: "Use a different app, like TextNow? Copy the message and number, then paste them there." The text comes from their own number, so you can reply to them directly.
 - **Laptops and desktops:** a computer can't send a text, so there are no texting buttons. **Send Text Now** shows a QR code: "Scan with your phone's camera to text me." Their phone's camera opens the text in its texting app, ready to send. Under it: "Or text (720) 669-4305 from your phone." In the full form the QR code is right beside the message.
 - **Macs:** also get a small **Open in Messages on this Mac** link, which sends the text from Messages if their Mac is linked to an iPhone.
 
@@ -59,7 +59,7 @@ Either box can be left empty for no limit. A shift you'd turn down shows no bar 
 
 ### On a laptop
 
-On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: your name, shifts, note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
+On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: your name, shifts, note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
 
 ## Works on any device
 
