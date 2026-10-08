@@ -1098,10 +1098,20 @@
     return h("div", { class: "otbar", "aria-hidden": "true" }, blocks);
   }
   // Once the bar is on screen: shrink its hour labels until the widest fits its block, whatever font loaded.
+  // Again whenever its width changes (a phone turned sideways), starting over so labels can grow back too.
   function fitBar(bar) {
     const labels = Array.prototype.map.call(bar.querySelectorAll(".hr-fill"), (f) => [f, f.querySelector(".hr-text b")]);
     const tooWide = () => labels.some(([f, b]) => Math.max(b.scrollWidth, b.getBoundingClientRect().width) > f.clientWidth - 4);
+    bar.style.removeProperty("--hr-size");
     for (let size = 17; size > 10 && tooWide(); size--) bar.style.setProperty("--hr-size", `${size - 1}px`);
+  }
+  // Runs fn when el's width changes (browsers without ResizeObserver, from before 2020, just skip it).
+  function onWidth(el, fn) {
+    if (typeof ResizeObserver !== "function") return null;
+    let width = el.offsetWidth;
+    const watch = new ResizeObserver(() => { if (el.offsetWidth !== width) { width = el.offsetWidth; fn(); } });
+    watch.observe(el);
+    return watch;
   }
   // "8 hours: 1 regular, 7 overtime." and, for screen readers, which hours are which.
   function otSummary(span, stretches, r) {
@@ -1130,6 +1140,7 @@
   function potWindow(k, info, area, dayStatus, shiftStatus) {
     const show = showIn(area);
     const out = h("div", { class: "stack", "aria-live": "polite" });
+    let barWatch = null;
     const clockField = (id, question) => {
       const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "8", autocomplete: "off", placeholder: "e.g. 11:00" });
       const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
@@ -1198,6 +1209,8 @@
       const bar = otBar(c.span, stretches);
       out.replaceChildren(bar, otSummary(c.span, stretches, c.r), h("div", { class: "pot-btns" }, yes, again));
       fitBar(bar);
+      if (barWatch) barWatch.disconnect();
+      barWatch = onWidth(bar, () => fitBar(bar));
     };
     show(steps, null);
   }
@@ -1310,6 +1323,8 @@
     });
     copyNum.addEventListener("click", () => copyWithFeedback(copyNum, "phone", "Copy Number", prettyPhone(), `Couldn't copy here. The number is ${prettyPhone()}.`));
     refresh();
+    // A window widened into (or out of) the side-by-side layout: place the code again.
+    if (qrBox) onWidth(sendBody, drawQr);
     // Two columns on a laptop: the boxes on the left, the message and send buttons on the right.
     return [h("div", { class: "tx-grid" },
       h("div", { class: "tx-col" },
