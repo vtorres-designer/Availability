@@ -989,7 +989,7 @@
     if (f.who) out.push(`This is ${f.who}.`);
     const label = f.type ? SHIFT_LABEL[f.type].toLowerCase() : "";
     const shift = f.type ? `${/^[aeiou]/.test(label) ? "an" : "a"} ${label} shift` : "a shift";
-    const day = fmt(k, { weekday: "long", month: "short", day: "numeric" });
+    const day = fmt(f.day || k, { weekday: "long", month: "short", day: "numeric" });
     // A shift from a P-OT day has no type: its start time picks the words (f.part).
     const part = f.type ? PART_OF_DAY[f.type] : f.part;
     const when = part ? `on the ${part} of ${day}` : `on ${day}`;
@@ -1013,13 +1013,18 @@
   }
 
   // ---------- P-OT days: which hours of a shift would be overtime ----------
-  // A start or end time as typed: "11", "1130", "11:30". 13-23 and 0 are 24-hour times and set AM or PM themselves.
+  // A start or end time as typed: "11", "1130", "11:30", "11pm", "7 am". A typed am/pm sets AM or PM itself, and so
+  // does a 24-hour time (13-23, 0, or a leading zero like 0700). {h, m, ap} with h on the 24-hour clock once ap is
+  // known; null if it can't be read.
   function readClock(raw) {
-    const m = String(raw || "").trim().match(/^(\d{1,2})(?:[:.]?(\d{2}))?$/);
+    const m = String(raw || "").trim().match(/^(\d{1,2})(?:[:.]?(\d{2}))?\s*(?:([ap])\.?m?\.?)?$/i);
     if (!m) return null;
-    const hr = Number(m[1]), min = m[2] ? Number(m[2]) : 0;
-    if (hr > 23 || min > 59) return null;
-    return { h: hr, m: min, ap: hr === 0 ? "am" : hr > 12 ? "pm" : null };
+    const hr = Number(m[1]), min = m[2] ? Number(m[2]) : 0, suf = m[3] ? m[3].toLowerCase() : "";
+    if (min > 59) return null;
+    if (suf) return hr >= 1 && hr <= 12 ? { h: (hr % 12) + (suf === "p" ? 12 : 0), m: min, ap: `${suf}m` } : null;
+    if (hr > 23) return null;
+    const zero = m[1].length === 2 && m[1][0] === "0";
+    return { h: hr, m: min, ap: hr === 0 || zero ? "am" : hr > 12 ? "pm" : null };
   }
   // Minutes from midnight, or null until the time and its AM or PM are both known.
   const clockMins = (c, ap) => (!c ? null : c.ap ? c.h * 60 + c.m : ap ? ((c.h % 12) + (ap === "pm" ? 12 : 0)) * 60 + c.m : null);
@@ -1126,7 +1131,7 @@
     const show = showIn(area);
     const out = h("div", { class: "stack", "aria-live": "polite" });
     const clockField = (id, question) => {
-      const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "5", autocomplete: "off", placeholder: "e.g. 11:00" });
+      const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "8", autocomplete: "off", placeholder: "e.g. 11:00" });
       const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
       const pm = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "PM" });
       let picked = null;
@@ -1135,13 +1140,23 @@
         am.setAttribute("aria-pressed", String(cur === "am"));
         pm.setAttribute("aria-pressed", String(cur === "pm"));
       };
-      am.addEventListener("click", () => { picked = "am"; sync(); update(); });
-      pm.addEventListener("click", () => { picked = "pm"; sync(); update(); });
+      // When a press makes the bar appear (or change size), the window grows under the finger: a fast second tap
+      // mustn't land on what moved there.
+      const press = (ap) => {
+        picked = ap;
+        sync();
+        const was = out.offsetHeight;
+        update();
+        if (out.offsetHeight !== was) $("#daySheet").openedAt = Date.now();
+      };
+      am.addEventListener("click", () => press("am"));
+      pm.addEventListener("click", () => press("pm"));
       input.addEventListener("input", () => { sync(); update(); });
       return {
         el: h("div", { class: "field" }, h("label", { class: "label", for: id, text: question }),
           h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
         mins: () => clockMins(readClock(input.value), picked),
+        unreadable: () => !!input.value.trim() && !readClock(input.value),
       };
     };
     const startF = clockField("potStart", "When does the shift start?");
@@ -1159,7 +1174,10 @@
     };
     const update = () => {
       const s = startF.mins(), e = endF.mins();
+      const note = (text) => { dayStatus(); out.replaceChildren(h("p", { class: "muted", text })); };
+      if (startF.unreadable() || endF.unreadable()) return note("Enter a time like 11, 1130 or 11:30, then pick AM or PM.");
       if (s == null || e == null) { dayStatus(); out.replaceChildren(); return; }
+      if (s === e) return note("The start and end can't be the same time.");
       const c = potShift(k, s, e);
       const again = h("button", { type: "button", class: "btn ghost", text: "Pick Another Day", onclick: () => $("#daySheet").close() });
       if (c.no.length) {
@@ -1257,7 +1275,12 @@
       const v = { who: who.input.value.trim(), time: time.input.value.trim(), site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type };
       v.read = v.time ? window.ScheduleParser.readShift(v.time) : null;
       v.ot = otFor(v.read);
-      if (pot) v.part = v.read ? partOfDay(potPlace(minutesOf(v.read.start)).start) : "";
+      if (pot) {
+        // A start the next morning (from 5 AM, when his start times run that late) is that day's shift: "the day of" the next date.
+        const st = v.read ? potPlace(minutesOf(v.read.start)).start : null;
+        if (st != null && st >= 1440 + 300) { v.part = partOfDay(st - 1440); v.day = addDays(k, 1); }
+        else v.part = st == null ? "" : partOfDay(st);
+      }
       return v;
     };
     const refresh = () => {
@@ -1926,8 +1949,10 @@
       delete autoCopies[k];
     }
     if (!saved) return;
-    const today = todayKey();
-    for (let k = addDays(weekStartOf(today, pub.weekStart), -1); k <= today; k = addDays(k, 1)) {
+    const today = todayKey(), ws = weekStartOf(today, pub.weekStart);
+    // The day before the pay week only counts toward it when its shift runs past midnight.
+    const crosses = (r) => r.s === "work" && !!r.start && !!r.end && minutesOf(r.end) <= minutesOf(r.start);
+    for (let k = addDays(ws, -1); k <= today; k = addDays(k, 1)) {
       const dow = dateOf(k).getDay();
       const was = ruleFor(saved.priv.weekly, dow), now = ruleFor(priv.weekly, dow);
       if (!was || (was.from && k < was.from)) continue;
@@ -1939,7 +1964,7 @@
         if (ruleCore(now) === ruleCore(was) && priv.days[k] && !saved.priv.days[k] && same(priv.days[k], copy)) delete priv.days[k];
         continue;
       }
-      if (priv.days[k]) continue;
+      if (priv.days[k] || (k < ws && !crosses(was))) continue;
       priv.days[k] = copy;
       autoCopies[k] = copy;
     }
