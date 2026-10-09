@@ -2619,11 +2619,6 @@
       pub = clone(st.pub);
       priv = clone(st.priv);
       dataIn = true;
-      // Once: the night-shift line moves into his note (it used to sit under the header). Tap Save to publish it.
-      if (!pub.nightAuto) {
-        pub.nightAuto = true;
-        if (pub.willing.includes("overnight") && withNight(pub.note).length <= 140) pub.note = withNight(pub.note);
-      }
       store.del(LS.draft2); // from a test build; never stored real data
       forgetAutoCopies();
       let lostWeekly = false;
@@ -2661,6 +2656,12 @@
         for (const d of drafts) skipped += applyDiff(d, true).skipped;
         restored = changes().days.size + (changes().settings ? 1 : 0);
         if (skipped) setTimeout(() => toast(`${skipped} unsaved change${skipped === 1 ? " was" : "s were"} skipped because that day was saved from somewhere else since.`, 6000), 3500);
+      }
+      // Once: the night-shift line moves into his note (it used to sit under the header). Tap Save to publish it.
+      // After his unsaved changes are back, so a note he was editing isn't skipped, and it isn't one of them.
+      if (!pub.nightAuto) {
+        pub.nightAuto = true;
+        if (pub.willing.includes("overnight") && withNight(pub.note).length <= 140) pub.note = withNight(pub.note);
       }
       loadError = false;
       busy = false;
