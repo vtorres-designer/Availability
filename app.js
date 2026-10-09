@@ -95,8 +95,10 @@
   // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
   // noteUntil: the last day the note shows ("" = no end). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
+  // nightAuto: the night-shift line now lives in his note (added when Overnight is checked). Until edit mode has made
+  // that move once, the page shows the line with the note by itself.
   const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
-    licName: "", licNo: "", licIssued: "", licExpires: "" });
+    licName: "", licNo: "", licIssued: "", licExpires: "", nightAuto: false });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
@@ -289,6 +291,7 @@
     if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
     if (isDay(r.licIssued)) d.licIssued = r.licIssued;
     if (isDay(r.licExpires)) d.licExpires = r.licExpires;
+    if (r.nightAuto === true) d.nightAuto = true;
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
@@ -878,14 +881,45 @@
       ? { lead: `Best for shifts starting within ${hoursText(n)}.`, rest: "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me." }
       : { lead: "Texting is the best way to reach me.", rest: "Pick the day below and I'll show you how." };
   }
+  // His name, letter by letter (each word kept whole), so it can fall into place as the page opens. The heading's
+  // label is the plain name for screen readers. Rebuilt only when the name changes.
+  function renderTitle() {
+    const t = $("#title"), name = pub.name || "Shift Availability";
+    if (t.dataset.name === name) return;
+    t.dataset.name = name;
+    t.setAttribute("aria-label", name);
+    let i = 0;
+    const words = name.split(" ").map((w) => h("span", { class: "word", "aria-hidden": "true" },
+      [...w].map((ch) => h("span", { class: "ch", style: `--c:${i++}`, text: ch }))));
+    t.replaceChildren(...words.flatMap((w, j) => (j ? [" ", w] : [w])));
+  }
+  // The status line types itself out during the opening; screen readers get the whole line at once.
+  let typer = null;
+  function typeStatus(start, dur) {
+    const el = $("#acceptingTyped"), line = $("#accepting");
+    typer = { i: 0 };
+    el.textContent = "";
+    line.classList.add("typing");
+    const step = () => {
+      if (!typer) return;
+      const text = $("#acceptingText").textContent; // the line as it is now (it can change mid-way)
+      typer.i++;
+      el.textContent = text.slice(0, typer.i);
+      if (typer.i < text.length) setTimeout(step, dur / Math.max(text.length, 1));
+      else { typer = null; setTimeout(() => line.classList.remove("typing"), 500); }
+    };
+    setTimeout(step, start);
+  }
   function renderHero() {
     const ready = dataIn && (owner || !loadError);
+    renderTitle();
     const letters = initials(pub.name);
     $("#shield").toggleAttribute("hidden", !letters); // an <svg> has no hidden property, only the attribute
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready;
     $("#accepting").classList.toggle("none", !pub.willing.length);
     $("#acceptingText").textContent = acceptingText(pub.willing);
+    if (!typer) $("#acceptingTyped").textContent = acceptingText(pub.willing);
     const call = ready && !!smsNumber(), lic = ready && !!pub.licName;
     $("#heroChips").hidden = !(call || lic);
     $("#heroCallBtn").hidden = !call;
@@ -943,12 +977,21 @@
 
   // His note, unless its show-until date has passed.
   const activeNote = () => { const n = pub.note.trim(); return n && !(pub.noteUntil && todayKey() > pub.noteUntil) ? n : ""; };
-  const noteBox = () => { const n = activeNote(); return n ? h("aside", { class: "note-box" }, h("b", { class: "note-tag", text: "Note" }), " ", n) : null; };
+  // How night shifts sit on the calendar: part of his note, added when he checks Overnight in Settings.
+  const NIGHT_LINE = "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.";
+  const withNight = (n) => { const t = n.trim(); return t.indexOf(NIGHT_LINE) >= 0 ? t : t ? `${t} ${NIGHT_LINE}` : NIGHT_LINE; };
+  const withoutNight = (n) => n.replace(NIGHT_LINE, "").replace(/\s{2,}/g, " ").trim();
+  // The note as shown. Until edit mode has moved the line into his note once, it's shown with the note by itself.
+  const shownNote = () => {
+    const n = activeNote();
+    const before = !pub.nightAuto && dataIn && (owner || !loadError) && pub.willing.includes("overnight");
+    return before ? withNight(n) : n;
+  };
+  const noteBox = () => { const n = shownNote(); return n ? h("aside", { class: "note-box" }, h("b", { class: "note-tag", text: "Note" }), " ", n) : null; };
 
   function render() {
     const asOwner = ownerView();
     if (owner && preview) { pubDays = derivePublic(pub, priv); pubWeekly = weeklyPublic(priv); pubOt = derivePublicOt(pub, priv, pubDays); }
-    $("#title").textContent = pub.name || "Shift Availability";
     document.title = pub.name ? `${possessive(pub.name)} Shift Availability` : "Shift Availability";
     $("#empId").hidden = !pub.empId;
     $("#empIdValue").textContent = pub.empId;
@@ -958,12 +1001,8 @@
     $("#updated").textContent = updated && !loadError ? `Updated ${readout(new Date(updated))}` : "";
 
     renderHero();
-    // The line under the header says how night shifts sit on the calendar (only when he takes overnights). It starts
-    // with ** so it reads as a footnote to the status line. His own note gets a box of its own, noticed every visit.
-    const night = dataIn && (owner || !loadError) && pub.willing.includes("overnight");
-    $("#nightNote").hidden = !night;
-    $("#nightNote").textContent = night ? "**A night shift is listed under the day it starts. Tue means Tue night into Wed morning." : "";
-    const note = activeNote();
+    // His note (with the night-shift line when he takes overnights) gets a box of its own, noticed every visit.
+    const note = shownNote();
     $("#noteBox").hidden = !note;
     $("#noteText").textContent = note;
 
@@ -1005,7 +1044,8 @@
         // A P-OT day is split corner to corner, yellow and green. Its text is drawn twice, in each half's own ink,
         // so it reads on both colors.
         const split = cls.indexOf("pot") >= 0 ? h("span", { class: "ink2", "aria-hidden": "true" }, text()) : null;
-        days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null },
+        // --w: the diagonal the tile sits on, so the opening's tiles fall top left to bottom right.
+        days.append(h("button", { type: "button", class: cls.join(" "), "data-key": k, "aria-label": `${longDay(k)}: ${label}`, disabled: disabled || null, style: `--w:${Math.min(wi + i, 14)}` },
           text(), split,
           weekly ? h("span", { class: showMonth ? "rep alt" : "rep", "aria-hidden": "true", text: "↻" }) : null));
       }
@@ -1016,7 +1056,9 @@
       }
       frag.append(h("div", { class: "week" }, head, days));
     });
-    if (revealed) $("#weeks").classList.remove("cascade"); // a redraw after the opening shows the tiles at once
+    if (revealed) $("#weeks").classList.remove("drop"); // a redraw after the opening shows the tiles at once
+    // Every day you can take breathes on one shared beat, even across redraws.
+    $("#weeks").style.setProperty("--bd", `${-Math.round(performance.now() % 3000)}ms`);
     $("#weeks").replaceChildren(frag);
 
     document.body.classList.toggle("owner", asOwner);
@@ -2447,6 +2489,7 @@
   let potAtOpen = { from: "", to: "" };
   function openSettings() {
     $("#setNote").value = pub.note;
+    $("#noteFull").hidden = true;
     $("#setNoteUntil").value = pub.noteUntil;
     showNoteExpired();
     $("#setCallHours").value = num(pub.callHours);
@@ -2514,7 +2557,19 @@
     else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
-    else if (t.closest("#setWilling")) pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
+    else if (t.closest("#setWilling")) {
+      const had = pub.willing.includes("overnight");
+      pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
+      const has = pub.willing.includes("overnight");
+      // Overnight on: the night-shift line goes into his note (if it fits). Off: it comes out.
+      if (has !== had) {
+        const next = has ? withNight(pub.note) : withoutNight(pub.note);
+        $("#noteFull").hidden = !(has && next.length > 140);
+        if (next.length <= 140) pub.note = next;
+        $("#setNote").value = pub.note;
+        showNoteExpired();
+      }
+    }
     else return;
     $("#otExplain").textContent = otExplain();
     afterChange();
@@ -2564,6 +2619,11 @@
       pub = clone(st.pub);
       priv = clone(st.priv);
       dataIn = true;
+      // Once: the night-shift line moves into his note (it used to sit under the header). Tap Save to publish it.
+      if (!pub.nightAuto) {
+        pub.nightAuto = true;
+        if (pub.willing.includes("overnight") && withNight(pub.note).length <= 140) pub.note = withNight(pub.note);
+      }
       store.del(LS.draft2); // from a test build; never stored real data
       forgetAutoCopies();
       let lostWeekly = false;
@@ -2985,9 +3045,17 @@
   }
 
   // ---------- the opening ----------
-  // The page stays out of sight (class "intro", set in the page's head) until the calendar is in. Then it breathes
-  // in while the tiles settle, and a second after everything is still, a glint crosses the badge. A slow connection
-  // shows the page as it is after 1.5 s, with no breathing. Reduced motion: no "intro" class, so none of it.
+  // The page stays out of sight (class "intro", set in the page's head) until the calendar is in. Then, from that
+  // moment (class "opening" for one-time steps, "lit" for what keeps going):
+  //   0 s     the page breathes in; his name falls into place letter by letter
+  //   0.25 s  the days fall into place, top left to bottom right
+  //   0.45 s  the status light switches on, then the status line types itself out (to 1.7 s)
+  //   1.8 s   a sparkle in the middle of the strip; 2.1 s the strip opens both ways, then its colors flow
+  //   2 s     a ring of light runs out along the grid from the badge; 2.05 s the badge shines and sparkles
+  //   2.35 s  a shine crosses Call Me, then the license (2.55 s)
+  // and then for good: the status light and his name glow together, the days he can take breathe together, the
+  // grid drifts, the arrow nudges, and the button icons glitch now and then. All timings live in app.css.
+  // A slow connection shows the page as it is after 1.5 s, with only the lasting effects. Reduced motion: none of it.
   let revealed = false;
   function reveal(animate) {
     if (revealed) return;
@@ -2995,24 +3063,19 @@
     const root = document.documentElement, page = $(".page"), weeks = $("#weeks");
     if (!root.classList.contains("intro")) return;
     root.classList.remove("intro");
-    if (animate) {
-      page.classList.add("inhale");
-      page.addEventListener("animationend", function done(e) {
-        if (e.target !== page) return;
-        page.classList.remove("inhale"); // a lasting transform would change how the sticky calendar behaves
-        page.removeEventListener("animationend", done);
-      });
-      // The first 40 tiles come in one after another; the rest with the 40th.
-      document.querySelectorAll("#weeks .day").forEach((t, i) => t.style.setProperty("--i", String(Math.min(i, 40))));
-      weeks.classList.add("cascade");
-      setTimeout(() => weeks.classList.remove("cascade"), 2000);
-    }
-    setTimeout(() => {
-      const shield = $("#shield");
-      if (shield.hasAttribute("hidden")) return;
-      shield.classList.add("glint-on");
-      setTimeout(() => shield.classList.remove("glint-on"), 2000);
-    }, animate ? 2200 : 1000);
+    try { if (window.CSS && CSS.registerProperty) { CSS.registerProperty({ name: "--r", syntax: "<length>", inherits: false, initialValue: "0px" }); root.classList.add("ripple-ok"); } } catch (e) { /* already registered */ }
+    root.classList.add("lit");
+    if (!animate) return;
+    root.classList.add("opening");
+    weeks.classList.add("drop");
+    page.classList.add("inhale");
+    page.addEventListener("animationend", function done(e) {
+      if (e.target !== page) return;
+      page.classList.remove("inhale"); // a lasting transform would change how the sticky calendar behaves
+      page.removeEventListener("animationend", done);
+    });
+    if (!$("#accepting").hidden) typeStatus(600, 1100);
+    setTimeout(() => { root.classList.remove("opening"); weeks.classList.remove("drop"); }, 4000);
   }
 
   async function boot() {

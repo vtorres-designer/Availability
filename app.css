@@ -86,23 +86,46 @@ a { color: var(--accent); }
   gap: 18px;
 }
 
-/* Header: the navy band with his badge, name, status light and buttons; then the night-shift line, his note and
-   the how-to line. On a phone the band runs edge to edge (and under the status bar); wider, it's a card. */
+/* Header: the navy band with his badge, name, status light and buttons; then his note and the how-to line.
+   On a phone the band runs edge to edge (and under the status bar); wider, it's a card. */
 .top { display: grid; gap: 12px; }
 .hero {
+  position: relative; overflow: hidden;
   display: grid; gap: 10px; padding: 18px; border-radius: 16px 16px 0 0;
   color: var(--hero-ink);
   background:
-    linear-gradient(var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
-    linear-gradient(90deg, var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
     radial-gradient(120% 90% at 100% 0%, var(--hero-glow), transparent 60%),
     linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
+  --rx: 41px; --ry: 44px; /* the badge's middle, where the grid's ring of light starts */
 }
-.stripe { height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0); }
+/* The grid sits on its own layer so it can drift; the ripple is light cut to the grid's lines. */
+.hero .fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
+.hero > :not(.fx) { position: relative; z-index: 1; }
+.hero .grid {
+  background:
+    linear-gradient(var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    linear-gradient(90deg, var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px;
+}
+.hero .ripple {
+  opacity: 0;
+  -webkit-mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
+  mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
+}
+/* The strip under the header: its colors flow along it once it has turned on. */
+.stripe {
+  position: relative; height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5) 0 0 / 200% 100%;
+}
+.stripe .spark {
+  position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; pointer-events: none;
+  background: #fff; -webkit-clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  filter: drop-shadow(0 0 4px #bff9ff) drop-shadow(0 0 8px rgba(61, 255, 176, 0.8));
+}
 @media (max-width: 592px) {
   .page { padding-top: 0; }
   .hero, .stripe { margin-inline: -16px; border-radius: 0; }
-  .hero { padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 18px; }
+  .hero { padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 18px; --rx: 39px; --ry: calc(46px + env(safe-area-inset-top, 0px)); }
 }
 .badge-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .who { min-width: 0; display: grid; gap: 2px; }
@@ -111,11 +134,16 @@ a { color: var(--accent); }
 .shield .sparkle { opacity: 0; transform-origin: 40px 6.5px; transform-box: view-box; }
 .hero .eyebrow { color: var(--hero-label); }
 .hero h1 { color: var(--hero-ink); font-size: 30px; line-height: 1.02; overflow-wrap: anywhere; }
+/* His name is built from letters (so it can fall into place); each word stays whole. */
+#title .word { white-space: nowrap; }
+#title .ch { display: inline-block; }
 /* The status line: always lit while he takes any shift. */
 .accepting { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led); box-shadow: 0 0 6px var(--led), 0 0 12px rgba(61, 255, 176, 0.55); }
 .accepting.none { color: var(--hero-soft); }
 .accepting.none .live-dot { background: #6d7f99; box-shadow: none; animation: none; }
+.accepting .typed { min-width: 0; }
+.type-cursor { display: none; width: 0.55em; height: 1.1em; margin-left: -6px; background: #d4f7e8; flex: none; }
 .hchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .hchip {
   appearance: none; display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
@@ -124,6 +152,12 @@ a { color: var(--accent); }
   background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
 }
 .hchip svg { width: 15px; height: 15px; flex: none; }
+/* A band of light, for the shine that crosses each button once as the page opens. */
+.hchip { position: relative; overflow: hidden; }
+.hchip::after {
+  content: ""; position: absolute; top: -2px; bottom: -2px; left: 0; width: 40%; pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent); transform: translateX(-120%) skewX(-20deg);
+}
 .hchip:hover, .hchip[aria-expanded="true"] { background: rgba(255, 255, 255, 0.15); }
 .hchip:focus-visible, .hb-btn:focus-visible { outline: 2px solid var(--hero-label); outline-offset: 2px; }
 .hchip.expired { border-color: rgba(255, 140, 140, 0.55); }
@@ -150,7 +184,10 @@ a { color: var(--accent); }
 h1, h2 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
 h1 { font-size: 30px; line-height: 1; letter-spacing: 0.01em; }
 h2 { font-size: 28px; line-height: 1.05; }
-.lede { margin: 0; font-size: 17px; }
+.lede { margin: 0; font-size: 17px; display: flex; align-items: flex-start; gap: 8px; }
+/* A blue arrow pointing at the how-to line. */
+.nudge { flex: none; width: 22px; height: 22px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; background: #2f7de0; color: #fff; }
+.nudge svg { width: 14px; height: 14px; }
 
 .btn.xs { min-height: 30px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
 #txMsg { font: 16px/1.45 var(--font-body); min-height: 120px; }
@@ -191,7 +228,6 @@ h2 { font-size: 28px; line-height: 1.05; }
 }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
-.night-note { margin: 0; font-size: 14px; color: var(--muted); }
 /* His note: a tinted box under the header, and again in each day's window. */
 .note-box {
   margin: 0; padding: 10px 12px; border-radius: 10px;
@@ -268,15 +304,27 @@ h2 { font-size: 28px; line-height: 1.05; }
   border: 1.5px solid var(--today); border-radius: 12px; pointer-events: none;
   box-shadow: 0 0 10px rgba(58, 142, 230, 0.6);
 }
-/* The days a supervisor can ask about glow a little under a mouse, and twice after Pick a Day. */
-.day.open, .day.ot, .day.pot { transition: transform 0.08s ease, box-shadow 0.2s ease; }
-@media (hover: hover) and (pointer: fine) {
-  .day.open:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 14px rgba(31, 138, 76, 0.55); transform: translateY(-1px); }
-  .day.ot:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px rgba(242, 189, 29, 0.6); transform: translateY(-1px); }
-  .day.pot:not(.past):hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px rgba(130, 170, 50, 0.6); transform: translateY(-1px); }
+/* The days a supervisor can ask about look like raised buttons; busy days lie flat and a little sunken.
+   Their glow color: green, yellow for OT, and green for P-OT. */
+.day.open { --glow: rgba(31, 170, 90, 0.7); }
+.day.ot { --glow: rgba(242, 189, 29, 0.75); }
+.day.pot { --glow: rgba(31, 170, 90, 0.7); }
+.day.open:not(.past), .day.ot:not(.past), .day.pot:not(.past) {
+  --bevel: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 2px 4px rgba(16, 40, 77, 0.25);
+  box-shadow: var(--bevel);
+  transition: transform 0.08s ease, box-shadow 0.2s ease;
 }
+.day.open:not(.past) { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 55%); }
+.day.ot:not(.past) { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 55%); }
+.day.pot:not(.past) { background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 55%), linear-gradient(to top right, var(--ot) calc(50% - 0.5px), var(--open) calc(50% + 0.5px)); }
+.day.busy:not(.past), .day.work:not(.past) { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28); filter: saturate(0.75); }
+/* Under a mouse, a day holds its full glow (the breathing underneath keeps the shared beat). */
+@media (hover: hover) and (pointer: fine) {
+  .day.open:not(.past):hover, .day.ot:not(.past):hover, .day.pot:not(.past):hover { box-shadow: var(--bevel), 0 0 14px 2px var(--glow); transform: translateY(-1px); }
+}
+/* Pick a Day: the days they can ask about glow twice. */
 #weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { animation: beckon 1.4s ease-in-out 2; }
-@keyframes beckon { 0%, 100% { box-shadow: none; } 50% { box-shadow: inset 0 0 0 2px #fff, 0 0 16px rgba(31, 138, 76, 0.75); } }
+@keyframes beckon { 0%, 100% { box-shadow: var(--bevel); } 50% { box-shadow: var(--bevel), inset 0 0 0 2px #fff, 0 0 16px var(--glow); } }
 .day .rep { position: absolute; top: 4px; left: 5px; font: 700 11px/1 var(--font-body); opacity: 0.9; }
 .day .rep.alt { left: auto; right: 5px; } /* the month label is on top: move the mark out of its way */
 .nb { font-weight: inherit; }
@@ -303,6 +351,8 @@ body.owner .day.past.pot { background: linear-gradient(to top right, var(--ot) c
 #updated { text-transform: uppercase; letter-spacing: 0.02em; }
 .empid span { user-select: all; -webkit-user-select: all; }
 a.linkish { display: inline-block; }
+.foot .linkish { display: inline-flex; align-items: center; gap: 5px; }
+.ficon { width: 14px; height: 14px; flex: none; }
 .linkish {
   background: none; border: 0; padding: 6px 4px; cursor: pointer;
   color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font-size: 14px;
@@ -496,17 +546,45 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   /* Without the glow, Pick a Day still marks the days for the 3 seconds it lasts. */
   #weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--accent); }
 }
-/* The opening: the page breathes in while the tiles settle and the stripe under the header draws out like a smile.
-   A second after everything is still, a glint crosses the badge. The page is only hidden while the calendar loads,
-   and never for more than 4 seconds. People who turn off motion see none of this. */
+/* The opening, and what keeps going after it (see "the opening" in app.js for the order). The page is only hidden
+   while the calendar loads, and never for more than 4 seconds. "opening": one-time steps; "lit": from the same
+   moment on, for good. People who turn off motion see none of this. */
 @media (prefers-reduced-motion: no-preference) {
   .intro .page { opacity: 0; animation: intro-failsafe 0s linear 4s forwards; }
   .page.inhale { animation: inhale 0.42s ease-out backwards; transform-origin: 50% 30%; }
-  .page.inhale .stripe { animation: smile 0.5s 0.3s ease-out backwards; }
-  #weeks.cascade .day { animation: tile-in 0.45s ease-out backwards; animation-delay: calc(var(--i, 0) * 18ms); }
-  .shield.glint-on .glint { animation: glint 0.9s ease-in-out; }
-  .shield.glint-on .sparkle { animation: sparkle 0.7s 0.7s ease-out backwards; }
-  .live-dot { animation: pulse 2.2s ease-in-out infinite; }
+  /* His name falls into place, letter by letter; then the days, top left to bottom right. */
+  .opening #title .ch { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.1s + var(--c, 0) * 35ms); }
+  .opening #weeks.drop .day { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.25s + var(--w, 0) * 45ms); }
+  /* The status light switches on (its line then types itself out), then it and his name glow together. */
+  .lit .live-dot { animation: dot-on 0.25s 0.45s steps(2, end) backwards, pulse 2.2s 1.9s ease-in-out infinite; }
+  .lit #title { animation: name-glow 2.2s 1.9s ease-in-out infinite; }
+  .accepting.typing .type-cursor { display: inline-block; animation: blink 0.5s step-end infinite; }
+  /* The strip: a sparkle in the middle, then it opens both ways, then its colors flow. */
+  .lit .stripe { animation: strip-open 0.7s 2.1s cubic-bezier(0.6, 0, 0.2, 1) backwards, flow 6s 2.8s linear infinite; }
+  .lit .stripe .spark { animation: spark 1s 1.8s ease-out backwards; }
+  /* The grid drifts; a ring of light runs out along its lines from the badge, as the badge shines. */
+  .lit .hero .grid { animation: drift 8s linear infinite; }
+  .lit .hero .ripple { animation: mask-drift 8s linear infinite; }
+  .lit.ripple-ok .hero .ripple {
+    background: radial-gradient(circle at var(--rx) var(--ry), transparent calc(var(--r) - 40px), rgba(150, 215, 255, 0.95) var(--r), transparent calc(var(--r) + 6px));
+    animation: ripple 1.3s 2s ease-out, mask-drift 8s linear infinite;
+  }
+  .lit .shield .glint { animation: glint 0.9s 2.05s ease-in-out backwards; }
+  .lit .shield .sparkle { animation: sparkle 0.8s 2.3s ease-out backwards; }
+  /* A shine crosses Call Me, then the license; their icons glitch now and then. */
+  .lit .hchip::after { animation: chip-shine 0.7s 2.35s ease-in-out backwards; }
+  .lit #heroLicBtn::after { animation-delay: 2.55s; }
+  .lit .hchip .ph { animation: icon-glitch 9s 4s steps(1, end) infinite; }
+  .lit .hchip .idc { animation: icon-glitch 9s 4.35s steps(1, end) infinite; }
+  /* The arrow by the how-to line pops in, then nudges with a soft pulse. */
+  .lit .nudge { animation: nudge-in 0.4s 1.3s ease-out backwards, ring-pulse 2s 1.7s ease-out infinite; }
+  .lit .nudge svg { animation: nudge 2s 1.7s ease-in-out infinite; }
+  /* The days a supervisor can ask about breathe, all on one beat (not while he edits). */
+  .lit body:not(.owner) #weeks .day.open:not(.past)::before, .lit body:not(.owner) #weeks .day.ot:not(.past)::before, .lit body:not(.owner) #weeks .day.pot:not(.past)::before,
+  .lit body.previewing #weeks .day.open:not(.past)::before, .lit body.previewing #weeks .day.ot:not(.past)::before, .lit body.previewing #weeks .day.pot:not(.past)::before {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit; pointer-events: none;
+    animation: breathe 3s var(--bd, 0s) ease-in-out infinite;
+  }
 }
 @keyframes intro-failsafe { to { opacity: 1; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
@@ -514,10 +592,25 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
    would widen the page for a moment. */
 @keyframes inhale-flat { 0% { opacity: 0; transform: scale(0.975); } 100% { opacity: 1; transform: none; } }
 @media (max-width: 592px), (min-width: 960px) and (min-height: 560px) and (max-width: 1215px) { .page.inhale { animation-name: inhale-flat; } }
-@keyframes smile { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes tile-in { from { opacity: 0; transform: translateY(4px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes drop { 0% { opacity: 0; transform: translateY(-22px) scale(0.92); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes dot-on { from { background: #42566b; box-shadow: none; } to { background: var(--led); } }
+@keyframes name-glow { 0%, 100% { text-shadow: 0 0 14px rgba(120, 190, 255, 0.8); } 50% { text-shadow: 0 0 2px rgba(120, 190, 255, 0.15); } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes strip-open { from { -webkit-clip-path: inset(0 50% 0 50%); clip-path: inset(0 50% 0 50%); } to { -webkit-clip-path: inset(0 0 0 0); clip-path: inset(0 0 0 0); } }
+@keyframes flow { from { background-position: 0 0; } to { background-position: -200% 0; } }
+@keyframes spark { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 30% { opacity: 1; transform: scale(1.3) rotate(45deg); } 60% { opacity: 1; transform: scale(0.9) rotate(70deg); } 100% { opacity: 0; transform: scale(0.2) rotate(90deg); } }
+@keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 18px 18px, 18px 18px; } }
+@keyframes mask-drift { from { -webkit-mask-position: 0 0, 0 0; mask-position: 0 0, 0 0; } to { -webkit-mask-position: 18px 18px, 18px 18px; mask-position: 18px 18px, 18px 18px; } }
+@keyframes ripple { 0% { opacity: 1; --r: 0px; } 80% { opacity: 1; } 100% { opacity: 0; --r: 460px; } }
+@keyframes chip-shine { 0% { opacity: 1; transform: translateX(-120%) skewX(-20deg); } 100% { opacity: 1; transform: translateX(320%) skewX(-20deg); } }
+@keyframes icon-glitch { 0%, 91%, 100% { filter: none; transform: none; } 92% { filter: drop-shadow(-2px 0 #ff4f7b) drop-shadow(2px 0 #45e8ff); transform: translateX(1px); } 93% { filter: drop-shadow(2px 0 #ff4f7b) drop-shadow(-2px 0 #45e8ff); transform: translateX(-1px) skewX(-8deg); } 94% { filter: drop-shadow(-1px 0 #ff4f7b); transform: none; } 95% { filter: none; } }
+@keyframes nudge-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes nudge { 0%, 40%, 100% { transform: translateX(0); } 20% { transform: translateX(3px); } }
+@keyframes ring-pulse { 0% { box-shadow: 0 0 0 0 rgba(47, 125, 224, 0.55); } 70%, 100% { box-shadow: 0 0 0 8px rgba(47, 125, 224, 0); } }
+/* Starts and ends at full glow, so a day the mouse leaves picks up where the others are without a jump. */
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 14px 2px var(--glow); } 50% { box-shadow: 0 0 0 transparent; } }
 @keyframes glint { from { transform: translateX(0); } to { transform: translateX(78px); } }
-@keyframes sparkle { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1.15) rotate(45deg); } 100% { opacity: 0; transform: scale(0.4) rotate(90deg); } }
+@keyframes sparkle { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(0.4) rotate(90deg); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* Browsers without <dialog> (Safari before 15.4, Firefox before 98) get the same sheets via a stand-in. */
@@ -685,7 +778,7 @@ dialog:not([open]) { display: none; }
 }
 /* Shorter laptop windows: a smaller title and tighter spacing keep the left side on one screen. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
-  .hero { padding: 14px 16px; gap: 8px; }
+  .hero { padding: 14px 16px; gap: 8px; --rx: 36px; --ry: 37px; }
   .top { gap: 10px; }
   .stripe { margin-top: -10px; }
   .hchip { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
@@ -693,9 +786,16 @@ dialog:not([open]) { display: none; }
   .lede { font-size: 16px; }
   .page > .top, .page > .owner-banner, .page > .key, .page > .foot { margin-bottom: 12px; }
   .foot-meta { margin-top: 6px; }
-  body.owner:not(.previewing) .night-note { display: none; }
   body.owner:not(.previewing) .owner-banner { font-size: 13px; }
-  /* Edit mode: Call Me and the license are for supervisors; See What Supervisors See shows them. */
-  body.owner:not(.previewing) .hchips, body.owner:not(.previewing) .hero-box { display: none; }
+  /* Edit mode: Call Me, the license and the note are for supervisors; See What Supervisors See shows them. */
+  body.owner:not(.previewing) .hchips, body.owner:not(.previewing) .hero-box, body.owner:not(.previewing) #noteBox { display: none; }
   .page > .foot .linkish { padding-block: 3px; }
+}
+/* The shortest laptop windows: tighter still. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
+  .hero { padding: 12px 14px; gap: 6px; --rx: 34px; --ry: 34px; }
+  .top { gap: 8px; }
+  .stripe { margin-top: -8px; }
+  .note-box { padding: 7px 10px; font-size: 14px; }
+  .lede { font-size: 15px; }
 }
