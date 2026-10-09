@@ -17,7 +17,7 @@
   "licName": "Denver Security Guard License",
   "licNo": "2026-BFN-0012673",
   "licIssued": "2026-06-16",
-  "licExpires": "2027-06-06",
+  "licExpires": "2027-06-16",
   "nightAuto": true,
   "days": {
     "2026-10-09": {
@@ -87,6 +87,6 @@
     "shift": 8,
     "left": {}
   },
-  "updated": "2026-10-09T21:34:22.421Z",
-  "rev": "2026-10-09T21:34:22.421Z~5se0"
+  "updated": "2026-10-09T21:34:57.205Z",
+  "rev": "2026-10-09T21:34:57.205Z~tfjo"
 }
