@@ -676,7 +676,13 @@
     const d = { days: {}, pub: {}, priv: {} };
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
-    for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
+    // The one-time move of the night-shift line into his note isn't one of his changes: a page loaded later makes it
+    // again on whatever is saved by then. It's kept only once he has changed the note himself.
+    const moveOnly = !saved.pub.nightAuto && pub.nightAuto && pub.note === movedNote(saved.pub);
+    for (const f of Object.keys(pub)) {
+      if (moveOnly && (f === "nightAuto" || f === "note")) continue;
+      if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
+    }
     for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Every-week days are kept per weekday, so changes from two devices or tabs to different weekdays both survive.
     d.wk = {};
@@ -889,26 +895,46 @@
     t.dataset.name = name;
     t.setAttribute("aria-label", name);
     let i = 0;
-    const words = name.split(" ").map((w) => h("span", { class: "word", "aria-hidden": "true" },
-      [...w].map((ch) => h("span", { class: "ch", style: `--c:${i++}`, text: ch }))));
-    t.replaceChildren(...words.flatMap((w, j) => (j ? [" ", w] : [w])));
+    const word = (w) => h("span", { class: "word", "aria-hidden": "true" }, letters(w).map((ch) => h("span", { class: "ch", style: `--c:${i++}`, text: ch })));
+    // A line can break between words and after a hyphen; a word wider than the line breaks between letters.
+    const words = name.split(" ").map((w) => w.split("-").map((s, k, a) => (k < a.length - 1 ? `${s}-` : s)).filter(Boolean).map(word));
+    t.replaceChildren(...words.flatMap((w, j) => (j ? [" ", ...w] : w)));
   }
-  // The status line types itself out during the opening; screen readers get the whole line at once.
+  // Letters as people see them (an accent or an emoji made of several code points stays one letter).
+  const graphemes = window.Intl && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+  const letters = (w) => (graphemes ? Array.from(graphemes.segment(w), (x) => x.segment) : [...w]);
+  // The status line types itself out during the opening; screen readers get the whole line at once. The part not yet
+  // typed is there but unseen, so the line has its full size from the start and nothing below it moves.
   let typer = null;
   function typeStatus(start, dur) {
-    const el = $("#acceptingTyped"), line = $("#accepting");
+    const line = $("#accepting");
     typer = { i: 0 };
-    el.textContent = "";
+    const show = () => {
+      const text = $("#acceptingText").textContent; // the line as it is now (it can change mid-way)
+      $("#acceptingTyped").textContent = text.slice(0, typer.i);
+      $("#acceptingRest").textContent = text.slice(typer.i);
+      return text;
+    };
+    show();
     line.classList.add("typing");
     const step = () => {
       if (!typer) return;
-      const text = $("#acceptingText").textContent; // the line as it is now (it can change mid-way)
       typer.i++;
-      el.textContent = text.slice(0, typer.i);
+      const text = show();
       if (typer.i < text.length) setTimeout(step, dur / Math.max(text.length, 1));
       else { typer = null; setTimeout(() => line.classList.remove("typing"), 500); }
     };
     setTimeout(step, start);
+  }
+  // The status light pulses on his name's beat, even when it shows up later (a slow load, edit mode after a load error,
+  // or once he takes a shift again).
+  function syncBeat() {
+    const t = $("#title"), dot = $("#accepting .live-dot");
+    if (!revealed || !t.getAnimations || $("#accepting").hidden) return;
+    try {
+      const glow = t.getAnimations().find((a) => a.animationName === "name-glow");
+      if (glow && glow.startTime != null) for (const a of dot.getAnimations()) if (a.startTime !== glow.startTime) a.startTime = glow.startTime;
+    } catch (e) { /* an older browser: they just run on their own */ }
   }
   function renderHero() {
     const ready = dataIn && (owner || !loadError);
@@ -919,7 +945,8 @@
     $("#accepting").hidden = !ready;
     $("#accepting").classList.toggle("none", !pub.willing.length);
     $("#acceptingText").textContent = acceptingText(pub.willing);
-    if (!typer) $("#acceptingTyped").textContent = acceptingText(pub.willing);
+    if (!typer) { $("#acceptingTyped").textContent = acceptingText(pub.willing); $("#acceptingRest").textContent = ""; }
+    syncBeat();
     const call = ready && !!smsNumber(), lic = ready && !!pub.licName;
     $("#heroChips").hidden = !(call || lic);
     $("#heroCallBtn").hidden = !call;
@@ -967,7 +994,7 @@
       try { first.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" }); } catch (e) { first.scrollIntoView(); }
     }
     const weeks = $("#weeks");
-    weeks.classList.remove("beckon");
+    weeks.classList.remove("beckon", "drop"); // once the glow ended, the opening's drop would play again
     void weeks.offsetWidth; // restart the glow when it's tapped again
     weeks.classList.add("beckon");
     clearTimeout(pickADay.timer);
@@ -981,6 +1008,9 @@
   const NIGHT_LINE = "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.";
   const withNight = (n) => { const t = n.trim(); return t.indexOf(NIGHT_LINE) >= 0 ? t : t ? `${t} ${NIGHT_LINE}` : NIGHT_LINE; };
   const withoutNight = (n) => n.replace(NIGHT_LINE, "").replace(/\s{2,}/g, " ").trim();
+  const nightFits = (p) => !p.willing.includes("overnight") || withNight(p.note).length <= 140;
+  // His note after the one-time move: with the line if he takes overnights and it fits.
+  const movedNote = (p) => (p.willing.includes("overnight") && nightFits(p) ? withNight(p.note) : p.note);
   // The note as shown. Until edit mode has moved the line into his note once, it's shown with the note by itself.
   const shownNote = () => {
     const n = activeNote();
@@ -2660,8 +2690,9 @@
       // Once: the night-shift line moves into his note (it used to sit under the header). Tap Save to publish it.
       // After his unsaved changes are back, so a note he was editing isn't skipped, and it isn't one of them.
       if (!pub.nightAuto) {
+        if (!nightFits(pub)) setTimeout(() => toast("The night-shift line didn't fit in your note (140 characters), so supervisors won't see it. Shorten the note in Settings, then check Overnight again.", 8000), 600);
+        pub.note = movedNote(pub);
         pub.nightAuto = true;
-        if (pub.willing.includes("overnight") && withNight(pub.note).length <= 140) pub.note = withNight(pub.note);
       }
       loadError = false;
       busy = false;

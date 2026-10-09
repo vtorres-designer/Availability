@@ -111,9 +111,11 @@ a { color: var(--accent); }
   -webkit-mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
   mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
 }
-/* The strip under the header: its colors flow along it once it has turned on. */
-.stripe {
-  position: relative; height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px;
+/* The strip under the header: its colors flow along it once it has turned on. They sit on a layer of their own, so
+   the strip can open from the middle without hiding the sparkle it opens from. */
+.stripe { position: relative; height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px; }
+.stripe::before {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit;
   background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5) 0 0 / 200% 100%;
 }
 .stripe .spark {
@@ -134,8 +136,8 @@ a { color: var(--accent); }
 .shield .sparkle { opacity: 0; transform-origin: 40px 6.5px; transform-box: view-box; }
 .hero .eyebrow { color: var(--hero-label); }
 .hero h1 { color: var(--hero-ink); font-size: 30px; line-height: 1.02; overflow-wrap: anywhere; }
-/* His name is built from letters (so it can fall into place); each word stays whole. */
-#title .word { white-space: nowrap; }
+/* His name is built from letters (so it can fall into place); each word stays whole unless it's wider than the line. */
+#title .word { display: inline-block; max-width: 100%; }
 #title .ch { display: inline-block; }
 /* The status line: always lit while he takes any shift. */
 .accepting { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
@@ -143,7 +145,11 @@ a { color: var(--accent); }
 .accepting.none { color: var(--hero-soft); }
 .accepting.none .live-dot { background: #6d7f99; box-shadow: none; animation: none; }
 .accepting .typed { min-width: 0; }
-.type-cursor { display: none; width: 0.55em; height: 1.1em; margin-left: -6px; background: #d4f7e8; flex: none; }
+.accepting .untyped { visibility: hidden; }
+#acceptingText { -webkit-user-select: none; user-select: none; } /* for screen readers; a copy of the page takes the line once */
+/* The typing cursor takes no room in the line, so the text never shifts as it types. */
+.type-cursor { display: none; position: relative; width: 0; height: 1.1em; vertical-align: text-bottom; }
+.type-cursor::after { content: ""; position: absolute; top: 0; left: 1px; width: 0.55em; height: 100%; background: #d4f7e8; }
 .hchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .hchip {
   appearance: none; display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
@@ -314,9 +320,9 @@ h2 { font-size: 28px; line-height: 1.05; }
   box-shadow: var(--bevel);
   transition: transform 0.08s ease, box-shadow 0.2s ease;
 }
-.day.open:not(.past) { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 55%); }
+.day.open:not(.past) { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 55%); } /* light enough for the white month label */
 .day.ot:not(.past) { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 55%); }
-.day.pot:not(.past) { background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 55%), linear-gradient(to top right, var(--ot) calc(50% - 0.5px), var(--open) calc(50% + 0.5px)); }
+.day.pot:not(.past) { background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 55%), linear-gradient(to top right, var(--ot) calc(50% - 0.5px), var(--open) calc(50% + 0.5px)); }
 .day.busy:not(.past), .day.work:not(.past) { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28); filter: saturate(0.75); }
 /* Under a mouse, a day holds its full glow (the breathing underneath keeps the shared beat). */
 @media (hover: hover) and (pointer: fine) {
@@ -563,7 +569,7 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .lit #title { animation: name-glow 2.2s 1.9s ease-in-out infinite; }
   .accepting.typing .type-cursor { display: inline-block; animation: blink 0.5s step-end infinite; }
   /* The strip: a sparkle in the middle, then it opens both ways, then its colors flow. */
-  .lit .stripe { animation: strip-open 0.7s 2.1s cubic-bezier(0.6, 0, 0.2, 1) backwards, flow 6s 2.8s linear infinite; }
+  .lit .stripe::before { animation: strip-open 0.7s 2.1s cubic-bezier(0.6, 0, 0.2, 1) backwards, flow 6s 2.8s linear infinite; }
   .lit .stripe .spark { animation: spark 1s 1.8s ease-out backwards; }
   /* The grid drifts; a ring of light runs out along its lines from the badge, as the badge shines. */
   .lit .hero .grid { animation: drift 8s linear infinite; }
