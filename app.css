@@ -549,7 +549,7 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .legend { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .day, .day.open, .day.ot, .day.pot { transition: none; }
+  .day, .day.open:not(.past), .day.ot:not(.past), .day.pot:not(.past) { transition: none; }
   .day:active { transform: none; }
   #weeks.beckon .day { animation: none !important; }
   /* Without the glow, Pick a Day still marks the days for the 3 seconds it lasts. */
