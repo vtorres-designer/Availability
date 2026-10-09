@@ -127,6 +127,8 @@ a { color: var(--accent); }
 .hchip:hover, .hchip[aria-expanded="true"] { background: rgba(255, 255, 255, 0.15); }
 .hchip:focus-visible, .hb-btn:focus-visible { outline: 2px solid var(--hero-label); outline-offset: 2px; }
 .hchip.expired { border-color: rgba(255, 140, 140, 0.55); }
+.hchip.plain { cursor: default; }
+.hchip.plain:hover { background: rgba(255, 255, 255, 0.08); }
 .hero-box {
   display: grid; gap: 4px; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.4; color: #cfdcef;
   background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
@@ -371,10 +373,12 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .sheet-in {
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   display: grid; gap: 14px;
+  grid-template-columns: minmax(0, 1fr); /* no row (like Back + a long title + × in large text) can widen the sheet */
 }
 .sheet-in p { margin: 0; }
 .sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .sheet-title { flex: 1; min-width: 0; }
+.sheet-title h2 { overflow-wrap: anywhere; }
 /* Back, opposite the ×: on every step after the first in the day window. */
 .back {
   appearance: none; border: 0; flex: none; display: inline-flex; align-items: center; gap: 4px;
@@ -395,6 +399,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .group { padding-top: 12px; border-top: 1px solid var(--line); }
 .group.two, .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
 .field { display: grid; gap: 4px; min-width: 0; }
+.field input[type="date"] { min-width: 0; } /* the date control's own minimum would overflow two narrow columns */
 .field input, .field select, .field textarea {
   width: 100%; min-height: 44px; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
@@ -488,6 +493,8 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .day, .day.open, .day.ot, .day.pot { transition: none; }
   .day:active { transform: none; }
   #weeks.beckon .day { animation: none !important; }
+  /* Without the glow, Pick a Day still marks the days for the 3 seconds it lasts. */
+  #weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--accent); }
 }
 /* The opening: the page breathes in while the tiles settle and the stripe under the header draws out like a smile.
    A second after everything is still, a glint crosses the badge. The page is only hidden while the calendar loads,
@@ -543,6 +550,10 @@ dialog:not([open]) { display: none; }
 }
 .fb-kind input:checked + span { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
 .fb-kind input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .fb-kind span { border: 1px solid ButtonText; }
+  .fb-kind input:checked + span { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+}
 /* Feedback: a field only bots fill in. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 #fbMsg { font: 16px/1.45 var(--font-body); min-height: 110px; }
