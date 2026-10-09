@@ -21,11 +21,26 @@ A navy header with a faint display grid holds:
 - **Call Me** (a rotary phone): it doesn't show your number. It opens a small box: "Best for shifts starting within 10 hours." and "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me.", with a **Pick a Day** button. That scrolls to the calendar only if it isn't already on screen (on a laptop it is), and makes the days they can ask about glow twice. So every request goes through the calendar's screening first; your number comes at the end, the same as always. The 10 follows your Settings (Ask supervisors to call when a shift starts within). At 0, the box says "Texting is the best way to reach me." instead. It shows only when your cell number is set.
 - **Your license:** "Denver Security Guard License · Active". Tap it to see the number and dates ("Issued Jun 16, 2026 · Expires Jun 16, 2027 · Renews yearly"). After the expiration date it says Expired, and edit mode reminds you to enter the new dates. Set it in Settings → License; leave the name empty to hide it.
 
-When the page opens, it breathes in while the calendar's tiles settle into place and the line under the header draws out from the middle. A second after everything is still, a glint and a sparkle cross the badge. While the calendar loads, the page stays out of sight (never more than 4 seconds; on a slow connection it simply appears after 1.5). People who turn off motion on their device see none of the animation. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, open days glow a little under a mouse, and today has a thin glowing outline.
+**When the page opens** (about 3 seconds, and nothing waits on it):
+1. The page breathes in. Your name falls into place letter by letter, and the days drop in on a diagonal wave from the top left to the bottom right.
+2. The status light switches on and "Accepting overnight requests" types itself out like a terminal.
+3. Once it has finished, a sparkle flashes in the middle of the strip under the header, and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines and sparkles.
+4. A shine crosses Call Me, then the license button.
 
-A night shift is listed under the day it starts. Tue means Tue night into Wed morning. While **Overnight** is checked under the shifts you'll pick up (Settings), the page says this right under the header, starting with \*\* like a footnote to the status line; uncheck Overnight and it goes away.
+**Then, for as long as the page is open:**
+- the strip's colors flow and the grid drifts slowly
+- the status light pulses, and your name glows in step with it
+- the green, yellow and P-OT days breathe a soft glow together (P-OT glows green); a day under a mouse holds its full glow
+- the blue arrow in front of "Tap a green or yellow day to text me about covering it." nudges toward it
+- every 9 seconds the Call Me and license icons glitch for a split second
 
-**Your note** (Settings → Note to supervisors) shows in a tinted **Note** box near the top of the page, and again at the top of every day's window, so it's in front of supervisors right when they ask you for a shift. Give it a **Show the note until** date and it hides itself after that day, so a note like "Looking for extra hours this week" doesn't go stale.
+While the calendar loads, the page stays out of sight (never more than 4 seconds; on a slow connection it simply appears after 1.5, with only the ongoing effects). People who turn off motion on their device see none of the animation. In edit mode the days don't breathe.
+
+The days a supervisor can ask about look like raised buttons; busy days lie flat and a little sunken, so the eye goes to the days you can take. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, and today has a thin glowing outline. The links at the bottom each have a small icon.
+
+**The night-shift line is part of your note:** "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." Checking **Overnight** under the shifts you'll pick up (Settings) adds it to your note, where you can edit or delete it like the rest; unchecking Overnight takes it out, and checking it again adds it back. If it doesn't fit in the note's 140 characters, Settings says so. The first time you open edit mode after this update, the line moves into your note on its own (tap **Save** to publish it); until then the page shows it in the Note box by itself. Like the rest of the note, it hides after a **Show the note until** date.
+
+**Your note** (Settings → Note to supervisors) shows in a framed **Note** box near the top of the page, and again at the top of every day's window, so it's in front of supervisors right when they ask you for a shift. Give it a **Show the note until** date and it hides itself after that day, so a note like "Looking for extra hours this week" doesn't go stale.
 
 ## How supervisors text you
 
