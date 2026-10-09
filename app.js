@@ -117,6 +117,7 @@
   const addDays = (k, n) => { const d = dateOf(k); d.setDate(d.getDate() + n); return keyOf(d); };
   const todayKey = () => keyOf(new Date());
   const isKey = (k) => typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+  const isDay = (k) => isKey(k) && keyOf(dateOf(k)) === k; // a real calendar day, not "2027-02-30"
   const isTime = (t) => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
   const fmt = (k, o) => dateOf(k).toLocaleDateString("en-US", o);
   const shortDay = (k) => fmt(k, { weekday: "short", month: "short", day: "numeric" });
@@ -154,13 +155,20 @@
   // Entries are only added right after a tap or click: browsers skip entries a page adds on its own.
   const nav = (() => {
     const stack = []; // {sheet, step, undo}, oldest first. undo() puts the screen back the way it was before it.
-    const queued = []; // entries waiting for the browser to finish going back
-    let waiting = false, waitTimer = 0, ok = false;
+    const queued = []; // work waiting for the browser to finish the traversals the page started
+    let pending = 0, timer = 0, ok = false;
     try { history.replaceState({ sa: 0 }, ""); ok = true; } catch (e) { /* no history: only the in-page buttons go back */ }
     const depth = (st) => (st && typeof st.sa === "number" ? st.sa : 0);
     const tapped = () => !navigator.userActivation || navigator.userActivation.isActive;
-    const wait = () => { waiting = true; clearTimeout(waitTimer); waitTimer = setTimeout(settle, 1000); }; // in case no popstate comes
-    function settle() { waiting = false; clearTimeout(waitTimer); while (!waiting && queued.length) queued.shift()(); }
+    // The page moves the browser back itself after it closes or steps back on screen. Each move ends in a popstate;
+    // until they're all in, new entries and in-page Backs wait, so the screens and the history stay in step.
+    function go(n) {
+      pending++;
+      clearTimeout(timer);
+      timer = setTimeout(() => { pending = 0; flush(); }, 1000); // a browser that never reports one
+      history.go(n);
+    }
+    function flush() { while (!pending && queued.length) queued.shift()(); }
     function add(entry) {
       if (!ok || !tapped()) return;
       const run = () => {
@@ -168,36 +176,45 @@
         stack.push(entry);
         try { history.pushState({ sa: stack.length }, ""); } catch (e) { stack.pop(); }
       };
-      if (waiting) queued.push(run); else run();
+      if (pending) queued.push(run); else run();
     }
     // The page already closed or stepped back: forget the entries from i up and take the browser back as many.
     function drop(i) {
       const n = stack.length - i;
       if (n <= 0) return;
       stack.length = i;
-      wait();
-      history.go(-n);
+      go(-n);
     }
     window.addEventListener("popstate", (e) => {
       const d = depth(e.state);
-      // Forward onto a screen that's gone: return to where the page is.
-      if (d > stack.length) { wait(); history.go(stack.length - d); return; }
+      if (pending) { pending--; if (pending) return; clearTimeout(timer); }
+      // Now compare where the browser is with the screens open: a Back from the person undoes screens; landing past
+      // them (Forward onto a screen that's gone) returns to where the page is.
+      if (d > stack.length) { go(stack.length - d); return; }
       while (stack.length > d) stack.pop().undo();
-      if (waiting) settle();
+      flush();
     });
     return {
       sheet(d) { add({ sheet: d, undo: () => d.close("") }); },
       step(d, undo) { add({ sheet: d, step: true, undo }); },
       page(undo) { add({ sheet: null, undo }); },
-      // The in-page Back for the step (or page state) on top: through history when it's there, so the button and
-      // the gesture always agree. Otherwise (no history entry was added) straight to fallback.
+      // The in-page Back for the step (or page state) on top: the screen changes at once and the browser follows,
+      // so the button and the gesture always agree. Otherwise (no history entry was added) straight to fallback.
       back(d, fallback) {
-        if (waiting) { queued.push(() => this.back(d, fallback)); return; }
+        if (pending) { queued.push(() => this.back(d, fallback)); return; }
         const top = stack[stack.length - 1];
-        if (top && top.sheet === d && (d ? top.step : true)) history.back(); else fallback();
+        if (top && top.sheet === d && (d ? top.step : true)) { stack.pop(); go(-1); top.undo(); } else fallback();
       },
       // A sheet the page closed itself (×, Escape, the backdrop, a button): drop its entries and any above them.
       closed(d) { const i = stack.findIndex((x) => x.sheet === d); if (i >= 0) drop(i); },
+      // Before the page reloads: back to its own entry first, so no dead entries are left behind it.
+      leave(fn) {
+        const n = stack.length;
+        if (!ok || !n) { fn(); return; }
+        stack.length = 0;
+        queued.push(fn);
+        go(-n);
+      },
     };
   })();
 
@@ -258,13 +275,13 @@
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
     if (isTime(r.potFrom) && isTime(r.potTo)) { d.potFrom = r.potFrom; d.potTo = r.potTo; }
-    if (isKey(r.noteUntil)) d.noteUntil = r.noteUntil;
+    if (isDay(r.noteUntil)) d.noteUntil = r.noteUntil;
     if (typeof r.callHours === "number" && r.callHours >= 0 && r.callHours <= 48) d.callHours = r.callHours;
     if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
     if (typeof r.licName === "string") d.licName = r.licName.trim().slice(0, 60);
     if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
-    if (isKey(r.licIssued)) d.licIssued = r.licIssued;
-    if (isKey(r.licExpires)) d.licExpires = r.licExpires;
+    if (isDay(r.licIssued)) d.licIssued = r.licIssued;
+    if (isDay(r.licExpires)) d.licExpires = r.licExpires;
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
@@ -892,9 +909,13 @@
   function pickADay() {
     openHeroBox(null);
     const tiles = [...document.querySelectorAll("#weeks .day.open, #weeks .day.ot, #weeks .day.pot")].filter((b) => !b.disabled && !b.classList.contains("past"));
-    if (!tiles.length) { toast("No open days on the calendar right now."); return; }
+    if (!tiles.length) { toast("No open days on the calendar right now."); $("#heroCallBtn").focus(); return; }
+    // Really visible: not under the calendar's sticky weekday row (laptops) or a bar along the bottom (edit mode).
     const first = tiles[0], r = first.getBoundingClientRect(), cal = $(".cal").getBoundingClientRect();
-    const inView = r.top >= Math.max(0, cal.top) && r.bottom <= Math.min(window.innerHeight, cal.bottom);
+    const dow = $(".cal .dow"), bars = ["#toolbar", "#previewBar"].map((s) => $(s)).filter((b) => !b.hidden);
+    const top = Math.max(0, cal.top, getComputedStyle(dow).position === "sticky" ? dow.getBoundingClientRect().bottom : 0);
+    const bottom = Math.min(window.innerHeight, cal.bottom, ...bars.map((b) => b.getBoundingClientRect().top));
+    const inView = r.top >= top && r.bottom <= bottom;
     if (!inView) {
       const smooth = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
       try { first.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" }); } catch (e) { first.scrollIntoView(); }
@@ -927,7 +948,7 @@
     renderHero();
     // The line under the header says how night shifts sit on the calendar (only when he takes overnights). It starts
     // with ** so it reads as a footnote to the status line. His own note gets a box of its own, noticed every visit.
-    const night = pub.willing.includes("overnight");
+    const night = dataIn && (owner || !loadError) && pub.willing.includes("overnight");
     $("#nightNote").hidden = !night;
     $("#nightNote").textContent = night ? "**A night shift is listed under the day it starts. Tue means Tue night into Wed morning." : "";
     const note = activeNote();
@@ -1788,6 +1809,7 @@
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").openedAt = Date.now();
+    $("#daySheet").openerKey = k;
     showSheet("#daySheet");
   }
 
@@ -2114,6 +2136,7 @@
     editKey = k;
     $("#editTitle").textContent = shortDay(k);
     fillEdit(true);
+    $("#editSheet").openerKey = k;
     showSheet("#editSheet");
   }
 
@@ -2437,15 +2460,15 @@
   function onSettingsChange(e) {
     const t = e.target;
     if (t.id === "setNote") { pub.note = t.value.slice(0, 140); showNoteExpired(); }
-    else if (t.id === "setNoteUntil") { pub.noteUntil = isKey(t.value) ? t.value : ""; showNoteExpired(); }
+    else if (t.id === "setNoteUntil") { pub.noteUntil = isDay(t.value) ? t.value : ""; showNoteExpired(); }
     else if (t.id === "setCallHours") { const n = Number(t.value); if (t.value.trim() !== "" && n >= 0 && n <= 48) pub.callHours = n; }
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
     else if (t.id === "setLicName") pub.licName = t.value.trim().slice(0, 60);
     else if (t.id === "setLicNo") pub.licNo = t.value.trim().slice(0, 40);
-    else if (t.id === "setLicIssued") pub.licIssued = isKey(t.value) ? t.value : "";
-    else if (t.id === "setLicExpires") pub.licExpires = isKey(t.value) ? t.value : "";
+    else if (t.id === "setLicIssued") pub.licIssued = isDay(t.value) ? t.value : "";
+    else if (t.id === "setLicExpires") pub.licExpires = isDay(t.value) ? t.value : "";
     else if (t.id === "setFeedback") {
       const typed = t.value.trim(), id = feedbackId(typed);
       $("#setFeedbackError").textContent = "That doesn't look like an email address. Until it's fixed, the address you had stays.";
@@ -2825,14 +2848,23 @@
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });
-      d.addEventListener("close", () => nav.closed(d));
+      d.addEventListener("close", () => {
+        nav.closed(d);
+        // A redraw while it was open replaced the day it came from: focus that day again.
+        const a = document.activeElement;
+        if (d.openerKey && (!a || a === document.body || d.contains(a) || !a.isConnected)) {
+          const t = document.querySelector(`#weeks .day[data-key="${d.openerKey}"]`);
+          if (t) try { t.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
+        }
+      });
     }
-    // Back in the day window: the button, and Android's back gesture, which browsers deliver to an open window as a
+    // Back in the day window: the button, and Android's back gesture, which Chrome delivers to an open window as a
     // request to close it. Escape still closes the window.
     let escAt = 0;
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") escAt = Date.now(); }, true);
     $("#daySheet").addEventListener("cancel", (e) => {
-      if (Date.now() - escAt > 500 && !$("#dayBack").hidden) { e.preventDefault(); $("#daySheet").goBack(); }
+      // Browsers let a page stop only one close request per tap; one it can't stop is a close.
+      if (e.cancelable && Date.now() - escAt > 500 && !$("#dayBack").hidden) { e.preventDefault(); $("#daySheet").goBack(); }
     });
     $("#dayBack").addEventListener("click", () => { if ($("#daySheet").goBack) $("#daySheet").goBack(); });
     // The header's buttons: Call Me and the license each open a small box (one at a time).
@@ -2886,7 +2918,7 @@
     $("#signOut").addEventListener("click", () => {
       leaving = true;
       for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly]) store.del(k);
-      location.reload();
+      nav.leave(() => location.reload());
     });
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));
     $("#importBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openImport()));
@@ -2899,7 +2931,7 @@
     window.addEventListener("storage", (e) => {
       if (owner && e.key === LS.savedSignal) rebase();
       // Stop Editing in another tab: this one stops too (even mid-load), so it doesn't keep his hours on screen or write new drafts.
-      if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; location.reload(); }
+      if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; nav.leave(() => location.reload()); }
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
