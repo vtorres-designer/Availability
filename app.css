@@ -345,7 +345,6 @@ body.owner .day.past.pot { background: linear-gradient(to top right, var(--ot) c
 .foot { display: grid; justify-items: center; gap: 2px; padding-top: 8px; }
 .foot-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; }
 .foot-row > * { margin: 2px 6px; }
-@media (max-width: 359px) { .foot-row > * { margin: 2px 3px; } .foot .linkish { font-size: 13px; } } /* keeps each pair on one line on the smallest phones */
 .foot-meta { margin-top: 10px; display: grid; justify-items: center; gap: 2px; }
 .empid { margin: 0; font: 400 12px/1.5 var(--font-mono); color: var(--muted); text-align: center; }
 #updated { text-transform: uppercase; letter-spacing: 0.02em; }
@@ -353,6 +352,10 @@ body.owner .day.past.pot { background: linear-gradient(to top right, var(--ot) c
 a.linkish { display: inline-block; }
 .foot .linkish { display: inline-flex; align-items: center; gap: 5px; }
 .ficon { width: 14px; height: 14px; flex: none; }
+/* Keeps each pair on one line on phones (the smallest drop the icons). */
+@media (max-width: 400px) { .foot-row > * { margin: 2px 3px; } .foot .linkish { padding: 6px 2px; gap: 4px; } }
+@media (max-width: 370px) { .foot .linkish { font-size: 13px; } }
+@media (max-width: 359px) { .ficon { display: none; } }
 .linkish {
   background: none; border: 0; padding: 6px 4px; cursor: pointer;
   color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font-size: 14px;

@@ -36,7 +36,7 @@ A navy header with a faint display grid holds:
 
 While the calendar loads, the page stays out of sight (never more than 4 seconds; on a slow connection it simply appears after 1.5, with only the ongoing effects). People who turn off motion on their device see none of the animation. In edit mode the days don't breathe.
 
-The days a supervisor can ask about look like raised buttons; busy days lie flat and a little sunken, so the eye goes to the days you can take. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, and today has a thin glowing outline. The links at the bottom each have a small icon.
+The days a supervisor can ask about look like raised buttons; busy days lie flat and a little sunken, so the eye goes to the days you can take. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, and today has a thin glowing outline. The links at the bottom each have a small icon (left out on the smallest phones, so each pair still fits on one line).
 
 **The night-shift line is part of your note:** "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." Checking **Overnight** under the shifts you'll pick up (Settings) adds it to your note, where you can edit or delete it like the rest; unchecking Overnight takes it out, and checking it again adds it back. If it doesn't fit in the note's 140 characters, Settings says so. The first time you open edit mode after this update, the line moves into your note on its own (tap **Save** to publish it); until then the page shows it in the Note box by itself. Like the rest of the note, it hides after a **Show the note until** date.
 
