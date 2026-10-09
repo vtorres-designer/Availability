@@ -34,7 +34,7 @@
         this.openSeq = ++seq;
         this.setAttribute("open", "");
         stack();
-        const f = this.querySelector("input, select, textarea, button");
+        const f = Array.prototype.find.call(this.querySelectorAll("input, select, textarea, button"), (el) => !el.disabled && el.getClientRects().length > 0);
         if (f) try { f.focus(); } catch (e) { /* ignore */ }
       };
       d.close = function (value) {
@@ -157,8 +157,15 @@
     const stack = []; // {sheet, step, undo}, oldest first. undo() puts the screen back the way it was before it.
     const queued = []; // work waiting for the browser to finish the traversals the page started
     let pending = 0, timer = 0, ok = false;
-    try { history.replaceState({ sa: 0 }, ""); ok = true; } catch (e) { /* no history: only the in-page buttons go back */ }
     const depth = (st) => (st && typeof st.sa === "number" ? st.sa : 0);
+    // A reload (or a phone restoring a tab) can land on one of the page's own screen entries. Nothing is open now,
+    // so go back to the page's base entry: no dead entries are left for Back to stop on.
+    try {
+      const d0 = depth(history.state);
+      history.replaceState({ sa: 0 }, "");
+      ok = true;
+      if (d0 > 0) go(-d0);
+    } catch (e) { /* no history: only the in-page buttons go back */ }
     const tapped = () => !navigator.userActivation || navigator.userActivation.isActive;
     // The page moves the browser back itself after it closes or steps back on screen. Each move ends in a popstate;
     // until they're all in, new entries and in-page Backs wait, so the screens and the history stay in step.
@@ -885,6 +892,11 @@
     $("#heroLicBtn").hidden = !lic;
     $("#heroLicText").textContent = pub.licName + (pub.licExpires ? ` · ${licExpired() ? "Expired" : "Active"}` : "");
     $("#heroLicBtn").classList.toggle("expired", licExpired());
+    // With only a name there's nothing to open: the chip is then just a label.
+    const licMore = !!(pub.licNo || pub.licIssued || pub.licExpires);
+    if (licMore) { $("#heroLicBtn").setAttribute("aria-controls", "heroLic"); if (!$("#heroLicBtn").hasAttribute("aria-expanded")) $("#heroLicBtn").setAttribute("aria-expanded", "false"); }
+    else { $("#heroLicBtn").removeAttribute("aria-controls"); $("#heroLicBtn").removeAttribute("aria-expanded"); }
+    $("#heroLicBtn").classList.toggle("plain", !licMore);
     const t = callBoxText();
     $("#heroCallLead").textContent = t.lead;
     $("#heroCallRest").textContent = t.rest;
@@ -894,7 +906,7 @@
     $("#heroLicDates").hidden = !$("#heroLicDates").textContent;
     // A chip that went away (its setting was cleared) takes its open box with it.
     if (!call) openHeroBox(null, "#heroCall");
-    if (!lic) openHeroBox(null, "#heroLic");
+    if (!lic || !licMore) openHeroBox(null, "#heroLic");
   }
   // One box open at a time. which: "#heroCall", "#heroLic", or null to close both (only: just that one).
   function openHeroBox(which, only) {
@@ -902,7 +914,7 @@
       if (only && box !== only) continue;
       const on = box === which;
       $(box).hidden = !on;
-      $(btn).setAttribute("aria-expanded", String(on));
+      if ($(btn).hasAttribute("aria-controls")) $(btn).setAttribute("aria-expanded", String(on));
     }
   }
   // Pick a Day: bring the days they can ask about into view (only if they aren't already), and make them glow.
@@ -1004,6 +1016,7 @@
       }
       frag.append(h("div", { class: "week" }, head, days));
     });
+    if (revealed) $("#weeks").classList.remove("cascade"); // a redraw after the opening shows the tiles at once
     $("#weeks").replaceChildren(frag);
 
     document.body.classList.toggle("owner", asOwner);
@@ -1330,7 +1343,7 @@
   const startAt = (k, span) => { const d = dateOf(k); d.setMinutes(span.start); return d; };
   // A shift that starts sooner than his call-hours setting asks for a call first. Without a time, it's counted from
   // the earliest it could start, midnight as the day begins: today always asks, tomorrow once midnight is that
-  // close, and later days never.
+  // close, and later days only when the setting is over 24 hours.
   function shortNotice(k, span) {
     if (!(pub.callHours > 0)) return false;
     const start = span ? startAt(k, span) : dateOf(k);
@@ -1598,8 +1611,10 @@
       // The same form comes back each time, with any edits to the message. New times from here replace its Shift Time.
       const time = st && st.ready ? st.time : "";
       if (!m.form) m.form = textForm(k, info, type, tr.back, shiftStatus, { time, ctx });
-      else if (time !== m.formTime) m.form.setTime(time);
-      else m.form.refresh();
+      else {
+        m.form.recall();
+        if (time !== m.formTime) m.form.setTime(time); else m.form.refresh();
+      }
       m.formTime = time;
       show(m.form.nodes, ".shift-chosen .linkish");
       tr.forward(again);
@@ -1742,6 +1757,11 @@
       // New times from the simple window. An edited message keeps its edits (Undo My Edits brings the new text).
       setTime(t) { time.input.value = t; refresh(); },
       refresh,
+      // Name, site, address and pay typed since this form was made (in another shift's form). Blocked storage
+      // returns null and leaves what's in the boxes.
+      recall() {
+        for (const [f, key] of [[who, LS.who], [site, LS.site], [addr, LS.addr], [pay, LS.pay]]) { const v = store.get(key); if (v != null) f.input.value = v; }
+      },
     };
   }
 
@@ -2849,6 +2869,12 @@
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });
       d.addEventListener("close", () => {
+        // The day window closed by a back gesture the page couldn't stop: open it again one step back, with
+        // everything typed still there.
+        if (d.reopenBack) {
+          d.reopenBack = false;
+          if (d.isConnected && d.goBack) { d.showModal(); d.openedAt = Date.now(); d.goBack(); return; }
+        }
         nav.closed(d);
         // A redraw while it was open replaced the day it came from: focus that day again.
         const a = document.activeElement;
@@ -2864,12 +2890,15 @@
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") escAt = Date.now(); }, true);
     $("#daySheet").addEventListener("cancel", (e) => {
       // Browsers let a page stop only one close request per tap; one it can't stop is a close.
-      if (e.cancelable && Date.now() - escAt > 500 && !$("#dayBack").hidden) { e.preventDefault(); $("#daySheet").goBack(); }
+      if (Date.now() - escAt > 500 && !$("#dayBack").hidden) {
+        if (e.cancelable) { e.preventDefault(); $("#daySheet").goBack(); }
+        else $("#daySheet").reopenBack = true; // it closes anyway: reopened one step back, below
+      }
     });
     $("#dayBack").addEventListener("click", () => { if ($("#daySheet").goBack) $("#daySheet").goBack(); });
     // The header's buttons: Call Me and the license each open a small box (one at a time).
     $("#heroCallBtn").addEventListener("click", () => openHeroBox($("#heroCall").hidden ? "#heroCall" : null));
-    $("#heroLicBtn").addEventListener("click", () => openHeroBox($("#heroLic").hidden ? "#heroLic" : null));
+    $("#heroLicBtn").addEventListener("click", () => { if ($("#heroLicBtn").hasAttribute("aria-controls")) openHeroBox($("#heroLic").hidden ? "#heroLic" : null); });
     $("#pickDay").addEventListener("click", pickADay);
     $("#fbKind").addEventListener("change", syncFbKind);
     $("#weeks").addEventListener("click", (e) => {
