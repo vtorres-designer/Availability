@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="app.css?v=26">
+<link rel="stylesheet" href="app.css?v=27">
 <!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion. -->
 <script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
 </head>
@@ -25,19 +25,21 @@
       <div class="fx grid" aria-hidden="true"></div>
       <div class="fx ripple" aria-hidden="true"></div>
       <div class="badge-row">
-        <svg class="shield" id="shield" viewBox="0 0 46 52" aria-hidden="true" hidden>
-          <defs>
-            <clipPath id="shieldClip"><path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z"/></clipPath>
-            <linearGradient id="glintFill" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-          </defs>
-          <path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z" fill="#1d4f8f" stroke="#9fc0ea" stroke-width="2"/>
-          <path d="M23 7 38 12.5V24c0 10-6.3 16.8-15 20.6C14.3 40.8 8 34 8 24V12.5z" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
-          <text id="shieldText" x="23" y="31" text-anchor="middle"></text>
-          <g clip-path="url(#shieldClip)"><rect class="glint" x="-24" y="-6" width="16" height="64" fill="url(#glintFill)"/></g>
-          <path class="sparkle" d="M40 2l1.3 3.2L44.5 6.5l-3.2 1.3L40 11l-1.3-3.2L35.5 6.5l3.2-1.3z" fill="#fff"/>
-        </svg>
+        <span class="badge" id="badge" hidden>
+          <svg class="shield" id="shield" viewBox="0 0 46 52" aria-hidden="true" hidden>
+            <defs>
+              <clipPath id="shieldClip"><path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z"/></clipPath>
+              <linearGradient id="glintFill" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            </defs>
+            <path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z" fill="#1d4f8f" stroke="#9fc0ea" stroke-width="2"/>
+            <path d="M23 7 38 12.5V24c0 10-6.3 16.8-15 20.6C14.3 40.8 8 34 8 24V12.5z" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+            <text id="shieldText" x="23" y="31" text-anchor="middle"></text>
+            <g clip-path="url(#shieldClip)"><rect class="glint" x="-24" y="-6" width="16" height="64" fill="url(#glintFill)"/></g>
+          </svg>
+          <span class="burst" aria-hidden="true"><span class="glow"></span><span class="ring"></span><span class="star"></span><span class="star s2"></span></span>
+        </span>
         <div class="who">
-          <p class="eyebrow">Security Officer</p>
+          <p class="eyebrow">Security Professional</p>
           <h1 id="title">Shift Availability</h1>
         </div>
       </div>
@@ -57,7 +59,7 @@
       </div>
     </div>
     <div class="stripe" aria-hidden="true"><span class="spark"></span></div>
-    <aside class="note-box" id="noteBox" hidden><b class="note-tag">Note</b> <span id="noteText"></span></aside>
+    <aside class="note-box" id="noteBox" hidden></aside>
     <p class="lede"><span class="nudge" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8h9M8.5 4 12.5 8l-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Tap a green or yellow day to text me about covering it.</span></p>
     <p class="error" id="loadErr" hidden>Couldn't load the latest calendar. Check your connection and refresh.</p>
   </header>
@@ -316,7 +318,6 @@ Thu 10/15 2300-0700</pre>
     <div class="group">
       <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
       <div class="checks" id="setWilling"></div>
-      <p class="error small" id="noteFull" role="alert" hidden>The night-shift line didn't fit in your note (140 characters). Shorten the note below to make room, then check Overnight again.</p>
     </div>
 
     <div class="group">
@@ -326,12 +327,35 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Note to supervisors (optional, shown in a box at the top of the page and in each day's window)</span>
-        <input type="text" id="setNote" maxlength="140" placeholder="e.g. Looking for extra hours this week"></label>
-      <p class="muted small">Checking Overnight above adds "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." to the note; edit or delete it here like the rest. Unchecking Overnight takes it out.</p>
-      <label class="field"><span class="label">Show the note until (optional; it hides itself after this date)</span>
-        <input type="date" id="setNoteUntil"></label>
-      <p class="muted small" id="noteExpired" hidden>This date has passed, so supervisors don't see the note. Change or clear the date to show it again.</p>
+      <span class="label" id="notesLabel">Notes to supervisors (optional)</span>
+      <div class="note-tabs">
+        <div class="note-tablist" role="tablist" id="noteTabs" aria-labelledby="notesLabel"></div>
+        <button type="button" class="note-tab add" id="noteAdd">+ Add Note</button>
+      </div>
+      <p class="muted small" id="noteNone" hidden>No notes. Tap + Add Note to write one.</p>
+      <div class="stack note-edit" id="noteEdit" role="tabpanel">
+        <p class="note-auto" id="noteAuto" hidden>Added because Overnight is checked under the shifts you pick up. Uncheck Overnight and this note goes away; check it again and it comes back.</p>
+        <div class="field">
+          <label class="label" for="setNoteText" id="noteTextLabel">Note 1 text</label>
+          <textarea id="setNoteText" rows="2" maxlength="140" aria-describedby="noteCount"></textarea>
+          <span class="note-count" id="noteCount"></span>
+        </div>
+        <label class="field"><span class="label">Show until <span class="opt">(optional; it hides itself after this date)</span></span>
+          <input type="date" id="setNoteUntil"></label>
+        <p class="muted small" id="noteExpired" hidden>This date has passed, so supervisors don't see the note. Change or clear the date to show it again.</p>
+        <fieldset class="note-where">
+          <legend class="label">Show this note on</legend>
+          <div class="where-box">
+            <label class="switch-row" for="noteFront"><span class="sw-text"><b id="noteFrontL">Front page</b><small id="noteFrontD">In the Note box under the header</small></span>
+              <input type="checkbox" class="switch-in" id="noteFront" data-place="front" role="switch" aria-labelledby="noteFrontL" aria-describedby="noteFrontD"><span class="switch" aria-hidden="true"></span></label>
+            <label class="switch-row" for="noteDay"><span class="sw-text"><b id="noteDayL">Day window</b><small id="noteDayD">At the top of the window that opens when a day is tapped</small></span>
+              <input type="checkbox" class="switch-in" id="noteDay" data-place="day" role="switch" aria-labelledby="noteDayL" aria-describedby="noteDayD"><span class="switch" aria-hidden="true"></span></label>
+            <label class="switch-row" for="noteForm"><span class="sw-text"><b id="noteFormL">Customize Text form</b><small id="noteFormD">At the top of the Customize Text First form</small></span>
+              <input type="checkbox" class="switch-in" id="noteForm" data-place="form" role="switch" aria-labelledby="noteFormL" aria-describedby="noteFormD"><span class="switch" aria-hidden="true"></span></label>
+          </div>
+        </fieldset>
+        <button type="button" class="btn ghost sm note-del" id="noteDelete">Delete Note 1</button>
+      </div>
     </div>
 
     <div class="group">
@@ -474,7 +498,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=26"></script>
-<script src="app.js?v=26"></script>
+<script src="parser.js?v=27"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

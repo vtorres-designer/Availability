@@ -131,17 +131,33 @@ a { color: var(--accent); }
 }
 .badge-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .who { min-width: 0; display: grid; gap: 2px; }
-.shield { width: 46px; height: 52px; flex: none; overflow: visible; }
+.badge { position: relative; flex: none; line-height: 0; }
+.shield { display: block; width: 46px; height: 52px; flex: none; overflow: visible; }
 #shieldText { font: 700 16px var(--font-display); letter-spacing: 1px; fill: #fff; }
-.shield .sparkle { opacity: 0; transform-origin: 40px 6.5px; transform-box: view-box; }
+/* The badge's sparkle, once every shine of the opening is done: a big star and a small one, a soft glow and a ring of
+   light, on the badge's top right corner (wherever the badge's size puts it). */
+.burst { position: absolute; left: 65%; top: 15%; width: 0; height: 0; pointer-events: none; z-index: 2; }
+.burst > * { position: absolute; opacity: 0; }
+.burst .star {
+  width: 40px; height: 40px; margin: -20px 0 0 -20px; background: #fff;
+  -webkit-clip-path: polygon(50% 0, 57% 43%, 100% 50%, 57% 57%, 50% 100%, 43% 57%, 0 50%, 43% 43%);
+  clip-path: polygon(50% 0, 57% 43%, 100% 50%, 57% 57%, 50% 100%, 43% 57%, 0 50%, 43% 43%);
+  filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #9fd2ff) drop-shadow(0 0 18px rgba(61, 255, 176, 0.8));
+}
+.burst .star.s2 { width: 18px; height: 18px; margin: -9px 0 0 -9px; transform: rotate(45deg); }
+.burst .glow { width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(159, 210, 255, 0.55) 30%, transparent 70%); }
+.burst .ring { width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2px solid rgba(200, 235, 255, 0.9); }
 .hero .eyebrow { color: var(--hero-label); }
 .hero h1 { color: var(--hero-ink); font-size: 30px; line-height: 1.02; overflow-wrap: anywhere; }
 /* His name is built from letters (so it can fall into place); each word stays whole unless it's wider than the line. */
 #title .word { display: inline-block; max-width: 100%; }
 #title .ch { display: inline-block; }
-/* The status line: always lit while he takes any shift. */
-.accepting { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led); box-shadow: 0 0 6px var(--led), 0 0 12px rgba(61, 255, 176, 0.55); }
+/* The status line: always lit while he takes any shift, a bright bulb with a wide green halo. */
+.accepting { margin: 0; display: flex; align-items: center; gap: 9px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
+.live-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--led);
+  box-shadow: 0 0 4px 1px #c9ffe9, 0 0 11px 3px rgba(61, 255, 176, 0.85), 0 0 24px 7px rgba(61, 255, 176, 0.4);
+}
 .accepting.none { color: var(--hero-soft); }
 .accepting.none .live-dot { background: #6d7f99; box-shadow: none; animation: none; }
 .accepting .typed { min-width: 0; }
@@ -234,12 +250,15 @@ h2 { font-size: 28px; line-height: 1.05; }
 }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
-/* His note: a tinted box under the header, and again in each day's window. */
+/* His notes: a tinted box under the header, and again in the day window. Several notes sit one under the other, each
+   with its own tag, split by a thin line. */
 .note-box {
-  margin: 0; padding: 10px 12px; border-radius: 10px;
+  margin: 0; padding: 10px 12px; border-radius: 10px; display: grid; gap: 8px;
   background: var(--note-bg); border: 1px solid var(--note-line);
   font-size: 15px; line-height: 1.4; overflow-wrap: anywhere;
 }
+.note-box p { margin: 0; }
+.note-box p + p { padding-top: 8px; border-top: 1px solid var(--note-line); }
 .note-tag { font: 700 12px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-right: 4px; }
 .sheet .note-box { margin: 0; }
 
@@ -565,7 +584,7 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .opening #title .ch { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.1s + var(--c, 0) * 35ms); }
   .opening #weeks.drop .day { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.25s + var(--w, 0) * 45ms); }
   /* The status light switches on (its line then types itself out), then it and his name glow together. */
-  .lit .live-dot { animation: dot-on 0.25s 0.45s steps(2, end) backwards, pulse 2.2s 1.9s ease-in-out infinite; }
+  .lit .live-dot { animation: dot-on 0.25s 0.45s steps(2, end) backwards, light 2.2s 1.9s ease-in-out infinite; }
   .lit #title { animation: name-glow 2.2s 1.9s ease-in-out infinite; }
   .accepting.typing .type-cursor { display: inline-block; animation: blink 0.5s step-end infinite; }
   /* The strip: a sparkle in the middle, then it opens both ways, then its colors flow. */
@@ -579,10 +598,14 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     animation: ripple 1.3s 2s ease-out, mask-drift 8s linear infinite;
   }
   .lit .shield .glint { animation: glint 0.9s 2.05s ease-in-out backwards; }
-  .lit .shield .sparkle { animation: sparkle 0.8s 2.3s ease-out backwards; }
   /* A shine crosses Call Me, then the license; their icons glitch now and then. */
   .lit .hchip::after { animation: chip-shine 0.7s 2.35s ease-in-out backwards; }
   .lit #heroLicBtn::after { animation-delay: 2.55s; }
+  /* Once all three shines are done, the badge's sparkle bursts. Under "lit", so it isn't cut off at 4 s. */
+  .lit .burst .glow { animation: b-glow 1.2s 3.3s ease-out backwards; }
+  .lit .burst .star { animation: b-star 1.2s 3.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+  .lit .burst .star.s2 { animation: b-star2 1s 3.45s ease-out backwards; }
+  .lit .burst .ring { animation: b-ring 0.9s 3.35s ease-out backwards; }
   .lit .hchip .ph { animation: icon-glitch 9s 4s steps(1, end) infinite; }
   .lit .hchip .idc { animation: icon-glitch 9s 4.35s steps(1, end) infinite; }
   /* The arrow by the how-to line pops in, then nudges with a soft pulse. */
@@ -619,8 +642,15 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 /* Starts and ends at full glow, so a day the mouse leaves picks up where the others are without a jump. */
 @keyframes breathe { 0%, 100% { box-shadow: 0 0 14px 2px var(--glow); } 50% { box-shadow: 0 0 0 transparent; } }
 @keyframes glint { from { transform: translateX(0); } to { transform: translateX(78px); } }
-@keyframes sparkle { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(0.4) rotate(90deg); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes b-star { 0% { opacity: 0; transform: scale(0.1) rotate(-30deg); } 30% { opacity: 1; transform: scale(1.25) rotate(20deg); } 55% { opacity: 1; transform: scale(1) rotate(35deg); } 100% { opacity: 0; transform: scale(0.3) rotate(60deg); } }
+@keyframes b-star2 { 0% { opacity: 0; transform: rotate(45deg) scale(0.2); } 40% { opacity: 1; transform: rotate(80deg) scale(1.3); } 100% { opacity: 0; transform: rotate(120deg) scale(0.4); } }
+@keyframes b-glow { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.4); } }
+@keyframes b-ring { 0% { opacity: 0.95; transform: scale(0.4); } 100% { opacity: 0; transform: scale(3.2); } }
+/* The status light dims between glows (the bulb darkens, its halo shrinks), then swells back, on his name's beat. */
+@keyframes light {
+  0%, 100% { opacity: 1; background: var(--led); box-shadow: 0 0 4px 1px #c9ffe9, 0 0 11px 3px rgba(61, 255, 176, 0.85), 0 0 24px 7px rgba(61, 255, 176, 0.4); }
+  50% { opacity: 0.55; background: #2a9e72; box-shadow: 0 0 2px 0 rgba(201, 255, 233, 0.4), 0 0 5px 1px rgba(61, 255, 176, 0.35), 0 0 0 0 rgba(61, 255, 176, 0); }
+}
 
 /* Browsers without <dialog> (Safari before 15.4, Firefox before 98) get the same sheets via a stand-in. */
 dialog:not([open]) { display: none; }
@@ -660,6 +690,48 @@ dialog:not([open]) { display: none; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 #fbMsg { font: 16px/1.45 var(--font-body); min-height: 110px; }
 
+/* Settings: notes. One tab per note (its light is on while the note shows somewhere), then the open note's text,
+   date and switches for where it shows. */
+.note-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.note-tablist { display: flex; flex-wrap: wrap; gap: 6px; }
+.note-tab {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 14px/1.2 var(--font-body); cursor: pointer;
+}
+.note-tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.note-tab.add { border-style: dashed; color: var(--accent); }
+.note-tab .pip { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--open); }
+.note-tab .pip.off { background: var(--muted); opacity: 0.5; }
+.note-auto { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--bg); color: var(--muted); font-size: 13px; }
+#setNoteText { min-height: 64px; font: 16px/1.4 var(--font-body); }
+.note-count { justify-self: end; font: 400 12px/1.2 var(--font-mono); color: var(--muted); }
+.label .opt { font-weight: 400; }
+.note-where { border: 0; margin: 0; padding: 0; min-width: 0; }
+.note-where legend { padding: 0 0 6px; }
+.where-box { display: grid; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; }
+.switch-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+.switch-row + .switch-row { border-top: 1px solid var(--line); }
+.sw-text b { display: block; font-size: 15px; }
+.sw-text small { display: block; color: var(--muted); font-size: 13px; }
+/* A switch: the real checkbox, unseen, over a drawn track and knob. */
+.switch-in { position: absolute; right: 0; top: 50%; width: 46px; height: 28px; margin: -14px 0 0; opacity: 0; cursor: pointer; }
+.switch { position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--line); transition: background 0.15s; }
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.15s;
+}
+.switch-in:checked + .switch { background: var(--open); }
+.switch-in:checked + .switch::after { transform: translateX(18px); }
+.switch-in:focus-visible + .switch { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn.note-del { justify-self: start; color: var(--busy); }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+@media (forced-colors: active) {
+  .switch { forced-color-adjust: none; background: Canvas; box-shadow: inset 0 0 0 1px CanvasText; }
+  .switch::after { background: CanvasText; box-shadow: none; }
+  .switch-in:checked + .switch { background: Highlight; }
+  .switch-in:checked + .switch::after { background: HighlightText; }
+}
+
 /* Settings: every-week days */
 .wk { display: grid; }
 .wk-row { display: grid; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
@@ -692,15 +764,18 @@ dialog:not([open]) { display: none; }
 .shift-chosen .label { color: var(--ink); }
 .decline:focus { outline: none; }
 
-/* P-OT days: when does the shift start and end, and which hours would be overtime. */
+/* When the shift starts and ends: side by side, each time with a two-part AM/PM bar under it. On P-OT days, which
+   hours would be overtime. */
 .pot-intro { font-size: 15px; }
-.clock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.ap-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.clocks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.ap-pick { display: grid; grid-template-columns: 1fr 1fr; border-radius: 10px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
 .ap {
-  appearance: none; border: 0; min-width: 56px; min-height: 44px; border-radius: 10px; cursor: pointer;
-  background: var(--bg); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); font-weight: 700;
+  appearance: none; border: 0; min-width: 0; min-height: 36px; padding: 0 4px; border-radius: 10px 0 0 10px; cursor: pointer;
+  background: transparent; color: var(--ink); font: 700 13px/1 var(--font-body); letter-spacing: 0.04em;
 }
+.ap + .ap { border-radius: 0 10px 10px 0; box-shadow: inset 1px 0 0 var(--line); }
 .ap[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+@media (forced-colors: active) { .ap[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; } }
 /* One block per hour, eight to a row (six on the smallest phones). */
 .otbar { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
 @media (max-width: 359px) { .otbar { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
