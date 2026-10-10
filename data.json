@@ -6,7 +6,8 @@
   "note": "",
   "noteUntil": "",
   "willing": [
-    "overnight"
+    "overnight",
+    "morning"
   ],
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
@@ -20,9 +21,6 @@
   "licExpires": "2027-06-16",
   "nightAuto": true,
   "days": {
-    "2026-10-09": {
-      "s": "busy"
-    },
     "2026-10-10": {
       "s": "busy"
     },
@@ -87,6 +85,6 @@
     "shift": 8,
     "left": {}
   },
-  "updated": "2026-10-10T01:21:25.472Z",
-  "rev": "2026-10-10T01:21:25.472Z~vi39"
+  "updated": "2026-10-10T11:35:26.177Z",
+  "rev": "2026-10-10T11:35:26.177Z~0k7x"
 }
