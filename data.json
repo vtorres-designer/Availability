@@ -3,7 +3,7 @@
   "name": "Vincent Torres",
   "empId": "10023185",
   "phone": "7206694305",
-  "note": "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.",
+  "note": "",
   "noteUntil": "",
   "willing": [
     "overnight"
@@ -87,6 +87,6 @@
     "shift": 8,
     "left": {}
   },
-  "updated": "2026-10-09T21:34:57.205Z",
-  "rev": "2026-10-09T21:34:57.205Z~tfjo"
+  "updated": "2026-10-10T01:21:25.472Z",
+  "rev": "2026-10-10T01:21:25.472Z~vi39"
 }
