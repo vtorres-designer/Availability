@@ -93,12 +93,10 @@
   // live in a repository variable that only the owner's key can read.
   // potFrom/potTo/potMax: on P-OT days, the start times he takes ("19:00" to "03:00") and the longest shift (hours).
   // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
-  // noteUntil: the last day the note shows ("" = no end). callHours: a shift starting sooner than this asks for a call.
+  // notes: his notes to supervisors, in tab order (see "notes" below). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
-  // nightAuto: the night-shift line now lives in his note (added when Overnight is checked). Until edit mode has made
-  // that move once, the page shows the line with the note by itself.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
-    licName: "", licNo: "", licIssued: "", licExpires: "", nightAuto: false });
+  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+    licName: "", licNo: "", licIssued: "", licExpires: "" });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
   // ---------- small helpers ----------
@@ -271,6 +269,46 @@
   const cleanWilling = (w) => (Array.isArray(w) ? SHIFT_KEYS.filter((k) => w.includes(k)) : null);
   const cleanNote = (n) => (typeof n === "string" ? n.trim().slice(0, 100) : "");
 
+  // ---------- notes ----------
+  // Each note has its own text (140 characters), an optional last day to show ("" = no end), and where it shows: the
+  // front page, the day window, the Customize Text form. One note is always the night-shift line (auto: "night"): it
+  // shows only while he takes overnights, and it can be edited or emptied but not deleted.
+  const NIGHT_LINE = "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.";
+  const NOTES_MAX = 10;
+  const nightNote = (id, text) => ({ id, text, until: "", front: true, day: false, form: false, auto: "night" });
+  const noteNum = (n) => (/^n\d{1,4}$/.test(n.id) ? Number(n.id.slice(1)) : 0);
+  function cleanNotes(list) {
+    const out = [];
+    let night = null;
+    for (const n of list) {
+      if (!n || typeof n !== "object" || out.length >= NOTES_MAX) continue;
+      const c = { id: typeof n.id === "string" ? n.id : "", text: typeof n.text === "string" ? n.text.slice(0, 140) : "", until: isDay(n.until) ? n.until : "",
+        front: n.front === true, day: n.day === true, form: n.form === true };
+      if (n.auto === "night") {
+        if (night) continue; // only one
+        c.auto = "night";
+        night = c;
+      } else if (!night && out.length >= NOTES_MAX - 1) continue; // room for the night note
+      out.push(c);
+    }
+    // Ids are "n1", "n2"... and unique; a missing or repeated one gets the next free number.
+    const seen = {};
+    let next = Math.max(0, ...out.map(noteNum)) + 1;
+    for (const c of out) { if (!noteNum(c) || seen[c.id]) c.id = `n${next++}`; seen[c.id] = true; }
+    if (!night) out.push(nightNote(`n${next}`, NIGHT_LINE));
+    return out;
+  }
+  // The previous version kept one note, with the night-shift line inside it (nightAuto: the line had been moved in,
+  // so a note without it means he took it out). Always gives the same notes for the same file, so a file and the copy
+  // saved from it never differ.
+  function notesFromOld(r) {
+    const note = typeof r.note === "string" ? r.note.slice(0, 140) : "";
+    const text = note.split(NIGHT_LINE).join("").replace(/\s{2,}/g, " ").trim();
+    const out = text ? [{ id: "n1", text, until: isDay(r.noteUntil) ? r.noteUntil : "", front: true, day: false, form: false }] : [];
+    out.push(nightNote(`n${out.length + 1}`, r.nightAuto === true && note.indexOf(NIGHT_LINE) < 0 ? "" : NIGHT_LINE));
+    return out;
+  }
+
   // keepExtra: carry over simple fields a newer version of the site added, so saving from here doesn't erase them.
   function normalizePub(raw, keepExtra) {
     const r = raw && typeof raw === "object" ? raw : {};
@@ -278,24 +316,23 @@
     if (typeof r.name === "string") d.name = r.name.trim().slice(0, 40);
     if (typeof r.empId === "string") d.empId = r.empId.trim().slice(0, 20);
     if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
-    if (typeof r.note === "string") d.note = r.note.slice(0, 140);
+    d.notes = Array.isArray(r.notes) ? cleanNotes(r.notes) : notesFromOld(r);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
     if (isTime(r.potFrom) && isTime(r.potTo)) { d.potFrom = r.potFrom; d.potTo = r.potTo; }
-    if (isDay(r.noteUntil)) d.noteUntil = r.noteUntil;
     if (typeof r.callHours === "number" && r.callHours >= 0 && r.callHours <= 48) d.callHours = r.callHours;
     if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
     if (typeof r.licName === "string") d.licName = r.licName.trim().slice(0, 60);
     if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
     if (isDay(r.licIssued)) d.licIssued = r.licIssued;
     if (isDay(r.licExpires)) d.licExpires = r.licExpires;
-    if (r.nightAuto === true) d.nightAuto = true;
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
-        if (k in d || ["v", "days", "updated", "rev"].includes(k) || k.length > 40) continue;
+        // note, noteUntil and nightAuto: the previous version's single note, now in notes.
+        if (k in d || ["v", "days", "updated", "rev", "note", "noteUntil", "nightAuto"].includes(k) || k.length > 40) continue;
         if ((typeof v === "string" && v.length <= 500) || typeof v === "number" || typeof v === "boolean") d[k] = v;
       }
     }
@@ -676,13 +713,7 @@
     const d = { days: {}, pub: {}, priv: {} };
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
-    // The one-time move of the night-shift line into his note isn't one of his changes: a page loaded later makes it
-    // again on whatever is saved by then. It's kept only once he has changed the note himself.
-    const moveOnly = !saved.pub.nightAuto && pub.nightAuto && pub.note === movedNote(saved.pub);
-    for (const f of Object.keys(pub)) {
-      if (moveOnly && (f === "nightAuto" || f === "note")) continue;
-      if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    }
+    for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
     for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Every-week days are kept per weekday, so changes from two devices or tabs to different weekdays both survive.
     d.wk = {};
@@ -694,6 +725,19 @@
   }
   const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length;
   const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
+
+  // Unsaved note changes from the previous version (one note, the night-shift line inside it) become changes to the
+  // notes they stand for, worked out the same way as a loaded file's note. Fields the change left alone come from the
+  // notes as they are now.
+  function oldNoteDraft(dp) {
+    if (!dp || typeof dp !== "object" || dp.notes || !(dp.note || dp.noteUntil || dp.nightAuto)) return dp;
+    const user = pub.notes.filter((n) => !n.auto)[0], night = pub.notes.filter((n) => n.auto)[0];
+    const now = { note: [user ? user.text : "", night.text].filter(Boolean).join(" "), noteUntil: user ? user.until : "", nightAuto: true };
+    const side = (k) => { const r = Object.assign({}, now); for (const f of Object.keys(now)) if (dp[f] && typeof dp[f] === "object" && k in dp[f]) r[f] = dp[f][k]; return notesFromOld(r); };
+    const out = Object.assign({}, dp, { notes: { to: side("to"), from: side("from") } });
+    delete out.note; delete out.noteUntil; delete out.nightAuto;
+    return out;
+  }
 
   // Applies a diff. With checkBase, an entry is skipped when the current value is no longer the one it replaced.
   function applyDiff(d, checkBase) {
@@ -712,7 +756,10 @@
       else delete priv.days[k];
     }
     const next = Object.assign({}, pub);
-    for (const [f, e] of Object.entries(d.pub || {})) if (f in next && take(e, pub[f])) next[f] = e.to;
+    for (const [f, e] of Object.entries(oldNoteDraft(d.pub) || {})) {
+      if (f === "notes" && !(e && Array.isArray(e.to))) continue; // never lose his notes to a damaged draft
+      if (f in next && take(e, pub[f])) next[f] = e.to;
+    }
     pub = normalizePub(next, true);
     for (const f of ["otAfter", "pickup"]) {
       const e = d.priv && d.priv[f];
@@ -762,7 +809,7 @@
       privExists = st.privExists;
       needsPublish = st.behind;
       updated = st.updated;
-      if ($("#settingsSheet").open) renderWeekly();
+      if ($("#settingsSheet").open) { renderWeekly(); renderNotes(); }
     } catch { /* offline: Save will notice a newer version */ }
     busy = false;
     persistDraft();
@@ -941,6 +988,7 @@
     renderTitle();
     const letters = initials(pub.name);
     $("#shield").toggleAttribute("hidden", !letters); // an <svg> has no hidden property, only the attribute
+    $("#badge").hidden = !letters; // and the frame it sits in, with its sparkle
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready;
     $("#accepting").classList.toggle("none", !pub.willing.length);
@@ -1002,22 +1050,18 @@
     try { first.focus({ preventScroll: true }); } catch (e) { /* old browser: no focus move */ }
   }
 
-  // His note, unless its show-until date has passed.
-  const activeNote = () => { const n = pub.note.trim(); return n && !(pub.noteUntil && todayKey() > pub.noteUntil) ? n : ""; };
-  // How night shifts sit on the calendar: part of his note, added when he checks Overnight in Settings.
-  const NIGHT_LINE = "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.";
-  const withNight = (n) => { const t = n.trim(); return t.indexOf(NIGHT_LINE) >= 0 ? t : t ? `${t} ${NIGHT_LINE}` : NIGHT_LINE; };
-  const withoutNight = (n) => n.replace(NIGHT_LINE, "").replace(/\s{2,}/g, " ").trim();
-  const nightFits = (p) => !p.willing.includes("overnight") || withNight(p.note).length <= 140;
-  // His note after the one-time move: with the line if he takes overnights and it fits.
-  const movedNote = (p) => (p.willing.includes("overnight") && nightFits(p) ? withNight(p.note) : p.note);
-  // The note as shown. Until edit mode has moved the line into his note once, it's shown with the note by itself.
-  const shownNote = () => {
-    const n = activeNote();
-    const before = !pub.nightAuto && dataIn && (owner || !loadError) && pub.willing.includes("overnight");
-    return before ? withNight(n) : n;
-  };
-  const noteBox = () => { const n = shownNote(); return n ? h("aside", { class: "note-box" }, h("b", { class: "note-tag", text: "Note" }), " ", n) : null; };
+  // A note shows while it has text, its show-until date hasn't passed (the viewer's clock), and, for the night-shift
+  // line, while he takes overnights. Nothing shows before the calendar file is in, or when it couldn't be read.
+  const nightOn = () => pub.willing.includes("overnight");
+  const noteLive = (n) => !!n.text.trim() && !(n.until && todayKey() > n.until) && (n.auto !== "night" || nightOn());
+  const notesOn = (place) => (dataIn && (owner || !loadError) ? pub.notes.filter((n) => n[place] && noteLive(n)) : []);
+  // A note box: the notes for one place (front, day or form), one under the other, each with its own tag.
+  // With none for that place the box is hidden, so it leaves no gap.
+  function fillNotes(box, place) {
+    const list = notesOn(place);
+    box.replaceChildren(...list.map((n) => h("p", null, h("b", { class: "note-tag", text: "Note" }), " ", n.text.trim())));
+    box.hidden = !list.length;
+  }
 
   function render() {
     const asOwner = ownerView();
@@ -1031,10 +1075,8 @@
     $("#updated").textContent = updated && !loadError ? `Updated ${readout(new Date(updated))}` : "";
 
     renderHero();
-    // His note (with the night-shift line when he takes overnights) gets a box of its own, noticed every visit.
-    const note = shownNote();
-    $("#noteBox").hidden = !note;
-    $("#noteText").textContent = note;
+    // His front-page notes get a box of their own, noticed every visit.
+    fillNotes($("#noteBox"), "front");
 
     $("#dow").replaceChildren(...Array.from({ length: 7 }, (_, i) => h("span", { text: DOW[(pub.weekStart + i) % 7] })));
 
@@ -1394,11 +1436,12 @@
   }
 
   // A step in the day window's lower area: back to the top, and a fast second tap can't land on what just appeared.
-  // The message form is laid out side by side on a laptop.
+  // The message form is laid out side by side on a laptop, and its notes are the Customize Text form's.
   const showIn = (area) => (nodes, focus) => {
     area.replaceChildren(...nodes.filter((n) => n != null));
-    const sheet = $("#daySheet");
-    sheet.classList.toggle("split", !!area.querySelector(".tx-grid"));
+    const sheet = $("#daySheet"), form = !!area.querySelector(".tx-grid");
+    sheet.classList.toggle("split", form);
+    if (sheet.showNotes) sheet.showNotes(form ? "form" : "day");
     sheet.scrollTop = 0;
     sheet.openedAt = Date.now();
     const f = focus && area.querySelector(focus);
@@ -1508,8 +1551,8 @@
     return h("p", { class: "muted small other-app" }, "Use a different app, like TextNow? ", msgLink, " · ", numLink);
   }
 
-  // A start or end time box with AM and PM buttons.
-  function clockField(id, question, update, out) {
+  // A start or end time box, with a two-part AM/PM bar under it.
+  function clockField(id, label, update, out) {
     const input = h("input", { type: "text", id, inputmode: "numeric", maxlength: "8", autocomplete: "off", placeholder: "e.g. 11:00" });
     const am = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "AM" });
     const pm = h("button", { type: "button", class: "ap", "aria-pressed": "false", text: "PM" });
@@ -1532,8 +1575,8 @@
     pm.addEventListener("click", () => press("pm"));
     input.addEventListener("input", () => { sync(); update(); });
     return {
-      el: h("div", { class: "field" }, h("label", { class: "label", for: id, text: question }),
-        h("div", { class: "clock" }, input, h("div", { class: "ap-pick", role: "group", "aria-label": `${question} AM or PM` }, am, pm))),
+      el: h("div", { class: "field clock" }, h("label", { class: "label", for: id, text: label }), input,
+        h("div", { class: "ap-pick", role: "group", "aria-label": `${label}: AM or PM` }, am, pm)),
       mins: () => clockMins(readClock(input.value), picked),
       unreadable: () => !!input.value.trim() && !readClock(input.value),
       state: () => ({ v: input.value, ap: picked }),
@@ -1554,8 +1597,8 @@
     const phone = isPhone(), texting = !!smsNumber();
     const out = h("div", { class: "stack", "aria-live": "polite" }); // hints, his P-OT no, the overtime bar
     let barWatch = null;
-    const startF = clockField("qkStart", "When does the shift start?", () => update(), out);
-    const endF = clockField("qkEnd", "When does the shift end?", () => update(), out);
+    const startF = clockField("qkStart", "Starts", () => update(), out);
+    const endF = clockField("qkEnd", "Ends", () => update(), out);
     const preview = h("p", { class: "msg-preview", id: "qkMsg" });
     const sendNow = iconLabel(phone ? h("a", { class: "btn go", id: "sendNow" }) : h("button", { type: "button", class: "btn go", id: "sendNow" }), "message", "Send Text Now");
     const custom = h("button", { type: "button", class: "btn ghost", id: "customize", text: "Customize Text First" });
@@ -1671,8 +1714,7 @@
         ? h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
           h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: tr.back }))
         : h("p", { class: "pot-intro", text: "Let's work out how many hours of the shift you need covered would be overtime." }),
-      startF.el,
-      endF.el,
+      h("div", { class: "clocks" }, startF.el, endF.el), // side by side, so the two choices below fit on a phone's screen
       out,
       msgBlock,
       noText,
@@ -1852,8 +1894,16 @@
     }[info.kind];
     const swatch = h("span", { class: `sw ${sw}` }), statusText = h("span", { text: headline });
     // The line changes as a supervisor types the shift time, so screen readers hear the new overtime hours.
-    // His note sits right under the answer, where it's read at the moment of asking.
-    const wrap = h("div", { class: "stack" }, h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText), noteBox());
+    // His notes sit right under the answer, where they're read at the moment of asking: the day window's notes on
+    // every step, the Customize Text form's on the form, so a note never shows twice.
+    // With none for a step, there's no box at all.
+    const line = h("p", { class: "status-line", "aria-live": "polite" }, swatch, statusText), notes = h("aside", { class: "note-box" });
+    const wrap = h("div", { class: "stack" }, line);
+    $("#daySheet").showNotes = (place) => {
+      fillNotes(notes, place);
+      if (notes.hidden) { if (notes.parentNode) notes.parentNode.removeChild(notes); } else if (!notes.parentNode) wrap.insertBefore(notes, line.nextSibling);
+    };
+    $("#daySheet").showNotes("day");
     const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; };
     // When his shifts differ (only an overnight runs into the next pay week), say which would be overtime.
     // Once a shift is picked, the line matches that shift. A P-OT day is about times, not shift names.
@@ -2513,15 +2563,111 @@
   }
   const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
 
-  // Settings: say so when the note's show-until date has passed (supervisors don't see it then).
-  const showNoteExpired = () => { $("#noteExpired").hidden = !(pub.note.trim() && pub.noteUntil && todayKey() > pub.noteUntil); };
+  // ---------- owner: notes ----------
+  // One tab per note, in order (the night-shift line's tab only while Overnight is checked), and the open note's
+  // text, show-until date and switches under them. Every change is an ordinary unsaved change.
+  let noteSel = ""; // the open note's id
+  const PLACES = ["front", "day", "form"];
+  const placeBox = (p) => $(`#note${p[0].toUpperCase()}${p.slice(1)}`);
+  const noteTabs = () => pub.notes.filter((n) => n.auto !== "night" || nightOn());
+  const noteTitle = (n) => (n.auto ? "Night shifts" : `Note ${pub.notes.filter((x) => !x.auto).indexOf(n) + 1}`);
+  const openNote = () => pub.notes.filter((n) => n.id === noteSel)[0] || null;
+  function renderNotes() {
+    const list = noteTabs();
+    if (!list.some((n) => n.id === noteSel)) noteSel = list.length ? list[0].id : "";
+    const n = openNote();
+    renderNoteTabs(list);
+    $("#noteAdd").hidden = pub.notes.length >= NOTES_MAX;
+    $("#noteNone").hidden = !!n;
+    $("#noteEdit").hidden = !n;
+    if (!n) return;
+    $("#noteEdit").setAttribute("aria-labelledby", `noteTab-${n.id}`);
+    $("#noteAuto").hidden = !n.auto;
+    $("#noteTextLabel").textContent = `${noteTitle(n)} text`;
+    $("#setNoteText").value = n.text;
+    $("#setNoteUntil").value = n.until;
+    for (const p of PLACES) placeBox(p).checked = n[p];
+    $("#noteDelete").hidden = !!n.auto;
+    $("#noteDelete").textContent = `Delete ${noteTitle(n)}`;
+    noteBits(n);
+  }
+  // A tab's light is on while its note shows somewhere: it has text and a place, and its date hasn't passed.
+  function renderNoteTabs(list) {
+    const tabs = $("#noteTabs"), focused = tabs.contains(document.activeElement);
+    tabs.replaceChildren(...list.map((x) => h("button", { type: "button", role: "tab", class: "note-tab", id: `noteTab-${x.id}`, "data-id": x.id,
+      "aria-selected": String(x.id === noteSel), "aria-controls": "noteEdit", tabindex: x.id === noteSel ? "0" : "-1" },
+    h("span", { class: PLACES.some((p) => x[p]) && noteLive(x) ? "pip" : "pip off", "aria-hidden": "true" }), noteTitle(x))));
+    if (focused && noteSel) $(`#noteTab-${noteSel}`).focus();
+  }
+  // The counter, and a line when the show-until date has passed (supervisors don't see the note then).
+  function noteBits(n) {
+    $("#noteCount").textContent = `${n.text.length} / 140`;
+    $("#noteExpired").hidden = !(n.text.trim() && n.until && todayKey() > n.until);
+    fitNoteText();
+  }
+  // The text box grows with the note, so all of it is in view (once Settings is on screen).
+  function fitNoteText() {
+    const t = $("#setNoteText");
+    if (!t.offsetHeight) return;
+    t.style.height = "";
+    t.style.height = `${Math.max(t.offsetHeight, t.scrollHeight + t.offsetHeight - t.clientHeight)}px`;
+  }
+  // A change in the open note's fields. Its text stays on one line, as it shows on the page. The field being typed
+  // in is never written back (a half-typed date would be wiped).
+  function editNote(t) {
+    const n = openNote();
+    if (!n) return false;
+    if (t.id === "setNoteText") {
+      if (/[\r\n]/.test(t.value)) t.value = t.value.replace(/\s*[\r\n]+\s*/g, " ");
+      n.text = t.value.slice(0, 140);
+    } else if (t.id === "setNoteUntil") n.until = isDay(t.value) ? t.value : "";
+    else if (PLACES.indexOf(t.dataset.place) >= 0) n[t.dataset.place] = t.checked;
+    else return false;
+    renderNoteTabs(noteTabs());
+    noteBits(n);
+    return true;
+  }
+  function addNote() {
+    if (pub.notes.length >= NOTES_MAX) return;
+    const n = { id: `n${Math.max(0, ...pub.notes.map(noteNum)) + 1}`, text: "", until: "", front: true, day: false, form: false };
+    // Right after his last note, so the night-shift line keeps its place.
+    let at = 0;
+    pub.notes.forEach((x, i) => { if (!x.auto) at = i + 1; });
+    pub.notes.splice(at, 0, n);
+    noteSel = n.id;
+    afterChange();
+    renderNotes();
+    $("#setNoteText").focus();
+  }
+  function deleteNote() {
+    const n = openNote();
+    if (!n || n.auto) return;
+    const before = noteTabs(), i = before.indexOf(n);
+    pub.notes.splice(pub.notes.indexOf(n), 1);
+    // The tab before it opens (or the first one).
+    const left = noteTabs();
+    noteSel = left.length ? left[Math.max(0, i - 1)].id : "";
+    afterChange();
+    renderNotes();
+    try { (noteSel ? $(`#noteTab-${noteSel}`) : $("#noteAdd")).focus(); } catch (e) { /* ignore */ }
+  }
+  // The tabs from the keyboard: arrows, Home and End move between them.
+  function onNoteKey(e) {
+    const tab = e.target.closest("[role=tab]"), list = noteTabs();
+    const i = list.findIndex((n) => n.id === (tab ? tab.dataset.id : noteSel));
+    const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key];
+    if (to == null || !list.length) return;
+    e.preventDefault();
+    noteSel = list[(to + list.length) % list.length].id;
+    renderNotes();
+    $(`#noteTab-${noteSel}`).focus();
+  }
+
   let fbAtOpen = "";
   let potAtOpen = { from: "", to: "" };
   function openSettings() {
-    $("#setNote").value = pub.note;
-    $("#noteFull").hidden = true;
-    $("#setNoteUntil").value = pub.noteUntil;
-    showNoteExpired();
+    noteSel = "";
+    renderNotes();
     $("#setCallHours").value = num(pub.callHours);
     $("#setName").value = pub.name;
     $("#setEmpId").value = pub.empId;
@@ -2548,12 +2694,12 @@
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     showSheet("#settingsSheet");
+    fitNoteText();
   }
 
   function onSettingsChange(e) {
     const t = e.target;
-    if (t.id === "setNote") { pub.note = t.value.slice(0, 140); showNoteExpired(); }
-    else if (t.id === "setNoteUntil") { pub.noteUntil = isDay(t.value) ? t.value : ""; showNoteExpired(); }
+    if (t.closest && t.closest("#noteEdit")) { if (!editNote(t)) return; }
     else if (t.id === "setCallHours") { const n = Number(t.value); if (t.value.trim() !== "" && n >= 0 && n <= 48) pub.callHours = n; }
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
@@ -2588,17 +2734,8 @@
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) {
-      const had = pub.willing.includes("overnight");
       pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
-      const has = pub.willing.includes("overnight");
-      // Overnight on: the night-shift line goes into his note (if it fits). Off: it comes out.
-      if (has !== had) {
-        const next = has ? withNight(pub.note) : withoutNight(pub.note);
-        $("#noteFull").hidden = !(has && next.length > 140);
-        if (next.length <= 140) pub.note = next;
-        $("#setNote").value = pub.note;
-        showNoteExpired();
-      }
+      renderNotes(); // the night-shift note (and its tab) goes and comes back with Overnight, just as it was
     }
     else return;
     $("#otExplain").textContent = otExplain();
@@ -2686,13 +2823,6 @@
         for (const d of drafts) skipped += applyDiff(d, true).skipped;
         restored = changes().days.size + (changes().settings ? 1 : 0);
         if (skipped) setTimeout(() => toast(`${skipped} unsaved change${skipped === 1 ? " was" : "s were"} skipped because that day was saved from somewhere else since.`, 6000), 3500);
-      }
-      // Once: the night-shift line moves into his note (it used to sit under the header). Tap Save to publish it.
-      // After his unsaved changes are back, so a note he was editing isn't skipped, and it isn't one of them.
-      if (!pub.nightAuto) {
-        if (!nightFits(pub)) setTimeout(() => toast("The night-shift line didn't fit in your note (140 characters), so supervisors won't see it. Shorten the note in Settings, then check Overnight again.", 8000), 600);
-        pub.note = movedNote(pub);
-        pub.nightAuto = true;
       }
       loadError = false;
       busy = false;
@@ -3036,6 +3166,17 @@
     $("#useUsual").addEventListener("click", () => { setDay(editKey, { s: "open" }); fillEdit(false); afterChange(); });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
+    $("#noteTabs").addEventListener("click", (e) => {
+      const b = e.target.closest("[role=tab]");
+      if (!b) return;
+      noteSel = b.dataset.id;
+      renderNotes();
+      $(`#noteTab-${noteSel}`).focus();
+    });
+    $("#noteTabs").addEventListener("keydown", onNoteKey);
+    $("#noteAdd").addEventListener("click", addNote);
+    $("#noteDelete").addEventListener("click", deleteNote);
+    $("#setNoteText").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
     $("#signOut").addEventListener("click", () => {
       leaving = true;
       for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly]) store.del(k);
@@ -3083,8 +3224,9 @@
   //   0.25 s  the days fall into place, top left to bottom right
   //   0.45 s  the status light switches on, then the status line types itself out (to 1.7 s)
   //   1.8 s   a sparkle in the middle of the strip; 2.1 s the strip opens both ways, then its colors flow
-  //   2 s     a ring of light runs out along the grid from the badge; 2.05 s the badge shines and sparkles
+  //   2 s     a ring of light runs out along the grid from the badge; 2.05 s a shine crosses the badge
   //   2.35 s  a shine crosses Call Me, then the license (2.55 s)
+  //   3.3 s   once every shine is done, a big sparkle bursts on the badge's corner (it outlasts "opening")
   // and then for good: the status light and his name glow together, the days he can take breathe together, the
   // grid drifts, the arrow nudges, and the button icons glitch now and then. All timings live in app.css.
   // A slow connection shows the page as it is after 1.5 s, with only the lasting effects. Reduced motion: none of it.
