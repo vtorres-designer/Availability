@@ -6,10 +6,10 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 
 | Color | Meaning |
 |---|---|
-| Green **OPEN** | Available. |
+| Green **OPEN** | Available for at least one shift. Tap the day to see which shifts. |
 | Half yellow, half green **P-OT** | Available, but part of one more shift would be overtime. The day is split corner to corner, top left to bottom right. The color key on the page lists only the four plain colors; the split speaks for itself. |
 | Yellow **OT** | Available, but all of one more shift would be overtime (that pay week is already at 40 hours). |
-| Red **BUSY** | Not available, because you're working or you blocked the day. Supervisors can't tell which. |
+| Red **BUSY** | No pickup shifts are available. Working one shift does not make the whole day red if another shift fits. |
 | Gray | Not set yet. Every day starts gray until you mark it. |
 
 ## The top of the page
@@ -17,13 +17,13 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 A navy header with a faint display grid holds:
 
 - **Your badge:** a shield with your initials (from your name in Settings), "Security Officer" and your name.
-- **The status line,** with a softly pulsing green light: "Accepting overnight requests", built from the shifts you'll pick up in Settings ("Accepting overnight & swing requests", "Accepting overnight, swing & morning requests"). Uncheck them all and it says "Not taking extra shifts right now", with the light off.
+- **The status line,** with a softly pulsing green light: "Available for extra shifts — check the calendar". Availability can differ by weekday or date. Turn off your usual shifts and weekend extras and it says "Not taking extra shifts right now", with the light off.
 - **Call Me** (a rotary phone): it doesn't show your number. It opens a small box: "Best for shifts starting within 10 hours." and "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me.", with a **Pick a Day** button. That scrolls to the calendar only if it isn't already on screen (on a laptop it is), and makes the days they can ask about glow twice. So every request goes through the calendar's screening first; your number comes at the end, the same as always. The 10 follows your Settings (Ask supervisors to call when a shift starts within). At 0, the box says "Texting is the best way to reach me." instead. It shows only when your cell number is set.
 - **Your license:** "Denver Security Guard License · Active". Tap it to see the number and dates ("Issued Jun 16, 2026 · Expires Jun 16, 2027 · Renews yearly"). After the expiration date it says Expired, and edit mode reminds you to enter the new dates. Set it in Settings → License; leave the name empty to hide it.
 
 **When the page opens** (about 3 seconds, and nothing waits on it):
 1. The page breathes in. Your name falls into place letter by letter, and the days drop in on a diagonal wave from the top left to the bottom right.
-2. The status light switches on and "Accepting overnight requests" types itself out like a terminal.
+2. The status light switches on and the availability status types itself out like a terminal.
 3. Once it has finished, a sparkle flashes in the middle of the strip under the header, and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines and sparkles.
 4. A shine crosses Call Me, then the license button.
 
@@ -44,7 +44,7 @@ The days a supervisor can ask about look like raised buttons; busy days lie flat
 
 ## How supervisors text you
 
-1. **They tap a green or yellow day** and are asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." (P-OT days skip this step; see below.)
+1. **They tap an available day** and are asked **Which shift do you need covered?** (Morning, Swing or Overnight), including P-OT days. Available shifts have centered bold names on green raised buttons. The green face gently rises above a stationary dark 3D base, with an occasional passing sheen. Unavailable shifts have centered regular-weight, struck-through names on transparent sunken buttons. They stay still and cannot be tapped or selected with the keyboard. Screen readers hear availability; people who request reduced motion get still buttons. No checkmarks or visible availability labels are added.
 2. **A simple window** shows the ready-to-send text without asking for times. Supervisors can send it immediately, or tap **Customize Text First** to add details.
 3. **Your Text** shows the message as it will go out:
 
@@ -73,17 +73,12 @@ If the shift starts in less than 10 hours (or has already started), any way of s
 
 ### P-OT days
 
-A P-OT day (half yellow, half green) skips the shift buttons. The window says "I'm available, but part of the shift would be overtime" and lets the supervisor send an untimed request immediately. **Customize Text First** offers the optional start and end time controls.
+A P-OT day (half yellow, half green) shows the same shift choices as other available days. Pick an available shift, then send a general request immediately or use **Customize Text First** to add optional times. Overtime amounts follow the selected shift and entered times.
 
-In **Customize Text First**, once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour fills half its block. Labels shrink to fit small screens. The top line gives the number ("5 of the 8 hours would be overtime"). The quick-text screen also has a small **Pick Another Day** link that goes back to the calendar.
+For overnight requests on P-OT days, **Customize Text First** shows an hour-by-hour overtime bar once valid times are entered. The **P-OT Overnight Shifts** settings control accepted overnight start times and the longest overnight shift; leave a box empty for no limit. A start outside that range or a shift longer than that limit cannot be sent. These overnight settings do not prevent a morning or swing request on the same date.
 
-The message says "a shift on the night of…", "on the evening of…" or "on the day of…" depending on the start time (from 7 PM, from 3 PM, from 5 AM). If your start times run past 5 AM (like 1500-0800), a start the next morning from 5 AM on is worded as that next day ("on the day of Friday").
+An overnight start after midnight belongs to the next morning. If accepted start times extend past 5 AM, a start from 5 AM is worded as that next day. Supervisors can see these acceptance settings, but never your private working times.
 
-Your **P-OT Shifts** settings decide what you'll take on those days:
-- **Start times I'll accept**, like `1900-0300`. A range can run past midnight; then a start after midnight (like 1 AM) means the next morning. A start outside the range gets "Sorry, I can only start a shift between 7 PM and 3 AM that day."
-- **Longest shift**, like 10 hours. A longer one gets "Sorry, I can't take a shift longer than 10 hours that day."
-
-Either box can be left empty for no limit. A shift you'd turn down shows no bar and can't be sent, and if a supervisor enters start and end times on the full form to one you'd turn down, the top line says why and sending turns off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
 
 ### On a laptop
 
@@ -107,7 +102,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), and when you last saved.
+The page never shows your scheduled working times, the hours of any one day, notes (like the site name), or the reason a shift is unavailable. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -182,14 +177,16 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 
 ## Settings
 
-- **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow and P-OT days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
+- **Every Week:** check the days you work (or are busy) every single week. Busy blocks the whole day. Working can leave other shifts available. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow and P-OT days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors see only the shifts you can pick up, never your working times.
 - The shifts you'll usually pick up. Supervisors see the names only.
+- **Extra shifts I'll pick up on weekends:** added to the usual shifts on Saturday and Sunday. Morning and Swing are configured as weekend extras for this calendar. A Working day can still offer a pickup that does not overlap its private scheduled times. The usual shift length sets representative pickup spans: morning starts at 7 AM, swing ends at 11 PM, and overnight ends at 7 AM the next morning. Adjacent overnight work is checked too. These are checks for the shift type's usual span; an unusual requested start/end time still needs your confirmation. Working with no times remains unavailable.
+- In **Tap to Edit**, choose the shifts you'll pick up on an Available or Working date. This overrides usual/weekend preferences for that date without deleting working hours or private notes. Uncheck all pickup shifts to block extra work while keeping scheduled hours. **Use My Usual Shifts** restores the usual plus weekend preferences.
 - Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, how many hours ahead a shift has to be before supervisors are asked to call instead (10 by default; 0 turns it off), and an optional note with an optional show-until date (shown in the Note box and in each day's window). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **License:** the name, number, issue date and expiration date for the button at the top of the page.
 - **Email for feedback:** where Send Feedback messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
-- **P-OT Shifts:** the start times and longest shift you'd take on a P-OT day (see P-OT days above).
+- **P-OT Overnight Shifts:** the overnight start times and longest overnight shift you'd take on a P-OT day (see P-OT days above).
 - **Overtime after** (40 hrs) and **Usual shift length** (8 hrs) decide the colors. A day is green when one more usual-length shift keeps its pay week at 40 or less, P-OT when only part of that shift would go past 40, and yellow when all of it would. On the last day of a pay week, an overnight pickup is split at midnight, with most of it counted in the next week.
 - After you publish a new version of the site with a new public setting (like the hours left before overtime), opening edit mode shows **Save 1 Change**. Tap **Save** once so supervisors' pages get it.
 
@@ -201,3 +198,13 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
 - Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub. Stop Editing also clears that browser's unsaved changes and its backup copy of your every-week days and times, and closes edit mode in that browser's other tabs.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.
+
+## Updating the site
+
+Increment the version query for each changed browser asset in `index.html` when updating `app.js`, `app.css`, or `parser.js`. This makes returning browsers request the new file after the updated page loads; already-open tabs still need a reload.
+
+After deploying the shift-availability update, open edit mode and tap **Save** once. The public file is rebuilt from your private schedule, so existing Working days can show their remaining pickup shifts. The public file alone cannot distinguish old Working and Busy days. Publishing the code does not rewrite those records automatically.
+
+## Development checks
+
+With Playwright available to Node.js and Chromium installed, run `node tests/shift-availability.cjs`. Set `CHROMIUM_PATH` if Chromium is elsewhere. The test runs a local server and uses synthetic private schedules and intercepted GitHub requests; it checks weekday/weekend rules, overlap handling, public privacy, phone/desktop interactions, animations, reduced motion, and an admin save. It does not use real credentials or write to GitHub.

@@ -97,7 +97,7 @@
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
   // nightAuto: the night-shift line now lives in his note (added when Overnight is checked). Until edit mode has made
   // that move once, the page shows the line with the note by itself.
-  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+  const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekendWilling: [], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", nightAuto: false });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
 
@@ -280,6 +280,7 @@
     if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
     if (typeof r.note === "string") d.note = r.note.slice(0, 140);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
+    if (Array.isArray(r.weekendWilling)) d.weekendWilling = cleanWilling(r.weekendWilling);
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
@@ -311,6 +312,8 @@
       out.hours = hrs > 0 && hrs <= 24 ? hrs : out.start ? spanHours(out.start, out.end) : pickup;
       const note = cleanNote(rec.note);
       if (note) out.note = note;
+      const w = cleanWilling(rec.w);
+      if (w) out.w = w;
       return out;
     }
     if (rec.s === "busy") {
@@ -522,23 +525,50 @@
   // Hours left before overtime as supervisors' numbers count them (see hoursInWeek). His colors use the same count,
   // so what he sees is what they see.
   const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v, true);
-  const typesOf = (rec, p) => (rec && rec.w ? rec.w : p.willing);
+  const usualTypes = (k, p) => SHIFT_KEYS.filter((t) => p.willing.includes(t) || ([0, 6].includes(dateOf(k).getDay()) && (p.weekendWilling || []).includes(t)));
+  const typesOf = (rec, p, k) => (rec && rec.w ? rec.w : k ? usualTypes(k, p) : p.willing);
+  // Compare actual private working times before publishing only the allowed shift names.
+  // Adjacent overnight shifts can overlap a morning on the following date. Unknown working times block that date.
+  function pickupTypes(k, p, v) {
+    const rec = dayRec(k, v);
+    if (!rec || rec.s === "busy") return [];
+    if (rec.s === "work" && (!rec.start || !rec.end)) return [];
+    return typesOf(rec, p, k).filter((type) => {
+      const span = defaultSpan(type, v.pickup), from = dayNumber(k) * 1440 + span.start, to = from + span.len;
+      for (let i = -1; i <= 1; i++) {
+        const d = addDays(k, i), work = dayRec(d, v);
+        if (!work || work.s !== "work") continue;
+        if (!work.start || !work.end) {
+          // With no clock times, a shift of up to 24 hours could reach into the following day.
+          const earliest = dayNumber(d) * 1440, latest = earliest + 2880;
+          if (from < latest && to > earliest) return false;
+          continue;
+        }
+        const start = dayNumber(d) * 1440 + minutesOf(work.start);
+        const end = start + spanHours(work.start, work.end) * 60;
+        if (from < end && to > start) return false;
+      }
+      return true;
+    });
+  }
   // Which of the day's shifts would have any overtime.
-  const otShifts = (k, v, p, rec) => typesOf(rec, p).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
+  const otShifts = (k, v, p, rec) => typesOf(rec, p, k).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
 
   // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
-  // and no difference between working and busy.
+  // only the shift names still available, never the reason for an unavailable shift.
   function derivePublic(p, v) {
     const out = {};
     const today = todayKey();
-    for (const k of Object.keys(v.days).sort()) {
-      if (k < today) continue;
-      const rec = v.days[k];
-      if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
-      if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
-      const types = typesOf(rec, p), ots = otShifts(k, v, p, rec);
-      out[k] = rec.w ? { s: ots.length ? "ot" : "open", w: rec.w } : { s: ots.length ? "ot" : "open" };
-      // Older copies of this page read "ot" as yellow and x as the shifts that would be overtime.
+    const keys = new Set(Object.keys(v.days).filter((k) => k >= today));
+    const last = [...keys].sort().pop() || today;
+    const end = last > addDays(today, 14) ? last : addDays(today, 14);
+    const through = end < addDays(today, 280) ? end : addDays(today, 280);
+    for (let k = today; k <= through; k = addDays(k, 1)) if (ruleOn(k, v)) keys.add(k);
+    for (const k of [...keys].sort()) {
+      const rec = dayRec(k, v), types = pickupTypes(k, p, v);
+      if (!types.length) { out[k] = { s: "busy" }; continue; }
+      const ots = otShifts(k, v, p, { w: types });
+      out[k] = { s: ots.length ? "ot" : "open", w: types };
       if (ots.length && ots.length < types.length) out[k].x = ots;
     }
     return out;
@@ -809,7 +839,8 @@
     if (!rec) return Object.assign(base, { kind: "unset" });
     if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
     if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
-    return Object.assign(base, { kind: otKind(k, typesOf(rec, pub), priv.pickup, pub.weekStart, privLeft(priv)) });
+    const types = pickupTypes(k, pub, priv);
+    return Object.assign(base, { kind: types.length ? otKind(k, types, priv.pickup, pub.weekStart, privLeft(priv)) : "busy" });
   }
 
   // A week the file doesn't list has room for at least one usual shift, if it's a week the file covers.
@@ -820,7 +851,8 @@
     let kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
     // The file says how close each week is to overtime, so the page works out green, P-OT or yellow itself.
     // An older file only says open or ot.
-    if (rec && rec.s !== "busy" && pubOt) kind = otKind(k, rec.w || pub.willing, pubOt.shift, pub.weekStart, pubLeft) || kind;
+    if (rec && rec.s !== "busy" && pubOt) kind = otKind(k, rec.w || usualTypes(k, pub), pubOt.shift, pub.weekStart, pubLeft) || kind;
+    if (rec && rec.s !== "busy" && !(rec.w || usualTypes(k, pub)).length) kind = "busy";
     return { past: k < todayKey(), kind, w: rec && rec.w ? rec.w : null, x: rec && rec.x ? rec.x : null };
   }
   // Overtime in one more shift of this type on day k: {hours, ot}, from the typed time if there is one,
@@ -861,11 +893,11 @@
   }
 
   // ---------- the header: badge, status line, Call Me and license ----------
-  // "Accepting overnight requests", from the shifts he picks up in Settings (in Settings order).
+  // Shift availability varies by day, so the status points supervisors to the calendar.
   function acceptingText(list) {
-    const w = SHIFT_KEYS.filter((x) => list.indexOf(x) >= 0).map((x) => SHIFT_LABEL[x].toLowerCase());
+    const w = [...list, ...pub.weekendWilling];
     if (!w.length) return "Not taking extra shifts right now";
-    return `Accepting ${w.length < 3 ? w.join(" & ") : `${w.slice(0, -1).join(", ")} & ${w[w.length - 1]}`} requests`;
+    return "Available for extra shifts — check the calendar";
   }
   // The badge's letters: first and last initials ("VT").
   const initials = (name) => { const p = name.trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : ""; };
@@ -943,7 +975,7 @@
     $("#shield").toggleAttribute("hidden", !letters); // an <svg> has no hidden property, only the attribute
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready;
-    $("#accepting").classList.toggle("none", !pub.willing.length);
+    $("#accepting").classList.toggle("none", !pub.willing.length && !pub.weekendWilling.length);
     $("#acceptingText").textContent = acceptingText(pub.willing);
     if (!typer) { $("#acceptingTyped").textContent = acceptingText(pub.willing); $("#acceptingRest").textContent = ""; }
     syncBeat();
@@ -1593,9 +1625,9 @@
 
   // The full message form. back() returns to the simple window; status(ot, timed) updates the line at the top as the
   // overtime changes with the optional start/end times. ctx is shared with the simple window.
-  // type null: a P-OT day, where his P-OT settings can turn a time down.
+  // On P-OT overnight requests, the overnight start/length limits can turn a time down.
   function textForm(k, info, type, back, status, opts) {
-    const pot = !type, ctx = (opts && opts.ctx) || { ack: "" };
+    const pot = info.kind === "pot" && type === "overnight", ctx = (opts && opts.ctx) || { ack: "" };
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
@@ -1807,11 +1839,7 @@
     syncBack();
     if (info.kind === "unset") {
       wrap.append(h("p", { class: "muted", text: "I haven't filled in this day yet." }));
-    } else if (info.kind === "pot") {
-      const area = h("div", { class: "stack" });
-      wrap.append(area);
-      sendWindow(k, info, null, area, dayStatus, shiftStatus, tr);
-    } else if (info.kind === "open" || info.kind === "ot") {
+    } else if (["open", "pot", "ot"].includes(info.kind)) {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
       else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus, tr); }
     }
@@ -1823,7 +1851,7 @@
 
   // "I'm available. Morning and Swing would be overtime." when the shifts he takes differ; null when they don't.
   function mixedOt(k, info) {
-    const types = info.w || pub.willing;
+    const types = info.w || usualTypes(k, pub);
     const full = [], part = [];
     for (const t of types) {
       const r = shiftOt(k, t, null);
@@ -1839,29 +1867,26 @@
     return ["I'm available.", full.length ? `${names(full)} would be overtime.` : "", part.length ? `${names(part)} would be partly overtime.` : ""].filter(Boolean).join(" ");
   }
 
-  // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
+  // Every available day shows shift choices. Unavailable shifts remain visible but cannot be selected.
   const SHIFT_ORDER = ["morning", "swing", "overnight"];
   function shiftChoice(k, info, area, dayStatus, shiftStatus, tr) {
-    const accepts = info.w || pub.willing;
+    const accepts = info.w || usualTypes(k, pub);
     const show = showIn(area);
     const choose = (focusFirst) => {
       dayStatus();
       show([
         h("p", { class: "label", id: "shiftQ", text: "Which shift do you need covered?" }),
-        h("div", { class: "shift-choice", role: "group", "aria-labelledby": "shiftQ" }, SHIFT_ORDER.map((t) =>
-          h("button", { type: "button", class: "btn ghost", "data-type": t, text: SHIFT_LABEL[t], onclick: () => pick(t) }))),
-      ], focusFirst === true ? ".shift-choice button" : null);
+        h("div", { class: "shift-choice", role: "group", "aria-labelledby": "shiftQ" }, SHIFT_ORDER.map((t) => {
+          const available = accepts.includes(t);
+          const button = h("button", { type: "button", class: `shift-button ${available ? "can-pick" : "cannot-pick"}`, "data-type": t,
+            disabled: available ? null : true, "aria-label": `${SHIFT_LABEL[t]} — ${available ? "available" : "unavailable"}`,
+            onclick: available ? () => pick(t) : null }, h("span", { class: "shift-face" }, h("span", { class: "shift-name", text: SHIFT_LABEL[t] })));
+          return button;
+        })),
+      ], focusFirst === true ? ".shift-choice button:not(:disabled)" : null);
     };
     const pick = (t) => {
-      if (accepts.indexOf(t) < 0) {
-        // The answer itself takes focus, so a screen reader reads it out.
-        show([
-          h("p", { class: "decline", tabindex: "-1", text: `Sorry, I'm not accepting ${SHIFT_LABEL[t]} shifts right now.` }),
-          h("button", { type: "button", class: "btn ghost", text: "Pick a Different Shift", onclick: tr.back }),
-        ], ".decline");
-        tr.forward(() => choose(true));
-        return;
-      }
+      if (!accepts.includes(t)) return;
       sendWindow(k, info, t, area, dayStatus, shiftStatus, tr);
       tr.forward(() => choose(true));
     };
@@ -2178,7 +2203,7 @@
     $("#stUnsetText").textContent = rule ? "Every Week" : "Not Set";
     $("#stUnsetDot").className = rule ? `dot busy${rule.s === "busy" ? " hatch" : ""}` : "dot none";
     $("#editUnsetText").textContent = rule
-      ? `${ruleText(rule)} (from Settings). Supervisors see red. Pick another option to change only this date.`
+      ? `${ruleText(rule)} (from Settings). Non-overlapping pickup shifts can still be available. Pick another option to change only this date.`
       : "Shows gray to supervisors.";
     $("#editRuleNote").hidden = !(rule && rec);
     $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every Week to go back to: ${ruleText(rule)}.` : "";
@@ -2190,9 +2215,10 @@
       $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
       $("#busyNote").value = rec && rec.s === "busy" && rec.note ? rec.note : "";
     }
-    const willing = rec && rec.s === "open" && rec.w ? rec.w : pub.willing;
+    const willing = rec && rec.w ? rec.w : usualTypes(k, pub);
     $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
-    $("#useUsual").hidden = !(rec && rec.s === "open" && rec.w);
+    $("#editPickup").hidden = !["open", "work"].includes(st) && !(st === "unset" && rule && rule.s === "work");
+    $("#useUsual").hidden = !(rec && rec.w);
     $("#editWeek").textContent = weekLine(k);
   }
 
@@ -2200,21 +2226,26 @@
     const k = editKey;
     if (!k) return;
     const t = e.target;
-    const st = document.querySelector('input[name="st"]:checked').value;
+    let st = document.querySelector('input[name="st"]:checked').value;
+    if (st === "unset" && t.closest("#editWilling") && ruleOn(k, priv)?.s === "work") { st = "work"; $("#stWork").checked = true; }
     if (st === "unset") setDay(k, null);
     else if (st === "busy") setDay(k, cleanPrivRec({ s: "busy", note: $("#busyNote").value }, priv.pickup));
     else if (st === "open") {
       const cur = priv.days[k];
       const fromBoxes = t.closest && t.closest("#editWilling");
       let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.s === "open" ? cur.w : null;
-      if (w && sameSet(w, pub.willing)) w = null;
+      if (w && sameSet(w, usualTypes(k, pub))) w = null;
       setDay(k, cleanPrivRec({ s: "open", w }, priv.pickup));
     } else {
       const start = $("#workStart").value, end = $("#workEnd").value;
       if ((t.id === "workStart" || t.id === "workEnd") && isTime(start) && isTime(end) && start !== end) {
         $("#workHours").value = num(spanHours(start, end));
       }
-      setDay(k, workRec(start, end, $("#workHours").value, $("#workNote").value));
+      const cur = dayRec(k, priv);
+      const fromBoxes = t.closest && t.closest("#editWilling");
+      let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.w;
+      if (w && sameSet(w, usualTypes(k, pub))) w = null;
+      setDay(k, cleanPrivRec({ s: "work", start, end, hours: $("#workHours").value, note: $("#workNote").value, w }, priv.pickup));
     }
     fillEdit(t.name === "st");
     afterChange();
@@ -2461,6 +2492,7 @@
     $("#setPotError").hidden = true;
     potAtOpen = { from: pub.potFrom, to: pub.potTo };
     $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
+    $("#setWeekendWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sww-${x}`, x, pub.weekendWilling.includes(x))));
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     showSheet("#settingsSheet");
@@ -2503,6 +2535,7 @@
     else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
+    else if (t.closest("#setWeekendWilling")) pub.weekendWilling = [...document.querySelectorAll("#setWeekendWilling input:checked")].map((i) => i.value);
     else if (t.closest("#setWilling")) {
       const had = pub.willing.includes("overnight");
       pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
@@ -2949,7 +2982,7 @@
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", onEditChange);
     for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
-    $("#useUsual").addEventListener("click", () => { setDay(editKey, { s: "open" }); fillEdit(false); afterChange(); });
+    $("#useUsual").addEventListener("click", () => { const rec = dayRec(editKey, priv); const next = Object.assign({}, rec); delete next.w; delete next.weekly; setDay(editKey, next); fillEdit(false); afterChange(); });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
     $("#signOut").addEventListener("click", () => {
