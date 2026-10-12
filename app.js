@@ -1083,7 +1083,8 @@
     const today = todayKey();
     const pending = asOwner ? changes().days : new Set();
     const frag = document.createDocumentFragment();
-    weekRange().forEach((ws, wi) => {
+    const range = weekRange();
+    range.forEach((ws, wi) => {
       const days = h("div", { class: "days" });
       for (let i = 0; i < 7; i++) {
         const k = addDays(ws, i);
@@ -1131,6 +1132,8 @@
     if (revealed) $("#weeks").classList.remove("drop"); // a redraw after the opening shows the tiles at once
     // Every day you can take breathes on one shared beat, even across redraws.
     $("#weeks").style.setProperty("--bd", `${-Math.round(performance.now() % 3000)}ms`);
+    // On a laptop the day tiles share the window's height between the weeks shown.
+    $("#weeks").style.setProperty("--weeks", String(range.length));
     $("#weeks").replaceChildren(frag);
 
     document.body.classList.toggle("owner", asOwner);

@@ -23,6 +23,9 @@
   --note-bg: #e7edfa;
   --note-line: #c7dbf5;
   --card-shadow: 0 2px 10px rgba(16, 40, 77, 0.08);
+  /* Laptops: the cards float over the header band, on a slightly deeper page. */
+  --float-shadow: 0 28px 56px -18px rgba(8, 24, 49, 0.45), 0 6px 16px -6px rgba(8, 24, 49, 0.2);
+  --desk-bg: #eef1f6;
 
   /* The header keeps its navy in both themes. */
   --hero-a: #0f264a;
@@ -49,6 +52,7 @@
     --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
     --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
+    --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
     color-scheme: dark;
   }
 }
@@ -59,6 +63,7 @@
   --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
   --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
+  --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
   color-scheme: dark;
 }
 
@@ -112,14 +117,15 @@ a { color: var(--accent); }
   mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
 }
 /* The strip under the header: its colors flow along it once it has turned on. They sit on a layer of their own, so
-   the strip can open from the middle without hiding the sparkle it opens from. */
+   the strip can open from the middle without hiding the sparkle it opens from. (--sx: where it opens from, if not the
+   middle.) */
 .stripe { position: relative; height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px; }
 .stripe::before {
   content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit;
   background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5) 0 0 / 200% 100%;
 }
 .stripe .spark {
-  position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; pointer-events: none;
+  position: absolute; left: var(--sx, 50%); top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; pointer-events: none;
   background: #fff; -webkit-clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
   clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
   filter: drop-shadow(0 0 4px #bff9ff) drop-shadow(0 0 8px rgba(61, 255, 176, 0.8));
@@ -620,15 +626,18 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 @keyframes intro-failsafe { to { opacity: 1; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
-/* Where the page reaches the window's edges (phones, and laptops up to about 1215px wide), any swell past full size
-   would widen the page for a moment. */
+/* Where the page reaches the window's edges (phones; on laptops, the header band always does), any swell past full
+   size would widen the page for a moment. */
 @keyframes inhale-flat { 0% { opacity: 0; transform: scale(0.975); } 100% { opacity: 1; transform: none; } }
-@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) and (max-width: 1215px) { .page.inhale { animation-name: inhale-flat; } }
+@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) { .page.inhale { animation-name: inhale-flat; } }
 @keyframes drop { 0% { opacity: 0; transform: translateY(-22px) scale(0.92); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
 @keyframes dot-on { from { background: #42566b; box-shadow: none; } to { background: var(--led); } }
 @keyframes name-glow { 0%, 100% { text-shadow: 0 0 14px rgba(120, 190, 255, 0.8); } 50% { text-shadow: 0 0 2px rgba(120, 190, 255, 0.15); } }
 @keyframes blink { 50% { opacity: 0; } }
-@keyframes strip-open { from { -webkit-clip-path: inset(0 50% 0 50%); clip-path: inset(0 50% 0 50%); } to { -webkit-clip-path: inset(0 0 0 0); clip-path: inset(0 0 0 0); } }
+@keyframes strip-open {
+  from { -webkit-clip-path: inset(0 calc(100% - var(--sx, 50%)) 0 var(--sx, 50%)); clip-path: inset(0 calc(100% - var(--sx, 50%)) 0 var(--sx, 50%)); }
+  to { -webkit-clip-path: inset(0 0 0 0); clip-path: inset(0 0 0 0); }
+}
 @keyframes flow { from { background-position: 0 0; } to { background-position: -200% 0; } }
 @keyframes spark { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 30% { opacity: 1; transform: scale(1.3) rotate(45deg); } 60% { opacity: 1; transform: scale(0.9) rotate(70deg); } 100% { opacity: 0; transform: scale(0.2) rotate(90deg); } }
 @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 18px 18px, 18px 18px; } }
@@ -823,63 +832,168 @@ dialog:not([open]) { display: none; }
 /* The two example times fit inside the box on the smallest phones. */
 @media (max-width: 400px) { #txTime::placeholder { font-size: 14px; } }
 
-/* Laptops and wide tablets: the name, note, key and links on the left; the calendar on the right, in its own
-   scroll area, so the page itself fits the screen. Phones keep the single column. */
+/* Laptops and wide tablets (960 x 560 and up). Phones keep the single column. In both layouts below the page fits
+   the window, and the calendar scrolls by itself when it has more weeks than fit; its weekday names stay in view
+   while the weeks scroll under them. */
 @media (min-width: 960px) and (min-height: 560px) {
-  .page {
-    max-width: 1200px; min-height: 100vh; min-height: 100dvh;
+  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+  .day .tag { font-size: 11px; }
+}
+
+/* Edit mode: the name, the edit-mode box, the key and the links on the left; the calendar on the right, in its own
+   scroll area, which stays in view even when the left side is long enough to scroll the page. */
+@media (min-width: 960px) and (min-height: 560px) {
+  body.owner .page {
+    max-width: 1200px; min-height: calc(100vh - 132px); min-height: calc(100dvh - 132px - env(safe-area-inset-bottom, 0px));
     grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
     grid-template-rows: auto auto auto auto 1fr;
     column-gap: 48px; row-gap: 0; align-items: start; padding-block: 20px 8px;
   }
-  .page > .top, .page > .owner-banner, .page > .key, .page > .foot { grid-column: 1; margin-bottom: 18px; }
-  .page > .top { grid-row: 1; }
-  .page > .owner-banner { grid-row: 2; }
-  .page > .key { grid-row: 3; }
-  .page > .foot { grid-row: 4; justify-items: start; margin-bottom: 0; }
-  .page > .foot .foot-row { justify-content: flex-start; }
-  .page > .foot .foot-row > *:first-child { margin-left: 0; }
-  .page > .foot .foot-meta { justify-items: start; }
-  .page > .foot .empid { text-align: left; }
-  /* The calendar stays in view (and scrolls by itself) even when the left side is long enough to scroll the page. */
-  .page > .cal {
+  body.owner .page > .top, body.owner .page > .owner-banner, body.owner .page > .key, body.owner .page > .foot { grid-column: 1; margin-bottom: 18px; }
+  body.owner .page > .top { grid-row: 1; }
+  body.owner .page > .owner-banner { grid-row: 2; }
+  body.owner .page > .key { grid-row: 3; }
+  body.owner .page > .foot { grid-row: 4; justify-items: start; margin-bottom: 0; }
+  body.owner .page > .foot .foot-row { justify-content: flex-start; }
+  body.owner .page > .foot .foot-row > *:first-child { margin-left: 0; }
+  body.owner .page > .foot .foot-meta { justify-items: start; }
+  body.owner .page > .foot .empid { text-align: left; }
+  body.owner .page > .cal {
     grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 20px;
-    max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+    max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); /* above the toolbar */
     overflow-y: auto; padding: 0 14px 12px; align-content: start;
   }
-  /* The weekday names stay in view while the weeks scroll under them. */
-  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 12px 0 4px; }
-  .day { min-height: 74px; }
-  .day .num { font-size: 28px; }
-  .day .tag { font-size: 11px; }
-  /* Edit mode: the supervisors' how-to line isn't needed, which keeps the left side on one screen. */
-  body.owner:not(.previewing) .lede { display: none; }
-  /* Edit mode and the preview have a bar along the bottom. */
-  body.owner .page { min-height: calc(100vh - 132px); min-height: calc(100dvh - 132px - env(safe-area-inset-bottom, 0px)); }
-  body.owner .page > .cal { max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); }
-  body.previewing .page { min-height: calc(100vh - 76px); min-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px)); }
-  body.previewing .page > .cal { max-height: calc(100vh - 116px); max-height: calc(100dvh - 116px - env(safe-area-inset-bottom, 0px)); }
+  body.owner .cal .dow { padding: 12px 0 4px; }
+  body.owner .day { min-height: 74px; }
+  body.owner .day .num { font-size: 28px; }
+  /* The supervisors' how-to line isn't needed here, which keeps the left side on one screen. */
+  body.owner .lede { display: none; }
 }
-/* Shorter laptop windows: a smaller title and tighter spacing keep the left side on one screen. */
+/* Edit mode in shorter laptop windows: a smaller header and tighter spacing keep the left side on one screen. Call Me,
+   the license and the notes are for supervisors; See What Supervisors See shows them. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
-  .hero { padding: 14px 16px; gap: 8px; --rx: 36px; --ry: 37px; }
-  .top { gap: 10px; }
-  .stripe { margin-top: -10px; }
-  .hchip { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
-  .shield { width: 40px; height: 45px; }
-  .lede { font-size: 16px; }
-  .page > .top, .page > .owner-banner, .page > .key, .page > .foot { margin-bottom: 12px; }
-  .foot-meta { margin-top: 6px; }
-  body.owner:not(.previewing) .owner-banner { font-size: 13px; }
-  /* Edit mode: Call Me, the license and the note are for supervisors; See What Supervisors See shows them. */
-  body.owner:not(.previewing) .hchips, body.owner:not(.previewing) .hero-box, body.owner:not(.previewing) #noteBox { display: none; }
-  .page > .foot .linkish { padding-block: 3px; }
+  body.owner .hero { padding: 14px 16px; gap: 8px; --rx: 36px; --ry: 37px; }
+  body.owner .top { gap: 10px; }
+  body.owner .stripe { margin-top: -10px; }
+  body.owner .shield { width: 40px; height: 45px; }
+  body.owner .page > .top, body.owner .page > .owner-banner, body.owner .page > .key, body.owner .page > .foot { margin-bottom: 12px; }
+  body.owner .foot-meta { margin-top: 6px; }
+  body.owner .owner-banner { font-size: 13px; }
+  body.owner .hchips, body.owner .hero-box, body.owner #noteBox { display: none; }
+  body.owner .page > .foot .linkish { padding-block: 3px; }
 }
-/* The shortest laptop windows: tighter still. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
-  .hero { padding: 12px 14px; gap: 6px; --rx: 34px; --ry: 34px; }
-  .top { gap: 8px; }
-  .stripe { margin-top: -8px; }
-  .note-box { padding: 7px 10px; font-size: 14px; }
-  .lede { font-size: 15px; }
+  body.owner .hero { padding: 12px 14px; gap: 6px; --rx: 34px; --ry: 34px; }
+  body.owner .top { gap: 8px; }
+  body.owner .stripe { margin-top: -8px; }
+}
+
+/* What supervisors see on a laptop (and his preview of it): a navy band across the whole window with his badge and
+   name, the status light under the name and the two buttons on the right; under it, a white panel on the left (notes,
+   the how-to line, the color key) and the calendar on the right, both floating over the band's lower edge; the links
+   in one line along the bottom. The page is exactly the window's height. */
+@media (min-width: 960px) and (min-height: 560px) {
+  body:not(.owner) { background: var(--desk-bg); overflow-x: hidden; } /* the band is 100vw wide, and 100vw counts a scrollbar */
+  body:not(.owner) .page {
+    --wh: 100vh; /* the window's height (100dvh where the browser has it, below) */
+    --pw: clamp(1180px, 76vw, 1480px); /* the page's width, in a window wide enough for it */
+    --bleed: max(16px, 50vw - var(--pw) / 2 + 16px); /* from the window's left edge to the page's first column */
+    --pad: clamp(40px, 6vh, 64px); /* as much room above his name as between the buttons and the cards */
+    --badge: clamp(64px, min(5.4vw, 11.4vh), 92px); --badge-gap: clamp(16px, 1.6vw, 26px); /* (a wide but short window: smaller) */
+    --tiles: calc(var(--wh) - 480px); /* the height the day tiles share, before the weeks' own labels and gaps */
+    --tile-min: 70px; /* the smallest a day gets before the calendar scrolls instead */
+    max-width: var(--pw); height: var(--wh); padding-block: 0 14px;
+    grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
+    column-gap: 24px; row-gap: 0; align-items: start;
+  }
+  /* The preview has a bar along the bottom: a shorter page, and less height for the days. */
+  body.previewing .page { height: calc(var(--wh) - 76px - env(safe-area-inset-bottom, 0px)); --tiles: calc(var(--wh) - 590px - env(safe-area-inset-bottom, 0px)); }
+  body:not(.owner) .page > .top { display: contents; }
+
+  /* The band is the header itself, stretched to the window's edges and on under the cards' top 56px (its grid and
+     ring of light with it); what's in it keeps to the page's width. */
+  body:not(.owner) .hero {
+    grid-column: 1 / -1; grid-row: 1; z-index: 0; overflow: visible;
+    margin: 0 calc(50% - 50vw) -56px; padding: var(--pad) calc(50vw - 50%) calc(var(--pad) + 5px + 56px); border-radius: 0;
+    grid-template-columns: auto minmax(min-content, 1fr) auto; gap: 12px 0; align-items: center;
+    background: radial-gradient(60% 120% at 85% 0%, rgba(58, 142, 230, 0.3), transparent 60%), linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
+    --rx: calc(var(--bleed) + var(--badge) / 2); --ry: calc(var(--pad) + var(--badge) * 0.565);
+  }
+  /* His badge, then the eyebrow and his name (one line, unless the name is very long); the status light lines up
+     with his name. With no name (so no badge) both start at the left. */
+  body:not(.owner) .hero .badge-row { display: contents; }
+  body:not(.owner) .hero .badge, body:not(.owner) .hero .who { position: relative; z-index: 1; } /* above the grid, as their row was */
+  body:not(.owner) .hero .badge { grid-column: 1; grid-row: 1; margin-right: var(--badge-gap); }
+  body:not(.owner) .hero .shield { width: var(--badge); height: auto; }
+  body:not(.owner) .hero .who { grid-column: 2 / -1; grid-row: 1; }
+  body:not(.owner) .hero .eyebrow { font-size: clamp(13px, 1.05vw, 17px); letter-spacing: 0.16em; }
+  body:not(.owner) .hero h1 { font-size: clamp(44px, min(4.1vw, 8.7vh), 70px); line-height: 1; }
+  body:not(.owner) .hero .accepting { grid-column: 2; grid-row: 2; margin-top: -4px; font-size: clamp(14px, 1.1vw, 17px); gap: 11px; }
+  /* Call Me and the license in one line at the right; the box they open goes under them. */
+  body:not(.owner) .hero .hchips { grid-column: 3; grid-row: 2; justify-self: end; justify-content: flex-end; gap: 10px; margin-left: 24px; }
+  body:not(.owner) .hero .hchip { font-size: clamp(14px, 1.05vw, 16px); padding: 10px 16px; min-height: 42px; }
+  body:not(.owner) .hero .hchip svg { width: 18px; height: 18px; }
+  body:not(.owner) .hero .hero-box { grid-column: 2 / -1; grid-row: 3; justify-self: end; max-width: 460px; }
+  /* The strip runs along the band's bottom edge, behind the cards; it opens from the gap between them. */
+  body:not(.owner) .page > .top > .stripe {
+    grid-column: 1 / -1; grid-row: 1; align-self: end; margin: 0 calc(50% - 50vw) -56px; border-radius: 0;
+    --sx: calc(var(--bleed) + 382px);
+  }
+
+  /* The left panel: a card like the calendar's, under the load error, the notes, the how-to line and the color key. */
+  body:not(.owner) .page::after {
+    content: ""; grid-column: 1; grid-row: 2 / 6; align-self: stretch; z-index: 1;
+    background: var(--surface); border-radius: 16px; box-shadow: var(--float-shadow);
+  }
+  body:not(.owner) .page > .top > .error { grid-column: 1; grid-row: 2; z-index: 2; margin: 18px 18px 0; }
+  body:not(.owner) .page > .top > .note-box { grid-column: 1; grid-row: 3; z-index: 2; margin: 18px 18px 0; }
+  body:not(.owner) .page > .top > .lede { grid-column: 1; grid-row: 4; z-index: 2; margin: 14px 18px 0; }
+  body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: 18px; }
+  body:not(.owner) .page > .key { grid-column: 1; grid-row: 5; z-index: 2; margin: 16px 18px 18px; }
+
+  /* The calendar: as tall as its weeks, up to the room above the links (then it scrolls by itself). Its day tiles
+     grow with the window, sharing the height between the weeks shown (--weeks, set with the calendar). */
+  body:not(.owner) .page > .cal {
+    grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
+    overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
+  }
+  body:not(.owner) .cal .dow { padding: 16px 0 4px; }
+  body:not(.owner) .day { min-height: clamp(var(--tile-min), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)), 8.4vw), 176px); }
+  body:not(.owner) .day .num { font-size: clamp(26px, 3.8vh, 42px); }
+
+  /* The four links in one line along the bottom; the employee ID and the last update in one line under them. */
+  body:not(.owner) .page > .foot {
+    grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: 18px;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 14px;
+  }
+  body:not(.owner) .page > .foot .foot-row { display: contents; }
+  body:not(.owner) .page > .foot .foot-meta { flex-basis: 100%; display: flex; justify-content: center; gap: 18px; margin-top: 4px; }
+  @supports (height: 100dvh) {
+    body:not(.owner) .page { --wh: 100dvh; }
+  }
+}
+/* Shorter laptop windows: a slightly smaller how-to line, and less padding around the links. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
+  body:not(.owner) .lede { font-size: 16px; }
+  body:not(.owner) .page > .foot .linkish { padding-block: 3px; }
+}
+/* Below about 720px the days are as small as they get, so the header and the links take less room instead. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 720px) {
+  body:not(.owner) .page { --pad: 32px; }
+  body:not(.owner) .page > .foot { margin-top: 10px; padding-top: 0; }
+}
+/* The shortest laptop windows: a smaller header and tighter spacing keep the whole calendar in view. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
+  body:not(.owner) .page { --pad: 18px; --badge: 52px; --badge-gap: 14px; --tile-min: 64px; }
+  body:not(.owner) .hero { row-gap: 8px; }
+  body:not(.owner) .hero h1 { font-size: 40px; }
+  body:not(.owner) .hero .eyebrow { font-size: 12px; }
+  body:not(.owner) .hero .hchip { min-height: 34px; padding: 6px 12px; font-size: 14px; }
+  body:not(.owner) .page > .top > .error, body:not(.owner) .page > .top > .note-box, body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: 14px; }
+  body:not(.owner) .page > .key { margin-bottom: 14px; }
+  body:not(.owner) .note-box { padding: 7px 10px; font-size: 14px; }
+  body:not(.owner) .lede { font-size: 15px; }
+  body:not(.owner) .cal .dow { padding-top: 12px; }
+  body:not(.owner) .page > .foot .foot-meta { margin-top: 0; }
 }
