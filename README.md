@@ -24,7 +24,7 @@ A navy header with a faint display grid holds:
 **When the page opens** (about 3 seconds, and nothing waits on it):
 1. The page breathes in. Your name falls into place letter by letter, and the days drop in on a diagonal wave from the top left to the bottom right.
 2. The status light switches on and "Accepting overnight requests" types itself out like a terminal.
-3. Once it has finished, a sparkle flashes in the middle of the strip under the header, and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines and sparkles.
+3. Once it has finished, a sparkle flashes in the middle of the strip under the header (on a laptop, in the gap between the panel and the calendar), and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines and sparkles.
 4. A shine crosses Call Me, then the license button.
 
 **Then, for as long as the page is open:**
@@ -87,7 +87,9 @@ Either box can be left empty for no limit. A shift you'd turn down shows no bar 
 
 ### On a laptop
 
-On a wide screen (a laptop, or a tablet turned sideways) the front page is two columns: the header (as a card), your note, color key and links on the left, the calendar on the right. The calendar scrolls by itself when it's long, so the page fits the screen. Edit mode is laid out the same way. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
+On a wide screen (a laptop or desktop, or a tablet turned sideways) the front page fills the window. The navy header becomes a band across the whole width: your badge and name large on the left, the status light under your name, and Call Me and the license button in one line on the right, with the box they open right under them. Below the band, a white panel on the left holds your front-page notes, the "Tap a green or yellow day" line and the color key, and the calendar sits beside it; both float over the band's lower edge, with the strip running along the band's bottom behind them. The four links run in one line along the bottom, with the Employee ID and Updated line under them. The days grow with the window, sharing its height between the weeks shown, so with three weeks the whole page fits without scrolling, from a small 960 × 560 window up to a big desktop screen (on short windows the header and spacing get tighter). When the calendar has more weeks than fit, it scrolls by itself, with the weekday names staying at its top, and the page doesn't move. See What Supervisors See shows this same layout.
+
+Edit mode keeps its two columns: the header (as a card), the edit-mode box, color key and links on the left, the calendar on the right, scrolling by itself. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
 
 ## Works on any device
 
