@@ -45,15 +45,15 @@ The days a supervisor can ask about look like raised buttons; busy days lie flat
 ## How supervisors text you
 
 1. **They tap a green or yellow day** and are asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." (P-OT days skip this step; see below.)
-2. **A simple window** asks **When does the shift start?** and **When does the shift end?**: a box for the time ("11", "1130", "11:30", "11pm") with **AM** and **PM** buttons. A 24-hour time like 2300 or 0700 picks PM or AM by itself.
-3. Under that is **Your Text**, the message as it will go out, updating as they enter the times:
+2. **A simple window** shows the ready-to-send text without asking for times. Supervisors can send it immediately, or tap **Customize Text First** to add details.
+3. **Your Text** shows the message as it will go out:
 
-   > Hi Vincent. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 11:00 PM to 7:00 AM? Let me know. Thanks!
+   > Hi Vincent. Are you available to cover an overnight shift on the night of Tuesday, Oct 13? Let me know. Thanks!
 
-   A supervisor who has customized a text before on that device gets their saved name in it too ("This is Sgt. Martinez."). A short list suggests what else they can add (their name, the site name and address, the pay rate), either in their own texting app before sending or by tapping **Customize Text First**.
-4. **Send Text Now** (it turns on once both times are in) sends it right away. **Customize Text First** opens the full form with the times already filled in: Your Name, Shift Time, Site Name, Site Address and Pay Rate, each "(optional)". Each box they fill in adds a sentence. **Change Times** goes back.
+   A supervisor who has customized a text before on that device gets their saved name in it too ("This is Sgt. Martinez."). A short list suggests what else they can add (their name, the shift start and end time, the site name and address, the pay rate), either in their own texting app before sending or by tapping **Customize Text First**.
+4. **Send Text Now** works immediately without times. **Customize Text First** opens the full form: Your Name, start and end times, Site Name, Site Address and Pay Rate, all optional. Each time has a box ("11", "1130", "11:30", "11pm") with **AM** and **PM** buttons; 24-hour times like 2300 and 0700 pick PM or AM automatically. Enter both times to include them, or leave both blank. Incomplete, unreadable, or identical times show a hint and turn off sending until corrected or cleared. **Back to Quick Text** returns to the untimed message.
 
-**Going back.** Every step after the first in a day's window has a **Back** button at the top left, opposite the ×. The phone's back gesture (and a browser's Back button) does the same: it steps back one screen at a time, then closes the window, and never leaves the page while a window is open. Going back never loses anything: the times they entered and any edits to the custom text are still there when they go forward again, for as long as that day's window stays open. **Change Shift** and **Change Times** still work as shortcuts. In edit mode, Back also ends **See What Supervisors See**.
+**Going back.** Every step after the first in a day's window has a **Back** button at the top left, opposite the ×. The phone's back gesture (and a browser's Back button) does the same: it steps back one screen at a time, then closes the window, and never leaves the page while a window is open. Going back never loses anything: the times they entered and any edits to the custom text are still there when they go forward again, for as long as that day's window stays open. **Change Shift** and **Back to Quick Text** still work as shortcuts. In edit mode, Back also ends **See What Supervisors See**.
 
 The wording fits the shift: "on the night of" for overnight, "on the day of" for morning, "on the evening of" for swing.
 
@@ -73,9 +73,9 @@ If the shift starts in less than 10 hours (or has already started), any way of s
 
 ### P-OT days
 
-A P-OT day (half yellow, half green) skips the shift buttons, because there the times decide everything. The window says "I'm available, but part of the shift would be overtime" and "Let's work out how many hours of the shift you need covered would be overtime.", then asks for the start and end times the same way.
+A P-OT day (half yellow, half green) skips the shift buttons. The window says "I'm available, but part of the shift would be overtime" and lets the supervisor send an untimed request immediately. **Customize Text First** offers the optional start and end time controls.
 
-Once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour fills half its block. Labels shrink to fit small screens. The top line gives the number ("5 of the 8 hours would be overtime"). Then come the same **Your Text**, **Send Text Now** and **Customize Text First**, and a small **Pick Another Day** link that goes back to the calendar.
+In **Customize Text First**, once both times are in, a bar shows the shift hour by hour: one block per hour, labeled with the hour it starts (11 PM, 12 AM, 1 AM…), green for regular hours and yellow for overtime, with a line under it like "8 hours: 3 regular, 5 overtime." A block where overtime starts partway through the hour is split, and a last half hour fills half its block. Labels shrink to fit small screens. The top line gives the number ("5 of the 8 hours would be overtime"). The quick-text screen also has a small **Pick Another Day** link that goes back to the calendar.
 
 The message says "a shift on the night of…", "on the evening of…" or "on the day of…" depending on the start time (from 7 PM, from 3 PM, from 5 AM). If your start times run past 5 AM (like 1500-0800), a start the next morning from 5 AM on is worded as that next day ("on the day of Friday").
 
@@ -83,7 +83,7 @@ Your **P-OT Shifts** settings decide what you'll take on those days:
 - **Start times I'll accept**, like `1900-0300`. A range can run past midnight; then a start after midnight (like 1 AM) means the next morning. A start outside the range gets "Sorry, I can only start a shift between 7 PM and 3 AM that day."
 - **Longest shift**, like 10 hours. A longer one gets "Sorry, I can't take a shift longer than 10 hours that day."
 
-Either box can be left empty for no limit. A shift you'd turn down shows no bar and can't be sent, and if a supervisor changes the Shift Time on the full form to one you'd turn down, the top line says why and sending turns off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
+Either box can be left empty for no limit. A shift you'd turn down shows no bar and can't be sent, and if a supervisor enters start and end times on the full form to one you'd turn down, the top line says why and sending turns off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
 
 ### On a laptop
 
