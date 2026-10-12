@@ -8,6 +8,7 @@
   "willing": [
     "overnight"
   ],
+  "weekendWilling": [],
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
   "potFrom": "19:00",
@@ -20,38 +21,66 @@
   "licExpires": "2027-06-16",
   "nightAuto": true,
   "days": {
-    "2026-10-11": {
-      "s": "busy"
-    },
     "2026-10-12": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-13": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-14": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-15": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-16": {
       "s": "busy"
     },
     "2026-10-17": {
-      "s": "busy"
+      "s": "open",
+      "w": [
+        "overnight",
+        "swing",
+        "morning"
+      ]
     },
     "2026-10-18": {
-      "s": "busy"
+      "s": "open",
+      "w": [
+        "overnight",
+        "swing",
+        "morning"
+      ]
     },
     "2026-10-19": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-20": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-21": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-22": {
       "s": "busy"
@@ -59,17 +88,45 @@
     "2026-10-23": {
       "s": "busy"
     },
+    "2026-10-24": {
+      "s": "open",
+      "w": [
+        "overnight",
+        "swing",
+        "morning"
+      ]
+    },
+    "2026-10-25": {
+      "s": "open",
+      "w": [
+        "overnight",
+        "swing",
+        "morning"
+      ]
+    },
     "2026-10-26": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-27": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-28": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     },
     "2026-10-29": {
-      "s": "open"
+      "s": "open",
+      "w": [
+        "overnight"
+      ]
     }
   },
   "weekly": [
@@ -81,6 +138,6 @@
     "shift": 8,
     "left": {}
   },
-  "updated": "2026-10-11T16:02:33.626Z",
-  "rev": "2026-10-11T16:02:33.626Z~aso0"
+  "updated": "2026-10-12T15:45:02.185Z",
+  "rev": "2026-10-12T15:45:02.185Z~eklo"
 }
