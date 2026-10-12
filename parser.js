@@ -487,12 +487,16 @@
 
     // Status: times mean working. Otherwise every status word on the line has to agree.
     let status = null;
+    let scheduleOff = false;
     if (times) {
       status = "work";
     } else {
       if (NEGATION.test(rest)) return fail("I can't read \"not\", \"no\" or \"except\" here. Write what the day is (no shift, busy, work or clear), and list only the shifts you'd take.");
       const toks = tokens(rest);
       const found = toks.map((t) => ({ t, st: statusOf(t.w) })).filter((x) => x.st);
+      // Availability alone does not cancel a recurring working shift. Only wording that
+      // explicitly says there is no scheduled work creates a schedule exception.
+      scheduleOff = found.some((x) => x.st === "open" && /^(?:noshift|none|unscheduled)$/i.test(x.t.w));
       const shown = (x) => (x.t.w === "noshift" ? "no shift" : x.t.w === "dayoff" ? "day off" : x.t.raw);
       if (new Set(found.map((x) => x.st)).size > 1) return fail(`"${found.map(shown).join(" ")}" disagree. Use just one of: no shift, busy, work or clear.`);
       if (found.length) { status = found[0].st; for (const x of found) cut(x.t.index, x.t.length); }
@@ -536,6 +540,7 @@
     } else if (status === "busy") {
       if (note) rec.note = note;
     } else if (status === "open") {
+      if (scheduleOff) rec.scheduleOff = true;
       if (willing) rec.w = ["overnight", "swing", "morning"].filter((k) => willing.includes(k));
     }
     const ignored = (status === "open" || status === "clear") && note ? note : "";
