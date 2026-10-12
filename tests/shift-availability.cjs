@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 const source = read('app.js').replace('  boot();', '  window.testModel = {normalizePub, normalizePriv, derivePublic, derivePublicOt, pickupTypes, dayRec, hoursInWeek, todayKey, addDays, dateOf};\n  boot();');
-const fixture = JSON.parse(read('data.json'));
+const fixture = {...JSON.parse(read('data.json')), weekendWilling: ['morning', 'swing']};
 const server = http.createServer((req, res) => {
   const name = decodeURIComponent(new URL(req.url, 'http://local').pathname).slice(1) || 'index.html';
   if (!['index.html', 'app.js', 'app.css', 'parser.js', 'vendor/qrcode.js', 'data.json', 'credentials.pdf'].includes(name)) {res.writeHead(404).end(); return;}
