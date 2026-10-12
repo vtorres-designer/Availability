@@ -8,7 +8,10 @@
   "willing": [
     "overnight"
   ],
-  "weekendWilling": [],
+  "weekendWilling": [
+    "swing",
+    "morning"
+  ],
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
   "potFrom": "19:00",
@@ -138,6 +141,6 @@
     "shift": 8,
     "left": {}
   },
-  "updated": "2026-10-12T15:45:02.185Z",
-  "rev": "2026-10-12T15:45:02.185Z~eklo"
+  "updated": "2026-10-12T15:45:26.542Z",
+  "rev": "2026-10-12T15:45:26.542Z~hcmp"
 }
