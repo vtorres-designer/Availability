@@ -99,7 +99,7 @@
   // that move once, the page shows the line with the note by itself.
   const defaultPub = () => ({ name: "", empId: "", phone: "", note: "", noteUntil: "", willing: ["overnight"], weekendWilling: [], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", nightAuto: false });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, pickups: {} });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -318,11 +318,11 @@
     }
     if (rec.s === "busy") {
       const note = cleanNote(rec.note);
-      return note ? { s: "busy", note } : { s: "busy" };
+      return Object.assign(note ? { s: "busy", note } : { s: "busy" }, rec.scheduleOff === true ? { scheduleOff: true } : {});
     }
     if (rec.s === "open") {
       const w = cleanWilling(rec.w);
-      return w ? { s: "open", w } : { s: "open" };
+      return Object.assign(w ? { s: "open", w } : { s: "open" }, rec.scheduleOff === true ? { scheduleOff: true } : {});
     }
     return null;
   }
@@ -362,6 +362,24 @@
     delete out.from;
     return out;
   }
+  // A pickup choice never cancels permanent work. Only an explicit schedule exception does.
+  function scheduledRec(k, v) {
+    const rec = v.days[k];
+    if (rec && rec.s === "work") return rec;
+    if (rec && rec.scheduleOff) return null;
+    const rule = ruleOn(k, v);
+    return rule && rule.s === "work" ? rule : null;
+  }
+  function pickupRec(k, v) {
+    return (v.pickups && v.pickups[k]) || dayRec(k, v);
+  }
+  function cleanPickup(rec) {
+    if (!rec || !["open", "busy"].includes(rec.s)) return null;
+    const out = { s: rec.s }, w = cleanWilling(rec.w), note = cleanNote(rec.note);
+    if (rec.s === "open" && w) out.w = w;
+    if (note) out.note = note;
+    return out;
+  }
   // Supervisors only learn which weekdays are red every week, never the times.
   const weeklyPublic = (v) => (v.weekly || []).map((r) => r.d);
   const cleanDows = (list) => (Array.isArray(list) ? [0, 1, 2, 3, 4, 5, 6].filter((d) => list.indexOf(d) >= 0) : []);
@@ -379,9 +397,23 @@
         if (rec) d.days[k] = rec;
       }
     }
+    if (r.pickups && typeof r.pickups === "object") {
+      for (const [k, value] of Object.entries(r.pickups)) {
+        const rec = isKey(k) ? cleanPickup(value) : null;
+        if (rec) d.pickups[k] = rec;
+      }
+    }
     // Settings a newer version of the site added are kept, so saving from here doesn't erase them.
     for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev") d[k] = r[k];
     return d;
+  }
+  function readPrivateSchedule(value) {
+    let parsed = null;
+    try { parsed = JSON.parse(value); } catch { /* preserve unreadable data */ }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.days || typeof parsed.days !== "object" || Array.isArray(parsed.days) || (parsed.weekly != null && !Array.isArray(parsed.weekly)) || (parsed.pickups != null && (typeof parsed.pickups !== "object" || Array.isArray(parsed.pickups)))) {
+      throw Object.assign(new Error("The private schedule could not be read. No schedule data has been changed."), { privateUnreadable: true });
+    }
+    return normalizePriv(parsed);
   }
 
   // The first version of data.json kept everything public and treated days up to "through" as open.
@@ -442,15 +474,12 @@
   // shorter than the shift) is spread evenly. A shift without times counts on the day it's listed.
   const dayNumber = (k) => { const [y, m, d] = k.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const minutesOf = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  // forSupervisors: count the way the public numbers do. A shift that runs past midnight is counted as if it ended
-  // at 7 AM (the default overnight end), so the hours left before overtime never depend on his real start and end times.
-  // Otherwise a shift on the pay week's last day would give them away: the hours before midnight are midnight minus the start.
-  function hoursInWeek(weekStartKey, v, forSupervisors) {
+  function hoursInWeek(weekStartKey, v) {
     const from = dayNumber(weekStartKey) * 1440, to = from + 7 * 1440;
     let total = 0;
     for (let i = -1; i < 7; i++) {
       const k = addDays(weekStartKey, i);
-      const rec = dayRec(k, v);
+      const rec = scheduledRec(k, v);
       if (!rec || rec.s !== "work") continue;
       const paid = Number(rec.hours) || 0;
       if (paid <= 0) continue;
@@ -458,10 +487,6 @@
         let start = dayNumber(k) * 1440 + minutesOf(rec.start);
         let len = minutesOf(rec.end) - minutesOf(rec.start);
         if (len <= 0) len += 1440;
-        if (forSupervisors && minutesOf(rec.start) + len > 1440) {
-          len = paid * 60;
-          start = dayNumber(k) * 1440 + 1860 - len; // ends 7 AM the next morning
-        }
         const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
         total += (paid * inside) / len;
       } else if (i >= 0) {
@@ -501,7 +526,7 @@
     let ot = 0;
     for (const [w, mins] of [[ws, before], [next, span.len - before]]) {
       if (mins <= 0) continue;
-      const l = left(w);
+      const l = left(w, mins / 60);
       if (l == null) return null;
       ot += Math.max(0, mins / 60 - Math.max(0, l));
     }
@@ -522,21 +547,20 @@
     }
     return kind;
   }
-  // Hours left before overtime as supervisors' numbers count them (see hoursInWeek). His colors use the same count,
-  // so what he sees is what they see.
-  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v, true);
+  // His colors and supervisors' overtime numbers use the actual scheduled paid hours in each pay week.
+  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
   const usualTypes = (k, p) => SHIFT_KEYS.filter((t) => p.willing.includes(t) || ([0, 6].includes(dateOf(k).getDay()) && (p.weekendWilling || []).includes(t)));
   const typesOf = (rec, p, k) => (rec && rec.w ? rec.w : k ? usualTypes(k, p) : p.willing);
   // Compare actual private working times before publishing only the allowed shift names.
   // Adjacent overnight shifts can overlap a morning on the following date. Unknown working times block that date.
   function pickupTypes(k, p, v) {
-    const rec = dayRec(k, v);
+    const rec = pickupRec(k, v), workHere = scheduledRec(k, v);
     if (!rec || rec.s === "busy") return [];
-    if (rec.s === "work" && (!rec.start || !rec.end)) return [];
+    if (workHere && (!workHere.start || !workHere.end)) return [];
     return typesOf(rec, p, k).filter((type) => {
       const span = defaultSpan(type, v.pickup), from = dayNumber(k) * 1440 + span.start, to = from + span.len;
       for (let i = -1; i <= 1; i++) {
-        const d = addDays(k, i), work = dayRec(d, v);
+        const d = addDays(k, i), work = scheduledRec(d, v);
         if (!work || work.s !== "work") continue;
         if (!work.start || !work.end) {
           // With no clock times, a shift of up to 24 hours could reach into the following day.
@@ -559,13 +583,13 @@
   function derivePublic(p, v) {
     const out = {};
     const today = todayKey();
-    const keys = new Set(Object.keys(v.days).filter((k) => k >= today));
+    const keys = new Set([...Object.keys(v.days), ...Object.keys(v.pickups || {})].filter((k) => k >= today));
     const last = [...keys].sort().pop() || today;
     const end = last > addDays(today, 14) ? last : addDays(today, 14);
     const through = end < addDays(today, 280) ? end : addDays(today, 280);
     for (let k = today; k <= through; k = addDays(k, 1)) if (ruleOn(k, v)) keys.add(k);
     for (const k of [...keys].sort()) {
-      const rec = dayRec(k, v), types = pickupTypes(k, p, v);
+      const types = pickupTypes(k, p, v);
       if (!types.length) { out[k] = { s: "busy" }; continue; }
       const ots = otShifts(k, v, p, { w: types });
       out[k] = { s: ots.length ? "ot" : "open", w: types };
@@ -589,15 +613,15 @@
   }
   // Hours left before overtime in those weeks, so the page can count the overtime in whatever shift time a
   // supervisor types. He's fine with supervisors working out his weekly total from it, but it should give away
-  // as little else as it can: only weeks within one usual shift of overtime are listed. A week that's missing
-  // has room for at least one usual shift, so a shift no longer than that has no overtime there.
+  // as little else as it can: only weeks within a possible 24-hour request of overtime are listed.
+  // This also covers requests longer than his usual shift.
   function derivePublicOt(p, v, days) {
     const left = {};
     for (const w of otWeeks(p, days)) {
-      const l = Math.max(0, round2(privLeft(v)(w)));
-      if (l < v.pickup) left[w] = l;
+      const l = Math.max(0, round2(v.otAfter - hoursInWeek(w, v)));
+      if (l < 24) left[w] = l;
     }
-    return { shift: v.pickup, left };
+    return { shift: v.pickup, limit: 24, left };
   }
   function cleanOt(raw) {
     if (!raw || typeof raw !== "object" || !raw.left || typeof raw.left !== "object") return null;
@@ -605,7 +629,7 @@
     if (!(shift > 0 && shift <= 24)) return null;
     const left = {};
     for (const [w, n] of Object.entries(raw.left)) if (isKey(w) && typeof n === "number" && n >= 0) left[w] = n;
-    return { shift, left };
+    return Object.assign({ shift, left }, raw.limit === 24 ? { limit: 24 } : {});
   }
 
   // ---------- state ----------
@@ -692,10 +716,10 @@
   // ---------- owner changes ----------
   function changes() {
     if (!saved) return { days: new Set(), settings: false, publish: false };
-    const keys = new Set([...Object.keys(priv.days), ...Object.keys(saved.priv.days)]);
+    const keys = new Set([...Object.keys(priv.days), ...Object.keys(saved.priv.days), ...Object.keys(priv.pickups), ...Object.keys(saved.priv.pickups)]);
     const orNull = (x) => (x === undefined ? null : x);
-    const days = new Set([...keys].filter((k) => JSON.stringify(orNull(priv.days[k])) !== JSON.stringify(orNull(saved.priv.days[k]))));
-    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null }));
+    const days = new Set([...keys].filter((k) => JSON.stringify(orNull(priv.days[k])) !== JSON.stringify(orNull(saved.priv.days[k])) || JSON.stringify(orNull(priv.pickups[k])) !== JSON.stringify(orNull(saved.priv.pickups[k]))));
+    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, pickups: null, rev: null }));
     return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
   }
 
@@ -703,9 +727,12 @@
   // so a restored change is applied only if nobody saved something else on that day since.
   function diffOf() {
     const c = changes();
-    const d = { days: {}, pub: {}, priv: {} };
+    const d = { days: {}, pickups: {}, pub: {}, priv: {} };
     if (!saved) return d;
-    for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
+    for (const k of c.days) {
+      if (!same(priv.days[k], saved.priv.days[k])) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
+      if (!same(priv.pickups[k], saved.priv.pickups[k])) d.pickups[k] = { to: priv.pickups[k] || null, from: saved.priv.pickups[k] || null };
+    }
     // The one-time move of the night-shift line into his note isn't one of his changes: a page loaded later makes it
     // again on whatever is saved by then. It's kept only once he has changed the note himself.
     const moveOnly = !saved.pub.nightAuto && pub.nightAuto && pub.note === movedNote(saved.pub);
@@ -722,7 +749,7 @@
     }
     return d;
   }
-  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length;
+  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pickups || {}).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length;
   const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
 
   // Applies a diff. With checkBase, an entry is skipped when the current value is no longer the one it replaced.
@@ -740,6 +767,12 @@
       const clean = e.to ? cleanPrivRec(e.to, priv.pickup) : null;
       if (clean) priv.days[k] = clean;
       else delete priv.days[k];
+    }
+    for (const [k, e] of Object.entries(d.pickups || {})) {
+      if (!isKey(k) || !take(e, priv.pickups[k])) continue;
+      const clean = cleanPickup(e.to);
+      if (clean) priv.pickups[k] = clean;
+      else delete priv.pickups[k];
     }
     const next = Object.assign({}, pub);
     for (const [f, e] of Object.entries(d.pub || {})) if (f in next && take(e, pub[f])) next[f] = e.to;
@@ -766,11 +799,12 @@
       if (!d || typeof d !== "object") continue;
       let changed = false;
       for (const [k, e] of Object.entries(d.days || {})) if (!e || same(saved.priv.days[k], e.to)) { delete d.days[k]; changed = true; }
+      for (const [k, e] of Object.entries(d.pickups || {})) if (!e || same(saved.priv.pickups[k], e.to)) { delete d.pickups[k]; changed = true; }
       for (const [f, e] of Object.entries(d.pub || {})) if (!e || same(saved.pub[f], e.to)) { delete d.pub[f]; changed = true; }
       for (const [f, e] of Object.entries(d.priv || {})) if (!e || same(saved.priv[f], e.to)) { delete d.priv[f]; changed = true; }
       for (const [w, e] of Object.entries(d.wk || {})) if (!e || same(ruleFor(saved.priv.weekly, Number(w)), e.to)) { delete d.wk[w]; changed = true; }
       if (!changed) continue;
-      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {}, wk: d.wk || {} })) store.set(key, JSON.stringify(d));
+      if (diffSize({ days: d.days || {}, pickups: d.pickups || {}, pub: d.pub || {}, priv: d.priv || {}, wk: d.wk || {} })) store.set(key, JSON.stringify(d));
       else store.del(key);
     }
   }
@@ -813,29 +847,39 @@
 
   function setDay(k, rec) {
     if (rec) priv.days[k] = rec;
-    else delete priv.days[k];
+    else { delete priv.days[k]; delete priv.pickups[k]; }
+  }
+  function setPickup(k, rec) {
+    const clean = cleanPickup(rec);
+    if (clean) priv.pickups[k] = clean;
+    else delete priv.pickups[k];
   }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
   function applyBrush(k) {
     if (busy) return;
-    const cur = priv.days[k];
+    const cur = priv.days[k], pick = priv.pickups[k];
     const rule = cur ? null : ruleOn(k, priv);
+    if (brush === "work" && scheduledRec(k, priv) && (!cur || cur.s !== "work")) {
+      toast("This date is already on your recurring work schedule. Tap to Edit to change its working times.", 5000);
+      return;
+    }
     if (rule && rule.s === brush) {
       toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to Edit.`, 5000);
       return;
     }
     if (brush === "work") setDay(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
-    else if (brush === "busy") setDay(k, cur && cur.s === "busy" ? null : { s: "busy" });
-    else if (brush === "open") setDay(k, cur && cur.s === "open" ? null : { s: "open" });
+    else if (brush === "busy") setPickup(k, pick && pick.s === "busy" ? null : { s: "busy" });
+    else if (brush === "open") setPickup(k, pick && pick.s === "open" ? null : { s: "open" });
     afterChange();
   }
 
   // ---------- day info ----------
   function ownerInfo(k) {
-    const rec = dayRec(k, priv);
+    const work = scheduledRec(k, priv), rec = pickupRec(k, priv);
     const booked = weekHours(k, priv, pub.weekStart);
-    const base = { past: k < todayKey(), booked, rec, weekly: !!(rec && rec.weekly) };
+    const base = { past: k < todayKey(), booked, rec, weekly: !!ruleOn(k, priv) && !(priv.days[k] && (priv.days[k].s === "work" || priv.days[k].scheduleOff)) };
+    if (work) return Object.assign(base, { kind: "work" });
     if (!rec) return Object.assign(base, { kind: "unset" });
     if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
     if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
@@ -843,9 +887,10 @@
     return Object.assign(base, { kind: types.length ? otKind(k, types, priv.pickup, pub.weekStart, privLeft(priv)) : "busy" });
   }
 
-  // A week the file doesn't list has room for at least one usual shift, if it's a week the file covers.
-  // Any other week isn't known (a very long typed shift can reach one).
-  const pubLeft = (w) => (!pubOt ? null : w in pubOt.left ? pubOt.left[w] : otWeeks(pub, pubDays).indexOf(w) >= 0 ? Infinity : null);
+  // An omitted week guarantees room only up to the file's publication limit. Older files guaranteed
+  // one usual shift, so a longer request must stay unknown until the owner saves the updated balances.
+  const pubLeft = (w, hours) => (!pubOt ? null : w in pubOt.left ? pubOt.left[w]
+    : otWeeks(pub, pubDays).indexOf(w) >= 0 && !(hours > (pubOt.limit || pubOt.shift)) ? (pubOt.limit || pubOt.shift) : null);
   function publicInfo(k) {
     const rec = pubDays[k];
     let kind = rec ? rec.s : pubWeekly.indexOf(dateOf(k).getDay()) >= 0 ? "busy" : "unset";
@@ -870,7 +915,7 @@
   function weekRange() {
     const ws = pub.weekStart;
     const start = weekStartOf(todayKey(), ws);
-    const days = ownerView() ? priv.days : pubDays;
+    const days = ownerView() ? Object.assign({}, priv.days, priv.pickups) : pubDays;
     const last = Object.keys(days).filter((k) => k >= start).sort().pop();
     let end = addDays(start, 7);
     if (last && weekStartOf(last, ws) > end) end = weekStartOf(last, ws);
@@ -1293,7 +1338,7 @@
     const shift = f.type ? `${/^[aeiou]/.test(label) ? "an" : "a"} ${label} shift` : "a shift";
     const day = fmt(f.day || k, { weekday: "long", month: "short", day: "numeric" });
     // A shift from a P-OT day has no type: its start time picks the words (f.part).
-    const part = f.type ? PART_OF_DAY[f.type] : f.part;
+    const part = f.part || (f.type ? PART_OF_DAY[f.type] : "");
     const when = part ? `on the ${part} of ${day}` : `on ${day}`;
     const t = f.time ? window.ScheduleParser.readShift(f.time) : null;
     const twelve = (x) => { const [hh, mm] = x.split(":").map(Number); return `${hh % 12 || 12}:${pad(mm)} ${hh < 12 ? "AM" : "PM"}`; };
@@ -1342,14 +1387,12 @@
   }
   // One shift on a P-OT day (it ends the next day when the end isn't after the start), checked against his P-OT
   // settings: {span, no: why he'd say no, r: {hours, ot}}.
-  function potShift(k, startMins, endMins) {
-    const p = potPlace(startMins);
-    let len = endMins - startMins;
-    if (len <= 0) len += 1440;
-    const span = { start: p.start, len };
+  function potShift(k, startMins, endMins, type = "overnight") {
+    const p = type === "overnight" ? potPlace(startMins) : { ok: true };
+    const span = typedSpan(type, { start: hhmm(startMins), end: hhmm(endMins) });
     const no = [];
     if (!p.ok) no.push(`Sorry, I can only start a shift between ${fmtTime(pub.potFrom)} and ${fmtTime(pub.potTo)} that day.`);
-    if (pub.potMax > 0 && len > pub.potMax * 60 + 0.001) no.push(`Sorry, I can't take a shift longer than ${hoursText(pub.potMax)} that day.`);
+    if (pub.potMax > 0 && span.len > pub.potMax * 60 + 0.001) no.push(`Sorry, I can't take a shift longer than ${hoursText(pub.potMax)} that day.`);
     return { span, no, r: otIn(k, span, pub.weekStart, pubLeft) };
   }
   // The message's words for a start time: from 7 PM (or after midnight) "the night of", from 3 PM "the evening of",
@@ -1578,9 +1621,10 @@
     const show = showIn(area);
     const m = tr.memo[type || "pot"] || (tr.memo[type || "pot"] = { ctx: { ack: "" }, form: null });
     const ctx = m.ctx, phone = isPhone(), texting = !!smsNumber();
-    const raw = type ? shiftOt(k, type, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null) : null;
+    const raw = type ? pubOt ? shiftOt(k, type, null)
+      : info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null : null;
     const ot = type ? untimed(raw) : { part: true };
-    const text = composeMessage(k, { who: store.get(LS.who) || "", type, time: "", ot });
+    let text = composeMessage(k, { who: store.get(LS.who) || "", type, time: "", ot });
     const preview = h("p", { class: "msg-preview", id: "qkMsg", text });
     const sendNow = iconLabel(phone ? h("a", { class: "btn go", id: "sendNow", href: smsHref(text) }) : h("button", { type: "button", class: "btn go", id: "sendNow" }), "message", "Send Text Now");
     sendNow.classList.toggle("ot", otState(ot) !== "open");
@@ -1612,7 +1656,14 @@
         : h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }),
       !type ? h("button", { type: "button", class: "linkish quiet", text: "Pick Another Day", onclick: () => $("#daySheet").close() }) : null,
     ];
-    const again = () => { show(steps, type ? ".shift-chosen .linkish" : null); if (type) shiftStatus(raw, false); else dayStatus(); };
+    const again = () => {
+      text = composeMessage(k, { who: store.get(LS.who) || "", type, time: "", ot });
+      preview.textContent = text;
+      if (phone) sendNow.href = smsHref(text);
+      else if (qr && !qr.el.hidden) qr.draw(text);
+      show(steps, type ? ".shift-chosen .linkish" : null);
+      if (type) shiftStatus(raw, false); else dayStatus();
+    };
     custom.addEventListener("click", () => {
       if (!m.form) m.form = textForm(k, info, type, tr.back, shiftStatus, { ctx });
       else { m.form.recall(); m.form.refresh(); }
@@ -1625,9 +1676,9 @@
 
   // The full message form. back() returns to the simple window; status(ot, timed) updates the line at the top as the
   // overtime changes with the optional start/end times. ctx is shared with the simple window.
-  // On P-OT overnight requests, the overnight start/length limits can turn a time down.
+  // On P-OT requests, the longest-shift limit applies to every type; the start range applies to overnight.
   function textForm(k, info, type, back, status, opts) {
-    const pot = info.kind === "pot" && type === "overnight", ctx = (opts && opts.ctx) || { ack: "" };
+    const pot = info.kind === "pot", ctx = (opts && opts.ctx) || { ack: "" };
     const remembered = (key) => store.get(key) || "";
     const field = (id, label, attrs, value) => {
       const input = h("input", Object.assign({ type: "text", id }, attrs));
@@ -1644,16 +1695,18 @@
     // How much of the shift would be overtime, counted from the typed time. Without one it's told without numbers.
     // On a P-OT day a time he doesn't take is a no. An older calendar file only says whether the day is overtime
     // (and, on a pay week's last day, for which shifts).
-    const rawOt = (t) => shiftOt(k, type, t) || ((info.kind === "ot" || info.kind === "pot") && (!info.x || info.x.indexOf(type) >= 0) ? true : null);
+    const rawOt = (t) => pubOt ? shiftOt(k, type, t)
+      : info.kind === "pot" ? { part: true }
+        : info.kind === "ot" && (!info.x || info.x.indexOf(type) >= 0) ? true : null;
     const otFor = (t) => {
       if (pot) {
-        if (!t) return { part: true };
-        const c = potShift(k, minutesOf(t.start), minutesOf(t.end));
-        return c.no.length ? { no: c.no } : c.r || { part: true };
+        if (!t) return untimed(rawOt(null));
+        const c = potShift(k, minutesOf(t.start), minutesOf(t.end), type);
+        return c.no.length ? { no: c.no } : c.r;
       }
       return t ? rawOt(t) : untimed(rawOt(null));
     };
-    const spanOf = (t) => (!t ? null : pot ? potShift(k, minutesOf(t.start), minutesOf(t.end)).span : typedSpan(type, t));
+    const spanOf = (t) => (!t ? null : typedSpan(type, t));
     const msg = h("textarea", { id: "txMsg", rows: "5", maxlength: "600" });
     const reset = h("button", { type: "button", class: "linkish undo", text: "Undo My Edits", hidden: true });
     const phone = isPhone();
@@ -1703,11 +1756,10 @@
       const v = { hint, who: who.input.value.trim(), time: !hint && s != null && e != null ? timeText(s, e) : "", site: site.input.value.trim(), addr: addr.input.value.trim(), pay: pay.input.value.trim(), type };
       v.read = v.time ? window.ScheduleParser.readShift(v.time) : null;
       v.ot = otFor(v.read);
-      if (pot) {
+      if (type === "overnight" && v.read) {
         // A start the next morning (from 5 AM, when his start times run that late) is that day's shift: "the day of" the next date.
-        const st = v.read ? potPlace(minutesOf(v.read.start)).start : null;
-        if (st != null && st >= 1440 + 300) { v.part = partOfDay(st - 1440); v.day = addDays(k, 1); }
-        else v.part = st == null ? "" : partOfDay(st);
+        const st = typedSpan(type, v.read).start;
+        if (st >= 1440 + 300) { v.part = partOfDay(st - 1440); v.day = addDays(k, 1); }
       }
       return v;
     };
@@ -1729,11 +1781,11 @@
       const v = values(), t = v.read;
       const sp = spanOf(t);
       cur = { span: sp, key: spanKey(sp) };
-      shiftLabel.textContent = !pot ? `Shift: ${SHIFT_LABEL[type]}` : t ? `Shift: ${fmtTime(t.start)} to ${fmtTime(t.end)}` : `Shift: ${v.time || "Not Set"}`;
+      shiftLabel.textContent = `Shift: ${SHIFT_LABEL[type]}`;
       blocked = !!v.hint || !!(v.ot && v.ot.no);
       const hints = v.hint ? [h("p", { class: "muted", text: v.hint })] : [];
       if (pot && t && !blocked) {
-        const c = potShift(k, minutesOf(t.start), minutesOf(t.end));
+        const c = potShift(k, minutesOf(t.start), minutesOf(t.end), type);
         if (c.r) {
           const stretches = otStretches(k, c.span, pub.weekStart, pubLeft);
           hints.push(otBar(c.span, stretches), otSummary(c.span, stretches, c.r));
@@ -2177,9 +2229,6 @@
     const info = ownerInfo(k);
     const ws = weekStartOf(k, pub.weekStart);
     let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
-    // A shift that runs past midnight at a pay-week edge counts as ending at 7 AM for supervisors' numbers.
-    const theirs = hoursInWeek(ws, priv, true);
-    if (theirs !== info.booked) line += ` For supervisors it counts as ${num(theirs)}, since a shift past midnight is counted as ending at 7 AM to keep your times private.`;
     const shift = `One more ${num(priv.pickup)}-hr shift`;
     if (info.kind === "ot") line += ` ${shift} would be all overtime, so supervisors see yellow.`;
     else if (info.kind === "pot") line += ` Part of ${shift.toLowerCase()} would be overtime, so supervisors see P-OT (half green, half yellow).`;
@@ -2196,8 +2245,9 @@
     const k = editKey;
     const rec = priv.days[k];
     const rule = ruleOn(k, priv);
-    const st = rec ? rec.s : "unset";
-    $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
+    const pick = priv.pickups[k], work = scheduledRec(k, priv);
+    const st = fillInputs ? pick ? pick.s : rec ? rec.s : "unset" : document.querySelector('input[name="st"]:checked').value;
+    if (fillInputs) $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
     for (const [id, s] of [["#editWork", "work"], ["#editBusy", "busy"], ["#editOpen", "open"], ["#editUnset", "unset"]]) $(id).hidden = st !== s;
     // On an every-week day, "Not set" means "follow the weekly setting".
     $("#stUnsetText").textContent = rule ? "Every Week" : "Not Set";
@@ -2205,20 +2255,21 @@
     $("#editUnsetText").textContent = rule
       ? `${ruleText(rule)} (from Settings). Non-overlapping pickup shifts can still be available. Pick another option to change only this date.`
       : "Shows gray to supervisors.";
-    $("#editRuleNote").hidden = !(rule && rec);
-    $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every Week to go back to: ${ruleText(rule)}.` : "";
+    $("#editRuleNote").hidden = !work;
+    $("#editRuleNote").textContent = work ? `Scheduled: ${work.start ? `${fmtTime(work.start)} – ${fmtTime(work.end)}, ` : ""}${num(work.hours)} paid hours. Available and Busy only change pickup availability.` : "";
     if (fillInputs) {
-      const src = rec && rec.s === "work" ? rec : !rec && rule && rule.s === "work" ? rule : null;
+      const src = work;
       $("#workStart").value = src && src.start ? src.start : "";
       $("#workEnd").value = src && src.end ? src.end : "";
       $("#workHours").value = src ? num(src.hours) : num(priv.pickup);
-      $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
-      $("#busyNote").value = rec && rec.s === "busy" && rec.note ? rec.note : "";
+      $("#workNote").value = work && work.note ? work.note : "";
+      $("#busyNote").value = pick && pick.s === "busy" && pick.note ? pick.note : rec && rec.s === "busy" && rec.note ? rec.note : "";
     }
-    const willing = rec && rec.w ? rec.w : usualTypes(k, pub);
+    const currentPickup = pickupRec(k, priv);
+    const willing = currentPickup && currentPickup.w ? currentPickup.w : usualTypes(k, pub);
     $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
     $("#editPickup").hidden = !["open", "work"].includes(st) && !(st === "unset" && rule && rule.s === "work");
-    $("#useUsual").hidden = !(rec && rec.w);
+    $("#useUsual").hidden = !(pick || (rec && rec.w));
     $("#editWeek").textContent = weekLine(k);
   }
 
@@ -2226,28 +2277,28 @@
     const k = editKey;
     if (!k) return;
     const t = e.target;
-    let st = document.querySelector('input[name="st"]:checked').value;
-    if (st === "unset" && t.closest("#editWilling") && ruleOn(k, priv)?.s === "work") { st = "work"; $("#stWork").checked = true; }
-    if (st === "unset") setDay(k, null);
-    else if (st === "busy") setDay(k, cleanPrivRec({ s: "busy", note: $("#busyNote").value }, priv.pickup));
-    else if (st === "open") {
-      const cur = priv.days[k];
-      const fromBoxes = t.closest && t.closest("#editWilling");
-      let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.s === "open" ? cur.w : null;
+    const st = document.querySelector('input[name="st"]:checked').value;
+    if (t.closest("#editWilling")) {
+      let w = [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value);
       if (w && sameSet(w, usualTypes(k, pub))) w = null;
-      setDay(k, cleanPrivRec({ s: "open", w }, priv.pickup));
+      setPickup(k, { s: "open", w });
+    } else if (st === "unset") setDay(k, null);
+    else if (st === "busy") setPickup(k, { s: "busy", note: $("#busyNote").value });
+    else if (st === "open") {
+      const cur = pickupRec(k, priv);
+      setPickup(k, { s: "open", w: cur && cur.w });
     } else {
       const start = $("#workStart").value, end = $("#workEnd").value;
       if ((t.id === "workStart" || t.id === "workEnd") && isTime(start) && isTime(end) && start !== end) {
         $("#workHours").value = num(spanHours(start, end));
       }
-      const cur = dayRec(k, priv);
-      const fromBoxes = t.closest && t.closest("#editWilling");
-      let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.w;
-      if (w && sameSet(w, usualTypes(k, pub))) w = null;
-      setDay(k, cleanPrivRec({ s: "work", start, end, hours: $("#workHours").value, note: $("#workNote").value, w }, priv.pickup));
+      // Opening the Working editor must not freeze a recurring shift as a dated copy.
+      if (t.name !== "st" || !scheduledRec(k, priv)) {
+        const cur = priv.days[k];
+        setDay(k, cleanPrivRec({ s: "work", start, end, hours: $("#workHours").value, note: $("#workNote").value, w: cur && cur.w }, priv.pickup));
+      }
     }
-    fillEdit(t.name === "st");
+    fillEdit(false);
     afterChange();
   }
 
@@ -2286,7 +2337,7 @@
     if (gaps.length > 200) gaps = [];
     const replaced = [...final.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
     // Every-week days the paste would turn green: worth a second look, since they're usually worked.
-    const freed = [...final.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
+    const freed = [...final.entries()].filter(([k, rec]) => rec.scheduleOff && ruleOn(k, priv)?.s === "work").map(([k]) => k).sort();
     const workLines = new Map();
     for (const it of result.items) if (it.rec.s === "work") for (const k of it.keys) workLines.set(k, (workLines.get(k) || 0) + 1);
     const doubled = [...workLines.entries()].filter(([, n]) => n > 1).map(([k]) => k).sort();
@@ -2354,10 +2405,12 @@
     const plan = planImport(importResult);
     for (const [k, rec] of plan.final) {
       if (rec.s === "clear") setDay(k, null);
+      else if (rec.scheduleOff) { setDay(k, cleanPrivRec(rec, priv.pickup)); setPickup(k, rec); }
+      else if (rec.s !== "work" && !rec.scheduleOff) setPickup(k, rec);
       else setDay(k, cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup));
     }
     const gapOpen = !$("#gapBox").hidden && $("#gapOpen").checked;
-    if (gapOpen) for (const k of plan.gaps) setDay(k, { s: "open" });
+    if (gapOpen) for (const k of plan.gaps) setPickup(k, { s: "open" });
     const total = plan.final.size + (gapOpen ? plan.gaps.length : 0);
     // Lines that couldn't be read stay in the box so they can be fixed.
     const lines = $("#importText").value.split(/\r\n|\r|\n/);
@@ -2379,7 +2432,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. To count them, the public calendar file has how many hours you have left before overtime in weeks within one ${num(priv.pickup)}-hour shift of it. It never has your times: in that count, a shift that runs past midnight is taken to end at 7 AM, whatever its real times.`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. Overtime uses your actual scheduled paid hours, independently of pickup availability. The public file contains remaining hours in weeks within a possible 24-hour request of overtime; it never contains individual working times, hours, or notes.`;
   }
 
   // ---------- owner: every-week days ----------
@@ -2434,7 +2487,15 @@
   const autoCopies = {};
   function keepPastWeek() {
     for (const k of Object.keys(autoCopies)) {
-      if (same(priv.days[k], autoCopies[k])) delete priv.days[k];
+      const entry = autoCopies[k];
+      if (same(priv.days[k], entry.rec)) {
+        if (entry.before) priv.days[k] = entry.before;
+        else delete priv.days[k];
+      }
+      if (entry.pickAfter && same(priv.pickups[k], entry.pickAfter)) {
+        if (entry.pickBefore) priv.pickups[k] = entry.pickBefore;
+        else delete priv.pickups[k];
+      }
       delete autoCopies[k];
     }
     if (!saved) return;
@@ -2453,9 +2514,12 @@
         if (ruleCore(now) === ruleCore(was) && priv.days[k] && !saved.priv.days[k] && same(priv.days[k], copy)) delete priv.days[k];
         continue;
       }
-      if (priv.days[k] || (k < ws && !crosses(was))) continue;
+      const before = priv.days[k];
+      if ((before && (before.s === "work" || before.scheduleOff)) || (k < ws && !crosses(was))) continue;
+      const pickBefore = priv.pickups[k], pickAfter = !pickBefore && cleanPickup(before);
+      if (pickAfter) priv.pickups[k] = pickAfter;
       priv.days[k] = copy;
-      autoCopies[k] = copy;
+      autoCopies[k] = { rec: copy, before, pickBefore, pickAfter };
     }
   }
   const forgetAutoCopies = () => { for (const k of Object.keys(autoCopies)) delete autoCopies[k]; };
@@ -2466,7 +2530,6 @@
   let potAtOpen = { from: "", to: "" };
   function openSettings() {
     $("#setNote").value = pub.note;
-    $("#noteFull").hidden = true;
     $("#setNoteUntil").value = pub.noteUntil;
     showNoteExpired();
     $("#setCallHours").value = num(pub.callHours);
@@ -2491,8 +2554,6 @@
     $("#setPotMax").value = pub.potMax ? num(pub.potMax) : "";
     $("#setPotError").hidden = true;
     potAtOpen = { from: pub.potFrom, to: pub.potTo };
-    $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
-    $("#setWeekendWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sww-${x}`, x, pub.weekendWilling.includes(x))));
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     showSheet("#settingsSheet");
@@ -2535,20 +2596,6 @@
     else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
-    else if (t.closest("#setWeekendWilling")) pub.weekendWilling = [...document.querySelectorAll("#setWeekendWilling input:checked")].map((i) => i.value);
-    else if (t.closest("#setWilling")) {
-      const had = pub.willing.includes("overnight");
-      pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
-      const has = pub.willing.includes("overnight");
-      // Overnight on: the night-shift line goes into his note (if it fits). Off: it comes out.
-      if (has !== had) {
-        const next = has ? withNight(pub.note) : withoutNight(pub.note);
-        $("#noteFull").hidden = !(has && next.length > 140);
-        if (next.length <= 140) pub.note = next;
-        $("#setNote").value = pub.note;
-        showNoteExpired();
-      }
-    }
     else return;
     $("#otExplain").textContent = otExplain();
     afterChange();
@@ -2560,9 +2607,7 @@
     const file = readPublicFile(pubRes.raw);
     let p = file.pub, v;
     if (privRes.status === 200) {
-      let parsed = null;
-      try { parsed = JSON.parse(privRes.value); } catch { /* unreadable: rebuild below */ }
-      v = parsed ? normalizePriv(parsed) : file.migrated ? file.migrated.priv : privFromPublicDays(file.days, file.weekly);
+      v = readPrivateSchedule(privRes.value);
     } else {
       v = file.migrated ? file.migrated.priv : privFromPublicDays(file.days, file.weekly);
     }
@@ -2573,7 +2618,7 @@
     const derived = derivePublic(p, v), weeks = otWeeks(p, derived);
     // Hours left before overtime, compared only for the weeks that matter from today on. A schedule rebuilt from
     // the public file has no hours to compare.
-    const nearOt = (o) => (o ? JSON.stringify([o.shift, weeks.map((w) => (w in o.left ? o.left[w] : null))]) : "");
+    const nearOt = (o) => (o ? JSON.stringify([o.shift, o.limit || o.shift, weeks.map((w) => (w in o.left ? o.left[w] : null))]) : "");
     const otBehind = privRes.status === 200 && nearOt(file.ot) !== nearOt(derivePublicOt(p, v, derived));
     const behind = !!file.migrated || upcoming(file.days) !== upcoming(derived) || !same(file.weekly, weeklyPublic(v)) || otBehind;
     // Older copies of this page don't know every-week days and save without them. The new version always writes the key.
@@ -2667,7 +2712,7 @@
         openUnlock("Your saved token stopped working. Enter a new one.");
       } else {
         render();
-        toast("Couldn't reach GitHub, so editing is off for now. Refresh to try again.", 5000);
+        toast(e.privateUnreadable ? e.message : "Couldn't reach GitHub, so editing is off for now. Refresh to try again.", 6000);
       }
       return { restored: false };
     }
@@ -2716,9 +2761,10 @@
   // The private variable's contents, trimmed of old days if it would be too big for GitHub.
   function privatePayload(v, ws) {
     const today = todayKey();
-    for (const cutoff of [addDays(today, -60), addDays(today, -14), weekStartOf(today, ws)]) {
-      const out = Object.assign({}, v, { v: 2, rev: "", days: {} });
+    for (const cutoff of [addDays(today, -60), addDays(today, -14), addDays(weekStartOf(today, ws), -1)]) {
+      const out = Object.assign({}, v, { v: 2, rev: "", days: {}, pickups: {} });
       for (const k of Object.keys(v.days).sort()) if (k >= cutoff) out.days[k] = v.days[k];
+      for (const k of Object.keys(v.pickups).sort()) if (k >= cutoff) out.pickups[k] = v.pickups[k];
       const text = JSON.stringify(out);
       if (byteLength(text) <= VAR_LIMIT) return { text, priv: normalizePriv(out), cutoff };
     }
@@ -2770,6 +2816,7 @@
       const remotePub = await getPublicRemote(token);
       const remotePriv = await getPrivateRemote(token);
       if (remotePriv.status === 403) { privAccess = false; throw Object.assign(new Error("key"), { key: true }); }
+      if (remotePriv.status === 200) readPrivateSchedule(remotePriv.value);
       if (!force) {
         // A version that only differs because this device's own earlier write went through is not a conflict.
         const ownPub = publicCore(remotePub.raw) === lastPubSent || publicCore(remotePub.raw) === publicCore(pubOut);
@@ -2787,6 +2834,7 @@
       lastPrivText = privText;
       await writePrivate(privText, force);
       for (const k of Object.keys(priv.days)) if (k < payload.cutoff) delete priv.days[k];
+      for (const k of Object.keys(priv.pickups)) if (k < payload.cutoff) delete priv.pickups[k];
       saved = { pub: snapPub, priv: payload.priv };
       needsPublish = true;
       persistDraft();
@@ -2814,7 +2862,8 @@
       store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
     } catch (e) {
-      if (e.conflict || (stage === "private" && e.status === 409)) showSheet("#conflictSheet");
+      if (e.privateUnreadable) toast(e.message, 6000);
+      else if (e.conflict || (stage === "private" && e.status === 409)) showSheet("#conflictSheet");
       else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
       else if (e.status === 401) toast("GitHub no longer accepts your key. Open Settings, tap Stop Editing on This Device, then connect again.", 6000);
       else if (stage === "private" && e.status === 422) toast("GitHub wouldn't store your hours. Clear some far-off days and tap Save again.", 7000);
@@ -2982,7 +3031,12 @@
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", onEditChange);
     for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
-    $("#useUsual").addEventListener("click", () => { const rec = dayRec(editKey, priv); const next = Object.assign({}, rec); delete next.w; delete next.weekly; setDay(editKey, next); fillEdit(false); afterChange(); });
+    $("#useUsual").addEventListener("click", () => {
+      setPickup(editKey, { s: "open" });
+      const rec = priv.days[editKey];
+      if (rec && rec.w) { const next = Object.assign({}, rec); delete next.w; priv.days[editKey] = next; }
+      fillEdit(false); afterChange();
+    });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
     $("#signOut").addEventListener("click", () => {

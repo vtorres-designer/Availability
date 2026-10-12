@@ -124,8 +124,8 @@ const server = http.createServer((req, res) => {
     await ownerPage.goto(url); await ownerPage.waitForSelector('#ownerBanner', {state: 'visible'});
     assert(await ownerPage.locator('#saveBtn').isEnabled());
     await ownerPage.locator('#settingsBtn').click(); await ownerPage.waitForTimeout(400);
-    assert(await ownerPage.locator('#sww-morning').isChecked()); assert(await ownerPage.locator('#sww-swing').isChecked());
-    await ownerPage.locator('#sww-morning').uncheck(); await ownerPage.locator('#sww-morning').check();
+    assert.equal(await ownerPage.locator('#setWilling').count(), 0);
+    assert.equal(await ownerPage.locator('#setWeekendWilling').count(), 0);
     await ownerPage.keyboard.press('Escape'); await ownerPage.waitForTimeout(400);
     await ownerPage.locator(`[data-key="${model.sat}"]`).click(); await ownerPage.waitForTimeout(400);
     assert(await ownerPage.locator('#editPickup').isVisible());
