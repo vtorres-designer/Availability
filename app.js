@@ -95,9 +95,10 @@
   // Empty or 0 means no limit. They're public, so the page can check a supervisor's times.
   // notes: his notes to supervisors, in tab order (see "notes" below). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
+  // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
   const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
-    licName: "", licNo: "", licIssued: "", licExpires: "" });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {} });
+    licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "" });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -309,6 +310,93 @@
     return out;
   }
 
+  // ---------- My Uniform: the data ----------
+  // Supervisors who booked a shift with him pick what he wears, from drawings of his own clothes: pub.uniform =
+  // {hash, items}, in the public file. It opens with a code from his text, and the file only has the code's hash
+  // (SHA-256 of "vt-uniform:" + the code): a "knock first", not a lock. The code itself is private (priv.uniformCode).
+  // An item: {id, name, cat, img, img2, tie, blazer, fit, box}.
+  //   id: letters and digits, so its file names stay inside uniform/. A replaced drawing gets a new id, so no browser
+  //       shows an old copy it kept.
+  //   cat: "top", "pants", "tie" or "blazer". name: up to 60 characters (the text to him uses it, so it's needed).
+  //   img: its drawing, "uniform/<id>.png" (or .webp, .jpg). img2 (tops only): the same top buttoned up, worn with a
+  //       tie ("uniform/<id>-b.png"), or "". tie, blazer (tops only): it can be worn with one.
+  //   fit: where the drawing sits on the mannequin: moved by x and y (% of the frame's width and height), scaled by s.
+  //   box: the drawing's visible part [x, y, w, h], as fractions of the image, so thumbnails show just the clothes.
+  // Every item comes out with all its fields, in this order, so an item read back from the file is never "changed".
+  const UNIFORM_MAX = 40;
+  const UNIFORM_CATS = ["top", "pants", "tie", "blazer"];
+  const roundTo = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
+  const numIn = (v, lo, hi, dflt) => (typeof v === "number" && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt);
+  // 4 to 8 letters and numbers, in capitals ("" if it isn't one).
+  const cleanCode = (s) => { const c = typeof s === "string" ? s.trim().toUpperCase() : ""; return /^[A-Z0-9]{4,8}$/.test(c) ? c : ""; };
+  function cleanUniformItem(raw) {
+    const r = raw && typeof raw === "object" ? raw : {};
+    if (typeof r.id !== "string" || !/^[a-z0-9]{1,32}$/.test(r.id) || UNIFORM_CATS.indexOf(r.cat) < 0) return null;
+    const file = (p, tail) => (typeof p === "string" && new RegExp(`^uniform/${r.id}${tail}\\.(png|webp|jpe?g)$`).test(p) ? p : "");
+    const top = r.cat === "top";
+    const out = { id: r.id, name: typeof r.name === "string" ? r.name.trim().slice(0, 60) : "", cat: r.cat, img: file(r.img, ""),
+      img2: top ? file(r.img2, "-b") : "", tie: top && r.tie === true, blazer: top && r.blazer === true };
+    if (!out.name || !out.img) return null; // nothing to show, or to name in the text
+    const f = r.fit && typeof r.fit === "object" ? r.fit : {};
+    out.fit = { x: roundTo(numIn(f.x, -50, 50, 0), 2), y: roundTo(numIn(f.y, -50, 50, 0), 2), s: roundTo(numIn(f.s, 0.2, 3, 1), 3) };
+    const b = Array.isArray(r.box) && r.box.length === 4 && r.box.every((n) => typeof n === "number" && n >= 0 && n <= 1) ? r.box.map((n) => roundTo(n, 4)) : null;
+    out.box = b && b[2] > 0 && b[3] > 0 && b[0] + b[2] <= 1.0001 && b[1] + b[3] <= 1.0001 ? b : [0, 0, 1, 1];
+    return out;
+  }
+  function cleanUniform(raw) {
+    const r = raw && typeof raw === "object" ? raw : {};
+    const hash = typeof r.hash === "string" && /^[0-9a-f]{64}$/i.test(r.hash) ? r.hash.toLowerCase() : "";
+    const items = [], seen = {};
+    for (const x of Array.isArray(r.items) ? r.items : []) {
+      const c = items.length < UNIFORM_MAX ? cleanUniformItem(x) : null;
+      if (!c || seen[c.id]) continue;
+      seen[c.id] = true;
+      items.push(c);
+    }
+    return { hash, items };
+  }
+  // SHA-256 for browsers without crypto.subtle (older ones, and any page not on https). Bytes in, hex out.
+  const SHA_K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+  function sha256Hex(bytes) {
+    const ror = (x, n) => (x >>> n) | (x << (32 - n));
+    const n = bytes.length, size = Math.ceil((n + 9) / 64) * 64, m = new Uint8Array(size);
+    m.set(bytes);
+    m[n] = 0x80;
+    const hi = Math.floor(n / 0x20000000), lo = (n * 8) >>> 0; // the length in bits, in the last 8 bytes
+    for (let i = 0; i < 4; i++) { m[size - 8 + i] = (hi >>> (24 - 8 * i)) & 255; m[size - 4 + i] = (lo >>> (24 - 8 * i)) & 255; }
+    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19], w = new Array(64);
+    for (let at = 0; at < size; at += 64) {
+      for (let t = 0; t < 64; t++) {
+        if (t < 16) w[t] = (m[at + 4 * t] << 24) | (m[at + 4 * t + 1] << 16) | (m[at + 4 * t + 2] << 8) | m[at + 4 * t + 3];
+        else {
+          const a = w[t - 15], b = w[t - 2];
+          w[t] = (w[t - 16] + (ror(a, 7) ^ ror(a, 18) ^ (a >>> 3)) + w[t - 7] + (ror(b, 17) ^ ror(b, 19) ^ (b >>> 10))) | 0;
+        }
+      }
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let t = 0; t < 64; t++) {
+        const t1 = (h + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + SHA_K[t] + w[t]) | 0;
+        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      [a, b, c, d, e, f, g, h].forEach((x, i) => { H[i] = (H[i] + x) | 0; });
+    }
+    return H.map((x) => (x >>> 0).toString(16).padStart(8, "0")).join("");
+  }
+  // The hash the public file keeps for a code (the code in capitals).
+  async function uniformHash(code) {
+    const bytes = new TextEncoder().encode(`vt-uniform:${code}`);
+    try {
+      if (window.crypto && crypto.subtle) return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (x) => x.toString(16).padStart(2, "0")).join("");
+    } catch (e) { /* not allowed here: the same sum below */ }
+    return sha256Hex(bytes);
+  }
+
   // keepExtra: carry over simple fields a newer version of the site added, so saving from here doesn't erase them.
   function normalizePub(raw, keepExtra) {
     const r = raw && typeof raw === "object" ? raw : {};
@@ -328,11 +416,13 @@
     if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
     if (isDay(r.licIssued)) d.licIssued = r.licIssued;
     if (isDay(r.licExpires)) d.licExpires = r.licExpires;
+    d.uniform = cleanUniform(r.uniform);
     if (keepExtra) {
       for (const k of Object.keys(r)) {
         const v = r[k];
-        // note, noteUntil and nightAuto: the previous version's single note, now in notes.
-        if (k in d || ["v", "days", "updated", "rev", "note", "noteUntil", "nightAuto"].includes(k) || k.length > 40) continue;
+        // note, noteUntil and nightAuto: the previous version's single note, now in notes. A My Uniform code never goes
+        // into the public file, even if one got there.
+        if (k in d || ["v", "days", "updated", "rev", "note", "noteUntil", "nightAuto", "uniformCode"].includes(k) || k.length > 40) continue;
         if ((typeof v === "string" && v.length <= 500) || typeof v === "number" || typeof v === "boolean") d[k] = v;
       }
     }
@@ -407,6 +497,7 @@
     if (Number(r.otAfter) > 0) d.otAfter = Number(r.otAfter);
     if (Number(r.pickup) > 0 && Number(r.pickup) <= 24) d.pickup = Number(r.pickup);
     d.weekly = cleanWeekly(r.weekly, d.pickup);
+    d.uniformCode = cleanCode(r.uniformCode);
     if (r.days && typeof r.days === "object") {
       for (const [k, v] of Object.entries(r.days)) {
         const rec = isKey(k) ? cleanPrivRec(v, d.pickup) : null;
@@ -714,7 +805,7 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup", "uniformCode"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Every-week days are kept per weekday, so changes from two devices or tabs to different weekdays both survive.
     d.wk = {};
     for (let w = 0; w < 7; w++) {
@@ -765,6 +856,9 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
+    // His My Uniform code ("" while he has none). Its hash comes back with the public fields above.
+    const code = d.priv && d.priv.uniformCode;
+    if (code && (code.to === "" || cleanCode(code.to)) && take(code, priv.uniformCode)) priv.uniformCode = cleanCode(code.to);
     for (const [w, e] of Object.entries(d.wk || {})) {
       const dow = Number(w);
       if (!(dow >= 0 && dow <= 6) || !take(e, ruleFor(priv.weekly, dow))) continue;
@@ -1141,6 +1235,7 @@
     $("#toolbar").hidden = !asOwner;
     $("#ownerBanner").hidden = !asOwner;
     $("#previewBar").hidden = !(owner && preview);
+    renderUniform();
     renderFoot();
     if (asOwner) renderOwnerBits();
   }
@@ -2003,6 +2098,284 @@
       tr.forward(() => choose(true));
     };
     choose(false);
+  }
+
+  // ---------- My Uniform: what supervisors see ----------
+  // A button in the corner opens a full-screen view over the page in three steps: the code from his text, the clothes,
+  // then the mannequin wearing them with the text to send him. Each step is a screen of its own for Back (the button
+  // or the phone's gesture), like the day window's steps. "#uniform" in a link opens it, "#uniform-<CODE>" unlocked.
+  // Only when there's a code and at least one top and one pair of pants to pick.
+  const uniformLive = () => dataIn && !loadError && !!pub.uniform.hash && ["top", "pants"].every((c) => pub.uniform.items.some((x) => x.cat === c));
+  const UNI_KEY = "sa.uniform"; // this tab's session: the code that opened it, so Back and a new visit don't ask again
+  const session = {
+    get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch { /* storage blocked */ } },
+  };
+  // Drawings he uploaded on this visit, by path: shown from here until GitHub Pages serves them (a minute or two).
+  const uniformMem = {};
+  const uniformSrc = (path) => uniformMem[path] || path;
+  const uni = { code: "", codeHash: "", step: "", scroll: {}, pageY: 0, rows: "", send: null, picks: { top: null, pants: null, tie: null, blazer: null } };
+  const unlocked = () => !!uni.code && uni.codeHash === pub.uniform.hash;
+  const uniItem = (id) => pub.uniform.items.filter((x) => x.id === id)[0] || null;
+  const uniPicked = () => { const p = {}; for (const c of UNIFORM_CATS) p[c] = uniItem(uni.picks[c]); return p; };
+
+  // A code typed or from a link: spaces don't count, nor do small letters. A match is kept for the rest of the visit.
+  async function tryUniformCode(raw) {
+    const code = cleanCode(String(raw || "").replace(/\s+/g, ""));
+    if (!code || !pub.uniform.hash) return false;
+    const hash = await uniformHash(code);
+    if (hash !== pub.uniform.hash) return false;
+    uni.code = code;
+    uni.codeHash = hash;
+    session.set(UNI_KEY, code);
+    return true;
+  }
+
+  // The mannequin: a flat navy figure from the front with the header's grid on it. full: in the 1:2 frame the drawings
+  // are made for (the top of the head at the top edge, the soles at the bottom); otherwise the plain outline the code
+  // screen shows faintly. Fixed markup, nothing from the file.
+  let manSeq = 0;
+  function mannequinSvg(full) {
+    const body = '<circle cx="100" cy="40" r="24"/><rect x="90" y="60" width="20" height="20"/><path d="M60 80 Q100 70 140 80 L146 200 L54 200 Z"/><path d="M62 82 L40 90 L28 200 L42 204 L58 120 Z"/><path d="M138 82 L160 90 L172 200 L158 204 L142 120 Z"/><path d="M56 198 H98 L94 390 H64 Z"/><path d="M102 198 H144 L136 390 H106 Z"/>';
+    const wrap = document.createElement("div");
+    if (!full) wrap.innerHTML = `<svg viewBox="0 0 200 410" aria-hidden="true" focusable="false"><g>${body}</g></svg>`;
+    else {
+      const id = `uGrid${++manSeq}`, shapes = `${body}<circle cx="35" cy="210" r="8"/><circle cx="165" cy="210" r="8"/><ellipse cx="78" cy="396" rx="18" ry="7"/><ellipse cx="122" cy="396" rx="18" ry="7"/>`;
+      wrap.innerHTML = `<svg class="u-man" viewBox="0 6 200 400" aria-hidden="true" focusable="false"><defs><pattern id="${id}" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M8 0H0V8" fill="none" stroke="rgba(140,190,255,.22)" stroke-width="1"/></pattern></defs><g fill="#173a6a">${shapes}</g><g fill="url(#${id})">${shapes}</g></svg>`;
+    }
+    return wrap.firstChild;
+  }
+  // A drawing on the mannequin: the drawing's canvas is the 1:2 frame, moved by fit.x and fit.y (% of the frame's width
+  // and height) and scaled by fit.s around the middle of what's drawn, so resizing never moves it.
+  function placeLayer(img, item) {
+    const b = item.box, f = item.fit;
+    img.style.transformOrigin = `${roundTo((b[0] + b[2] / 2) * 100, 2)}% ${roundTo((b[1] + b[3] / 2) * 100, 2)}%`;
+    img.style.transform = `translate(${f.x}%, ${f.y}%) scale(${f.s})`;
+  }
+  // The outfit on the mannequin, bottom layer first: pants, the top (buttoned up when a tie is picked and it has that
+  // drawing), the tie, the blazer.
+  function outfitOn(frame, p) {
+    const layer = (item, src) => { const img = h("img", { class: "u-layer", alt: "", src: uniformSrc(src), draggable: "false" }); placeLayer(img, item); return img; };
+    frame.replaceChildren(mannequinSvg(true), ...[
+      p.pants && layer(p.pants, p.pants.img),
+      p.top && layer(p.top, p.tie && p.top.img2 ? p.top.img2 : p.top.img),
+      p.tie && layer(p.tie, p.tie.img),
+      p.blazer && layer(p.blazer, p.blazer.img),
+    ].filter(Boolean));
+  }
+  // A thumbnail: only the drawing's visible part (its box), as big as fits a w x h space, in the middle. Sized in % once
+  // the image is in, so the same thumbnail works at any size of that shape.
+  function uniThumb(item, w, ht, src) {
+    const img = h("img", { alt: "", src: uniformSrc(src || item.img), draggable: "false" });
+    const el = h("span", { class: "u-th", "aria-hidden": "true" }, img);
+    const place = () => {
+      const iw = img.naturalWidth, ih = img.naturalHeight, b = item.box;
+      if (!iw || !ih) return;
+      const bw = b[2] * iw, bh = b[3] * ih, s = Math.min(w / bw, ht / bh) * 0.92;
+      img.style.width = `${((iw * s) / w) * 100}%`;
+      img.style.height = `${((ih * s) / ht) * 100}%`;
+      img.style.left = `${(((w - bw * s) / 2 - b[0] * iw * s) / w) * 100}%`;
+      img.style.top = `${(((ht - bh * s) / 2 - b[1] * ih * s) / ht) * 100}%`;
+      img.classList.add("in");
+    };
+    img.addEventListener("load", place);
+    if (img.complete) place();
+    return el;
+  }
+  // "navy polo" for "Navy polo, short sleeve", but "NYPD" stays as it is.
+  const lowWord = (w) => (/^[A-Z0-9]{2,}$/.test(w) && /[A-Z]/.test(w) ? w : w.toLowerCase());
+  const lowFirst = (s) => (/^[A-Z0-9]{2,}\b/.test(s) && /^[0-9]*[A-Z]/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
+  // "Hi Vincent, for the shift please wear: White uniform shirt, long sleeve; navy tie; black blazer; black dress pants. Thanks!"
+  function uniformText(p) {
+    const parts = [p.top, p.tie, p.blazer, p.pants].filter(Boolean).map((x, i) => (i ? lowFirst(x.name) : x.name));
+    return `Hi${firstName() ? ` ${firstName()}` : ""}, for the shift please wear: ${parts.join("; ")}. Thanks!`;
+  }
+
+  // Step 2: a row of cards for each kind of clothes (the rows only change when his list does). Tie and Blazer start on
+  // None. One pick per row: tapping another card replaces it.
+  const UNI_ROWS = [["top", "Tops"], ["pants", "Pants"], ["tie", "Tie"], ["blazer", "Blazer"]];
+  function buildPicker() {
+    const key = JSON.stringify(pub.uniform.items);
+    if (uni.rows === key) return;
+    uni.rows = key;
+    for (const c of UNIFORM_CATS) { const x = uniItem(uni.picks[c]); if (!x || x.cat !== c) uni.picks[c] = null; }
+    $("#uRows").replaceChildren(...UNI_ROWS.map(([cat, label]) => {
+      const list = pub.uniform.items.filter((x) => x.cat === cat);
+      if (!list.length) return null;
+      const extra = cat === "tie" || cat === "blazer";
+      const cards = list.map((x) => h("button", { type: "button", class: "u-item", "data-cat": cat, "data-id": x.id, "aria-pressed": "false" },
+        uniThumb(x, 76, 66), h("span", { class: "u-name", text: x.name })));
+      if (extra) cards.unshift(h("button", { type: "button", class: "u-item none", "data-cat": cat, "data-id": "", "aria-pressed": "true", text: "None" }));
+      return h("div", { class: "u-row", "data-cat": cat },
+        h("p", { class: "u-lbl", id: `uRow-${cat}` }, label, " ", h("span", { text: `· ${list.length}` })),
+        h("div", { class: "u-strip", role: "group", "aria-labelledby": `uRow-${cat}` }, cards),
+        extra ? h("p", { class: "u-hint", id: `uWhy-${cat}`, hidden: true }) : null);
+    }).filter(Boolean));
+  }
+  // The picks as they are now: which cards are on, the Tie and Blazer rows (off when the top can't take one, and the
+  // pick dropped), the "Your picks" bubbles, and the button to the mannequin.
+  function syncPicker() {
+    const p = uniPicked();
+    for (const cat of ["tie", "blazer"]) {
+      const ok = !p.top || p.top[cat], row = document.querySelector(`#uRows .u-row[data-cat="${cat}"]`);
+      if (!ok) { uni.picks[cat] = null; p[cat] = null; }
+      if (!row) continue;
+      for (const b of row.querySelectorAll(".u-item")) { b.disabled = !ok; b.classList.toggle("off", !ok && !!b.dataset.id); }
+      const why = row.querySelector(".u-hint");
+      why.hidden = ok;
+      why.textContent = ok ? "" : `No ${cat} with the ${p.top.name.split(",")[0].trim().split(/\s+/).map(lowWord).join(" ")}.`;
+      if (ok) row.querySelector(".u-strip").removeAttribute("aria-describedby"); else row.querySelector(".u-strip").setAttribute("aria-describedby", why.id);
+    }
+    for (const b of document.querySelectorAll("#uRows .u-item")) b.setAttribute("aria-pressed", String((uni.picks[b.dataset.cat] || "") === b.dataset.id));
+    const box = $("#uPicks"), hadFocus = box.contains(document.activeElement);
+    const bubble = (cat, x, src) => h("span", { class: "u-bubble" }, uniThumb(x, 24, 24, src), h("span", { class: "u-name", text: x.name }),
+      h("button", { type: "button", class: "u-off", "data-cat": cat, "aria-label": `Take off ${x.name}`, text: "×" }));
+    const list = [["top", p.top, p.top && p.tie && p.top.img2], ["pants", p.pants], ["tie", p.tie], ["blazer", p.blazer]].filter((x) => x[1]);
+    box.replaceChildren(...list.map((x) => bubble(...x)), ...(!p.top && !p.pants ? [h("span", { class: "u-empty", text: "Nothing picked yet." })] : []));
+    // Taking one off with the keyboard: on to the next one (or the first row).
+    if (hadFocus && !box.contains(document.activeElement)) { const next = box.querySelector(".u-off") || $("#uRows .u-item"); if (next) next.focus(); }
+    $("#uSeeBtn").disabled = !(p.top && p.pants);
+  }
+
+  // Step 3: the mannequin wearing the picks, the text, and Send As Text: on a phone it opens their texting app with the
+  // text to his number; on a computer, a QR code to scan and a copy button. No short-notice check: this isn't a shift.
+  function uniformSend() {
+    if (uni.send) return uni.send;
+    const text = () => $("#uText").textContent;
+    if (isPhone()) {
+      const send = iconLabel(h("a", { class: "btn go wide", id: "uSendBtn" }), "message", "Send As Text");
+      uni.send = { el: h("div", { class: "stack" }, send, copyLinks(text, (go) => go())), update(t) { send.href = smsHref(t); } };
+    } else {
+      const send = iconLabel(h("button", { type: "button", class: "btn go wide", id: "uSendBtn" }), "message", "Send As Text");
+      const qr = qrPanel();
+      const copy = iconLabel(h("button", { type: "button", class: "btn ghost", hidden: true }), "copy", "Copy Message");
+      send.addEventListener("click", () => {
+        qr.show(true);
+        copy.hidden = false;
+        qr.draw(text(), () => {
+          if (qr.el.hidden) return;
+          try { copy.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { copy.scrollIntoView(false); }
+        });
+      });
+      copy.addEventListener("click", () => copyWithFeedback(copy, "copy", "Copy Message", text(), "Couldn't copy here. Select the text above and use your device's Copy."));
+      uni.send = { el: h("div", { class: "stack" }, send, qr.el, copy), update() { qr.show(false); copy.hidden = true; } };
+    }
+    return uni.send;
+  }
+  function drawOutfit() {
+    const p = uniPicked(), names = [p.top, p.tie, p.blazer, p.pants].filter(Boolean).map((x) => x.name);
+    outfitOn($("#uFrame"), p);
+    $("#uFrame").setAttribute("aria-label", `The mannequin wearing ${names.join(", ")}`);
+    const text = uniformText(p);
+    $("#uText").textContent = text;
+    if (!smsNumber()) { $("#uSend").replaceChildren(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." })); return; }
+    const s = uniformSend();
+    if (s.el.parentNode !== $("#uSend")) $("#uSend").replaceChildren(s.el);
+    s.update(text);
+  }
+
+  // Step 1: the code. A code that already opened it this visit is filled in.
+  function fillCode() {
+    if (unlocked()) { $("#uCodeIn").value = uni.code; codeWrong(false); }
+  }
+  function codeWrong(on) {
+    $("#uCodeIn").classList.toggle("bad", on);
+    $("#uCodeIn").setAttribute("aria-invalid", String(on));
+    $("#uCodeErr").textContent = on ? "That code doesn't match. Check my text and try again." : "";
+  }
+  let codeBusy = false;
+  async function onUniformCode(e) {
+    e.preventDefault();
+    const input = $("#uCodeIn");
+    if (codeBusy) return;
+    if (!input.value.trim()) { input.focus(); return; }
+    codeBusy = true;
+    let ok = false;
+    try { ok = await tryUniformCode(input.value); } catch (x) { /* counts as no match */ }
+    codeBusy = false;
+    if ($("#uniform").hidden || uni.step !== "code") return; // left it meanwhile
+    codeWrong(!ok);
+    if (ok) uniTo("pick"); else input.focus();
+  }
+
+  // The screens. Opening and each step forward add a history entry; Back undoes one; "‹ Calendar" closes them all.
+  const UNI_STEPS = { code: "#uCode", pick: "#uPick", see: "#uSee" };
+  function showUni(step, back) {
+    const el = $("#uniform");
+    uni.step = step;
+    for (const [s, sel] of Object.entries(UNI_STEPS)) $(sel).hidden = s !== step;
+    if (step === "code") fillCode();
+    if (step === "pick") { buildPicker(); syncPicker(); }
+    if (step === "see") drawOutfit();
+    el.scrollTop = back ? uni.scroll[step] || 0 : 0;
+    // Forward: the screen's title (on a computer, the code box). Back: the button that went forward.
+    const target = back ? (step === "code" ? "#uOpen" : step === "pick" ? "#uSeeBtn" : null)
+      : step === "code" && !isPhone() ? (unlocked() ? "#uOpen" : "#uCodeIn") : `${UNI_STEPS[step]} h2`;
+    const f = target && $(target);
+    if (f) try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); }
+  }
+  function openUniform(step) {
+    const el = $("#uniform");
+    if (!uniformLive()) return;
+    if (!el.hidden) { showUni(step); return; }
+    el.hidden = false;
+    // The page underneath stays put and out of reach until it closes (and where it was: a phone's keyboard or a box
+    // brought into view can move it meanwhile).
+    uni.pageY = window.pageYOffset;
+    document.documentElement.classList.add("uni-open");
+    for (const s of [".page", "#toolbar", "#previewBar"]) $(s).setAttribute("inert", "");
+    $(".page").setAttribute("aria-hidden", "true");
+    uni.scroll = {};
+    showUni(step);
+    nav.step(el, hideUniform);
+  }
+  function uniTo(step) {
+    const el = $("#uniform"), was = uni.step;
+    uni.scroll[was] = el.scrollTop;
+    showUni(step);
+    nav.step(el, () => showUni(was, true));
+  }
+  function hideUniform() {
+    const el = $("#uniform");
+    if (el.hidden) return;
+    el.hidden = true;
+    document.documentElement.classList.remove("uni-open");
+    for (const s of [".page", "#toolbar", "#previewBar"]) $(s).removeAttribute("inert");
+    $(".page").removeAttribute("aria-hidden");
+    if (window.pageYOffset !== uni.pageY) window.scrollTo(0, uni.pageY);
+    const fab = $("#uniformBtn");
+    if (!fab.hidden) try { fab.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
+  }
+  function closeUniform() {
+    hideUniform();
+    nav.closed($("#uniform"));
+  }
+  // "#uniform" and "#uniform-<CODE>" (a wrong or old code shows the code screen, with it filled in). The address bar
+  // is cleared at once, so the code isn't left in it, in a copied link, or for a reload to open again.
+  async function routeUniform() {
+    const m = location.hash.match(/^#uniform(?:-([^/?#]*))?$/i);
+    if (!m || !uniformLive()) return;
+    try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) { /* ignore */ }
+    let raw = m[1] || "";
+    try { raw = decodeURIComponent(raw); } catch (e) { /* as it is */ }
+    const code = raw.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase();
+    if (code && (await tryUniformCode(code))) { openUniform("pick"); return; }
+    openUniform(unlocked() ? "pick" : "code");
+    if (code && uni.step === "code") { $("#uCodeIn").value = code; codeWrong(true); }
+  }
+  // The code that opened it earlier this visit, if it still matches the page's.
+  async function restoreUniformCode() {
+    const c = session.get(UNI_KEY);
+    if (c && pub.uniform.hash && !unlocked()) { try { await tryUniformCode(c); } catch (e) { /* ask again */ } }
+  }
+  // The corner button: supervisors' view and his preview of it, never while he edits. On a phone, the page gets room at
+  // its bottom so the button never covers the links. In the preview it sits above the preview's bar.
+  function renderUniform() {
+    const on = uniformLive() && !ownerView();
+    $("#uniformBtn").hidden = !on;
+    document.body.classList.toggle("u-fab", on);
+    for (const el of document.querySelectorAll("#uniform .u-who")) { el.textContent = pub.name; el.hidden = !pub.name; }
+    if (owner && preview) document.body.style.setProperty("--bar-h", `${$("#previewBar").offsetHeight}px`);
   }
 
   // ---------- credentials PDF ----------
@@ -3218,6 +3591,33 @@
     }
     // Keep "today" right if the page stays open past midnight.
     document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+
+    // My Uniform. Its screens take part in Back like a window's steps: open while they show.
+    const uniEl = $("#uniform");
+    Object.defineProperty(uniEl, "open", { configurable: true, get() { return !this.hidden; } });
+    uniEl.querySelector(".u-below").append(mannequinSvg(false));
+    $("#uniformBtn").addEventListener("click", () => openUniform(unlocked() ? "pick" : "code"));
+    for (const b of uniEl.querySelectorAll(".u-cal")) b.addEventListener("click", closeUniform);
+    $("#uChange").addEventListener("click", () => nav.back(uniEl, () => showUni("pick", true)));
+    $("#uCodeForm").addEventListener("submit", onUniformCode);
+    $("#uCodeIn").addEventListener("input", () => { if ($("#uCodeIn").classList.contains("bad")) codeWrong(false); });
+    $("#uRows").addEventListener("click", (e) => {
+      const b = e.target.closest(".u-item");
+      if (!b || b.disabled) return;
+      uni.picks[b.dataset.cat] = b.dataset.id || null;
+      syncPicker();
+    });
+    $("#uPicks").addEventListener("click", (e) => {
+      const b = e.target.closest(".u-off");
+      if (!b) return;
+      uni.picks[b.dataset.cat] = null;
+      syncPicker();
+    });
+    $("#uSeeBtn").addEventListener("click", () => { if (uni.picks.top && uni.picks.pants) uniTo("see"); });
+    // Escape closes it, as it closes a window.
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !uniEl.hidden && !document.querySelector("dialog[open]")) closeUniform(); });
+    window.addEventListener("hashchange", () => { routeUniform(); });
+    window.addEventListener("resize", () => { if (owner && preview) renderUniform(); });
   }
 
   // ---------- the opening ----------
@@ -3275,6 +3675,7 @@
     render();
     clearTimeout(slow);
     reveal(true);
+    restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });
     if (token) await enterOwner();
   }
 
