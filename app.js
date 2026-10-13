@@ -940,9 +940,9 @@
   // ---------- the header: badge, status line, Call Me and license ----------
   // Shift availability varies by day, so the status points supervisors to the calendar.
   function acceptingText(list) {
-    const w = [...list, ...pub.weekendWilling];
+    const w = SHIFT_KEYS.filter((x) => list.indexOf(x) >= 0).map((x) => SHIFT_LABEL[x].toLowerCase());
     if (!w.length) return "Not taking extra shifts right now";
-    return "Available for extra shifts — check the calendar";
+    return `Accepting ${w.length < 3 ? w.join(" & ") : `${w.slice(0, -1).join(", ")} & ${w[w.length - 1]}`} requests`;
   }
   // The badge's letters: first and last initials ("VT").
   const initials = (name) => { const p = name.trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : ""; };
