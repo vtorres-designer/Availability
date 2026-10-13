@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8').replace('  boot();', `
   window.otTest = { normalizePub, normalizePriv, derivePublicOt, hoursInWeek, potShift, typedSpan,
-    shiftOt, cleanOt, addDays, todayKey, dateOf, weekStartOf,
+    shiftOt, cleanOt, addDays, todayKey, dateOf, weekStartOf, defaultSpan, otIn, otStretches, otKind,
     configure(p, days, ot) { pub = normalizePub(p); pubDays = days; pubOt = cleanOt(ot); } };
   boot();`);
 const base = { v: 2, name: 'Test Owner', phone: '5555555555', willing: ['overnight'], weekStart: 5,
@@ -51,9 +51,35 @@ const server = http.createServer((req, res) => {
       const lowOt = m.derivePublicOt(p, low, days);
       m.configure(p, days, lowOt);
       const below = m.shiftOt(mon, 'morning', { start: '07:00', end: '19:00' });
-      const split = m.normalizePriv({ otAfter: 10, pickup: 8, days: {
+      const boundarySchedule = m.normalizePriv({ otAfter: 10, pickup: 8, days: {
         [m.addDays(fri, -1)]: { s: 'work', start: '22:00', end: '06:00', hours: 8 }, [mon]: { s: 'open' } } });
-      const actualSplit = { hours: m.hoursInWeek(fri, split), publicOt: m.derivePublicOt(p, split, days) };
+      const actualBoundary = { current: m.hoursInWeek(fri, boundarySchedule),
+        previous: m.hoursInWeek(m.addDays(fri, -7), boundarySchedule), publicOt: m.derivePublicOt(p, boundarySchedule, days) };
+      const boundaryCases = [];
+      for (const booked of [0, 8, 16, 24, 32, 40, 48]) {
+        const left = w => w === fri ? 40 - booked : 0;
+        const span = m.defaultSpan('overnight', 8);
+        boundaryCases.push({ booked, result: m.otIn(thu, span, 5, left),
+          kind: m.otKind(thu, ['morning', 'swing', 'overnight'], 8, 5, left),
+          stretches: m.otStretches(thu, span, 5, left) });
+      }
+      const reads = [];
+      const oneBalance = m.otIn(thu, m.defaultSpan('overnight', 8), 5, (w, hours) => {
+        reads.push({ week: w, hours }); return w === fri ? 8 : null;
+      });
+      const partial = m.otIn(thu, m.defaultSpan('overnight', 8), 5, w => w === fri ? 7 : 0);
+      const longerBoundary = m.otIn(thu, m.defaultSpan('overnight', 12), 5, w => w === fri ? 8 : 0);
+      const unknownStart = m.otIn(thu, m.defaultSpan('overnight', 8), 5, w => w === fri ? null : 0);
+      // Check the bar against the overtime result across requested lengths and threshold balances.
+      // These include shifts crossing midnight and genuine partial overtime, without any next-week spillover.
+      const barChecks = [];
+      for (const len of [4, 8, 8.5, 12, 24]) for (const remaining of [0, 1, 7, 8, 16, 24]) {
+        const span = { start: 1380, len: len * 60 }, left = w => w === fri ? remaining : 0;
+        const result = m.otIn(thu, span, 5, left), stretches = m.otStretches(thu, span, 5, left);
+        barChecks.push({ len, remaining, result, stretches,
+          totalMinutes: stretches.reduce((n, s) => n + s.to - s.from, 0),
+          overtimeMinutes: stretches.filter(s => s.ot).reduce((n, s) => n + s.to - s.from, 0) });
+      }
       const potDays = { [thu]: { s: 'open', w: ['overnight', 'morning'] } };
       const potOt = { shift: 8, limit: 24, left: { [fri]: 1, [next]: 0 } };
       m.configure({ weekStart: 5, willing: ['overnight'] }, potDays, potOt);
@@ -63,7 +89,8 @@ const server = http.createServer((req, res) => {
       const limits = { morning: m.potShift(thu, 420, 900, 'morning'),
         longMorning: m.potShift(thu, 420, 1140, 'morning'),
         outsideNight: m.potShift(thu, 60, 540, 'overnight') };
-      return { fri, thu, next, mon, longOt, longer, oldLonger, oldUsual, lowOt, below, actualSplit, overnight, limits };
+      return { fri, thu, next, mon, longOt, longer, oldLonger, oldUsual, lowOt, below,
+        actualBoundary, boundaryCases, oneBalance, reads, partial, longerBoundary, unknownStart, barChecks, overnight, limits };
     });
     assert.equal(model.longOt.limit, 24);
     assert.equal(model.longOt.left[model.fri], 8);
@@ -72,15 +99,33 @@ const server = http.createServer((req, res) => {
     assert.deepEqual(model.oldUsual, { hours: 8, ot: 0 });
     assert(!(model.fri in model.lowOt.left));
     assert.deepEqual(model.below, { hours: 12, ot: 0 });
-    assert.equal(model.actualSplit.hours, 6);
-    assert.equal(model.actualSplit.publicOt.left[model.fri], 4);
+    assert.equal(model.actualBoundary.previous, 8);
+    assert.equal(model.actualBoundary.current, 0);
+    assert.equal(model.actualBoundary.publicOt.left[model.fri], 10);
+    for (const { booked, result, kind, stretches } of model.boundaryCases) {
+      const expectedOt = booked >= 40 ? 8 : 0;
+      assert.deepEqual(result, { hours: 8, ot: expectedOt }, `${booked} scheduled hours: Thursday overnight`);
+      assert.equal(kind, booked >= 40 ? 'ot' : 'open');
+      assert.deepEqual(stretches, [{ from: 0, to: 480, ot: booked >= 40 }]);
+    }
+    assert.deepEqual(model.oneBalance, { hours: 8, ot: 0 });
+    assert.deepEqual(model.reads, [{ week: model.fri, hours: 8 }]);
+    assert.deepEqual(model.partial, { hours: 8, ot: 1 });
+    assert.deepEqual(model.longerBoundary, { hours: 12, ot: 4 });
+    assert.equal(model.unknownStart, null);
+    for (const check of model.barChecks) {
+      assert.equal(check.totalMinutes, check.len * 60);
+      assert.equal(check.overtimeMinutes, check.result.ot * 60);
+      assert.equal(check.result.ot, Math.max(0, check.len - check.remaining));
+      for (let i = 1; i < check.stretches.length; i++) assert.equal(check.stretches[i - 1].to, check.stretches[i].from);
+    }
     assert.deepEqual(model.overnight.chosen, { hours: 8, ot: 7 });
     assert.equal(model.overnight.typed.span.start, 1500);
     assert.deepEqual(model.overnight.typed.r, { hours: 8, ot: 8 });
     assert.deepEqual(model.limits.morning.no, []);
     assert(model.limits.longMorning.no.some(reason => reason.includes('longer than 8 hours')));
     assert(model.limits.outsideNight.no.some(reason => reason.includes('between')));
-    console.log('PASS: long custom overtime, old-file uncertainty, actual midnight split, overnight next-morning placement, and P-OT limits');
+    console.log('PASS: full-shift pay-week allocation, no false P-OT at 24/32 hours, overtime-bar agreement, long requests, old-file uncertainty, next-morning placement, and P-OT limits');
     await modelPage.close();
 
     for (const mobile of [false, true]) {

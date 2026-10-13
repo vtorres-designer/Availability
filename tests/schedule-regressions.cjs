@@ -18,7 +18,7 @@ const server = http.createServer((req,res) => {
 });
 const publicFixture = {v:2,name:'Test',phone:'5551234567',willing:['overnight'],weekendWilling:['morning','swing'],weekStart:5,days:{},weekly:[0,5,6],ot:{shift:8,left:{}},nightAuto:true};
 const weekly = [{d:5,s:'work',start:'22:00',end:'06:00',hours:8},{d:6,s:'work',start:'23:00',end:'07:00',hours:8},{d:0,s:'work',start:'23:00',end:'07:00',hours:8}].sort((a,b)=>a.d-b.d);
-const fixture = {otAfter:40,pickup:8,weekly,days:{'2026-10-08':{s:'work',start:'23:00',end:'07:00',hours:8},'2026-10-17':{s:'open',w:['morning','swing','overnight']},'2026-10-18':{s:'open',w:['morning','swing','overnight']},'2026-10-22':{s:'work',start:'21:00',end:'07:00',hours:10},'2026-10-24':{s:'open',w:['morning','swing','overnight']},'2026-10-25':{s:'open',w:['morning','swing','overnight']}},pickups:{}};
+const fixture = {otAfter:40,pickup:8,weekly,days:{'2026-10-08':{s:'work',start:'23:00',end:'07:00',hours:8},'2026-10-17':{s:'open',w:['morning','swing','overnight']},'2026-10-18':{s:'open',w:['morning','swing','overnight']},'2026-10-22':{s:'work',start:'21:00',end:'07:00',hours:8},'2026-10-24':{s:'open',w:['morning','swing','overnight']},'2026-10-25':{s:'open',w:['morning','swing','overnight']}},pickups:{}};
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',args:['--no-sandbox']});
@@ -56,28 +56,35 @@ const fixture = {otAfter:40,pickup:8,weekly,days:{'2026-10-08':{s:'work',start:'
       const cancel=m.normalizePriv({weekly:v.weekly,days:{'2026-10-17':{s:'open',scheduleOff:true}},pickups:{}});
       return {totals,choices,busyHours,emptyHours,changedRuleHours,cancelHours:m.hoursInWeek('2026-10-16',cancel)};
     },{p:publicFixture,v:fixture});
-    assert.deepEqual(result.totals,[31,27,31,24]);assert.deepEqual(result.choices.sort(),['morning','swing']);assert.equal(result.busyHours,27);assert.equal(result.emptyHours,27);assert.equal(result.changedRuleHours,28);assert.equal(result.cancelHours,16);
-    console.log('PASS: screenshot-pattern weekly totals, recurring24-hour baseline, extra/carryover hours, scheduled overnight disabled, availability-independent hours, weekly changes, explicit cancellation');
+    assert.deepEqual(result.totals,[24,32,24,24]);assert.deepEqual(result.choices.sort(),['morning','swing']);assert.equal(result.busyHours,32);assert.equal(result.emptyHours,32);assert.equal(result.changedRuleHours,33);assert.equal(result.cancelHours,16);
+    console.log('PASS: full-shift calendar-week totals, recurring24-hour baseline, extra hours without carryover, scheduled overnight disabled, availability-independent hours, weekly changes, explicit cancellation');
 
+    const forty={...fixture,days:{...fixture.days,'2026-10-21':{s:'work',start:'23:00',end:'07:00',hours:8}}};
+    await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:forty});
+    const head=page.locator('.week-head').filter({hasText:'Oct 16'});assert((await head.innerText()).includes('40 hrs scheduled'));assert(!(await head.innerText()).includes('overtime'));
+    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-23',scheduleTest.read().priv)),24);
+    console.log('PASS: five eight-hour shifts total40 exactly, with no spillover or worked-overtime label');
     await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:fixture});
     await page.locator('[data-key="2026-10-17"]').click();await page.waitForTimeout(400);
+    await page.locator('#stWork').check();await page.locator('#workStart').fill('21:00');await page.locator('#workStart').dispatchEvent('change');assert.equal(await page.locator('#workHours').inputValue(),'8');
+    await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:fixture});await page.keyboard.press('Escape');await page.waitForTimeout(400);await page.locator('[data-key="2026-10-17"]').click();await page.waitForTimeout(400);
     await page.locator('#ew-morning').uncheck();
     let state=await page.evaluate(()=>scheduleTest.read());assert.deepEqual(state.priv.weekly,weekly);assert.equal(state.priv.days['2026-10-17'].s,'open');assert.deepEqual(state.priv.pickups['2026-10-17'].w,['overnight','swing']);assert.deepEqual(state.diff.days,{});assert(state.diff.pickups['2026-10-17']);
-    await page.locator('#stBusy').check();state=await page.evaluate(()=>scheduleTest.read());assert.equal(state.priv.pickups['2026-10-17'].s,'busy');assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),27);
-    await page.locator('#stOpen').check();assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),27);
+    await page.locator('#stBusy').check();state=await page.evaluate(()=>scheduleTest.read());assert.equal(state.priv.pickups['2026-10-17'].s,'busy');assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),32);
+    await page.locator('#stOpen').check();assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),32);
     await page.keyboard.press('Escape');await page.waitForTimeout(400);
     await page.locator('#settingsBtn').click();await page.waitForTimeout(400);assert.equal(await page.locator('#setWilling').count(),0);assert.equal(await page.locator('#setWeekendWilling').count(),0);await page.keyboard.press('Escape');await page.waitForTimeout(400);
     await page.locator('[data-brush=work]').click();await page.locator('[data-key="2026-10-18"]').click();
     assert.equal(await page.evaluate(()=>scheduleTest.scheduledRec('2026-10-18',scheduleTest.read().priv).start),'23:00');
     await page.locator('[data-brush=open]').click();await page.locator('[data-key="2026-10-18"]').click();
-    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),27);
+    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),32);
     await page.locator('[data-brush=busy]').click();await page.locator('[data-key="2026-10-18"]').click();
-    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),27);
+    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),32);
     await page.locator('[data-brush=edit]').click();
-    await page.locator('#saveBtn').click();await page.waitForFunction(()=>document.querySelector('#saveBtn').textContent==='Saved');assert.equal(writes,1);assert.deepEqual(remotePrivate.weekly,weekly);assert.equal(remotePrivate.days['2026-10-22'].hours,10);assert.equal(remotePrivate.days['2026-10-22'].start,'21:00');assert(remotePrivate.pickups['2026-10-17']);assert(!remotePublic.days['2026-10-17'].w.includes('overnight'));
+    await page.locator('#saveBtn').click();await page.waitForFunction(()=>document.querySelector('#saveBtn').textContent==='Saved');assert.equal(writes,1);assert.deepEqual(remotePrivate.weekly,weekly);assert.equal(remotePrivate.days['2026-10-22'].hours,8);assert.equal(remotePrivate.days['2026-10-22'].start,'21:00');assert(remotePrivate.pickups['2026-10-17']);assert(!remotePublic.days['2026-10-17'].w.includes('overnight'));
 
     console.log('PASS: recurring-date checkboxes/radios, removed settings, draft isolation, and mocked save preserve scheduled work');
-    const persisted=await page.evaluate(({p,v})=>{scheduleTest.seed(p,v);return {hours:scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv),picked:scheduleTest.read().priv.pickups['2026-10-17']};},{p:remotePublic,v:remotePrivate});assert.equal(persisted.hours,27);assert(persisted.picked);
+    const persisted=await page.evaluate(({p,v})=>{scheduleTest.seed(p,v);return {hours:scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv),picked:scheduleTest.read().priv.pickups['2026-10-17']};},{p:remotePublic,v:remotePrivate});assert.equal(persisted.hours,32);assert(persisted.picked);
     for(const bad of ['not json','null','[]','{"days":"bad","weekly":[]}','{"days":{},"weekly":{}}']){rawPrivate=bad;assert.equal(await page.evaluate(async()=>{try{await scheduleTest.loadOwnerState('test-only');return false}catch(e){return e.privateUnreadable===true}}),true);}
     rawPrivate='not json';await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:fixture});await page.locator('[data-brush=open]').click();await page.locator('[data-key="2026-10-19"]').click();await page.locator('#saveBtn').click();await page.waitForTimeout(300);assert.equal(writes,1);
     assert.equal(writes,1);rawPrivate=null;
@@ -85,11 +92,12 @@ const fixture = {otAfter:40,pickup:8,weekly,days:{'2026-10-08':{s:'work',start:'
     const historyFixture={...fixture,days:{...fixture.days,'2026-10-10':{s:'open',w:['morning']}}};
     await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:historyFixture});
     await page.locator('#settingsBtn').click();await page.waitForTimeout(400);
+    const fridayStart=page.locator('.wk-row[data-d="5"] [data-f=start]');await fridayStart.fill('21:00');assert.equal(await page.locator('.wk-row[data-d="5"] [data-f=hours]').inputValue(),'8');await fridayStart.fill('22:00');
     const saturdayHours=page.locator('.wk-row[data-d="6"] [data-f=hours]');await saturdayHours.fill('9');
-    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-09',scheduleTest.read().priv)),31);
-    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),28);
+    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-09',scheduleTest.read().priv)),24);
+    assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-16',scheduleTest.read().priv)),33);
     assert.deepEqual(await page.evaluate(()=>scheduleTest.read().priv.pickups['2026-10-10'].w),['morning']);
-    await saturdayHours.fill('8');assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-09',scheduleTest.read().priv)),31);
+    await saturdayHours.fill('8');assert.equal(await page.evaluate(()=>scheduleTest.hoursInWeek('2026-10-09',scheduleTest.read().priv)),24);
     assert.deepEqual(await page.evaluate(()=>scheduleTest.read().priv.days['2026-10-10']),{s:'open',w:['morning']});
     await page.keyboard.press('Escape');await page.waitForTimeout(400);
     await page.evaluate(({p,v})=>scheduleTest.seed(p,v),{p:publicFixture,v:{...fixture,days:{},pickups:{'2026-10-15':{s:'open',w:['morning']}}}});
@@ -103,6 +111,6 @@ const fixture = {otAfter:40,pickup:8,weekly,days:{'2026-10-08':{s:'work',start:'
       const payload=m.privatePayload(v,5);return {exists:!!payload,cutoff:payload&&payload.cutoff,prev,kept:!!(payload&&payload.priv.days[prev]),keptPickups:!!(payload&&payload.priv.pickups[prev])};
     });assert(pruning.exists);assert(pruning.cutoff<=pruning.prev);assert(pruning.kept);assert(pruning.keptPickups);
     assert.deepEqual(errors,[]);
-    console.log('PASS: private-size pruning retains previous-night spillover and matching pickup records');
+    console.log('PASS: private-size pruning retains older records and matching pickup records');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});
