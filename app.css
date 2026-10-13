@@ -832,9 +832,9 @@ dialog:not([open]) { display: none; }
 /* The two example times fit inside the box on the smallest phones. */
 @media (max-width: 400px) { #txTime::placeholder { font-size: 14px; } }
 
-/* Laptops and wide tablets (960 x 560 and up). Phones keep the single column. In both layouts below the page fits
-   the window, and the calendar scrolls by itself when it has more weeks than fit; its weekday names stay in view
-   while the weeks scroll under them. */
+/* Laptops and wide tablets (960 x 560 and up); phones keep the single column. In both layouts below the calendar
+   scrolls by itself when it has more weeks than fit, its weekday names staying in view while the weeks scroll under
+   them. */
 @media (min-width: 960px) and (min-height: 560px) {
   .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); }
   .day .tag { font-size: 11px; }
@@ -891,34 +891,48 @@ dialog:not([open]) { display: none; }
 /* What supervisors see on a laptop (and his preview of it): a navy band across the whole window with his badge and
    name, the status light under the name and the two buttons on the right; under it, a white panel on the left (notes,
    the how-to line, the color key) and the calendar on the right, both floating over the band's lower edge; the links
-   in one line along the bottom. The page is exactly the window's height. */
+   in one line along the bottom. The page is exactly the window's height (less the preview's bar). */
 @media (min-width: 960px) and (min-height: 560px) {
-  body:not(.owner) { background: var(--desk-bg); overflow-x: hidden; } /* the band is 100vw wide, and 100vw counts a scrollbar */
-  body:not(.owner) .page {
-    --wh: 100vh; /* the window's height (100dvh where the browser has it, below) */
+  body:not(.owner) {
+    background: var(--desk-bg); overflow-x: hidden; /* the band is 100vw wide, and 100vw counts a scrollbar */
+    --vh: 100vh; /* the window's height (100dvh where the browser has it, below) */
+    --below: env(safe-area-inset-bottom, 0px); /* the window's bottom that isn't the page's: a home bar, or the preview's bar */
+    --wh: calc(var(--vh) - var(--below) - env(safe-area-inset-top, 0px)); /* the height the page's content gets */
     --pw: clamp(1180px, 76vw, 1480px); /* the page's width, in a window wide enough for it */
     --bleed: max(16px, 50vw - var(--pw) / 2 + 16px); /* from the window's left edge to the page's first column */
-    --pad: clamp(40px, 6vh, 64px); /* as much room above his name as between the buttons and the cards */
-    --badge: clamp(64px, min(5.4vw, 11.4vh), 92px); --badge-gap: clamp(16px, 1.6vw, 26px); /* (a wide but short window: smaller) */
+    /* Sizes that step down in shorter windows (below). */
+    --pad: clamp(40px, calc(var(--wh) * 0.06), 64px); /* as much room above his name as between the buttons and the cards */
+    --badge: clamp(64px, min(5.4vw, calc(var(--wh) * 0.114)), 92px); --badge-gap: clamp(16px, 1.6vw, 26px); /* (a wide but short window: smaller) */
+    --name: clamp(44px, min(4.1vw, calc(var(--wh) * 0.087)), 70px); --kicker: clamp(13px, 1.05vw, 17px); --head-gap: 12px;
+    --chip-h: 42px; --chip-pad: 10px 16px; --chip-font: clamp(14px, 1.05vw, 16px);
+    --edge: 18px; --note-pad: 10px 12px; --note-font: 15px; --lede: 17px;
+    --dow-top: 16px; --tile-min: 70px; /* the smallest a day gets before the calendar scrolls instead */
+    --foot-gap: 18px; --foot-pad: 8px; --link-pad: 6px; --meta-gap: 4px;
+    --call-w: 460px; --call-cols: minmax(0, 1fr); --pick-at: auto; --pick-top: 4px; /* Call Me's box: Pick a Day under its text */
+  }
+  @supports (height: 100dvh) {
+    body:not(.owner) { --vh: 100dvh; }
+  }
+  /* The preview's bar is one line here. */
+  body.previewing { --below: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: var(--below); }
+  body:not(.owner) .page {
     --tiles: calc(var(--wh) - 480px); /* the height the day tiles share, before the weeks' own labels and gaps */
-    --tile-min: 70px; /* the smallest a day gets before the calendar scrolls instead */
-    max-width: var(--pw); height: var(--wh); padding-block: 0 14px;
+    max-width: var(--pw); height: calc(var(--vh) - var(--below)); padding-block: 0 14px;
     grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
     grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
     column-gap: 24px; row-gap: 0; align-items: start;
   }
-  /* The preview has a bar along the bottom: a shorter page, and less height for the days. */
-  body.previewing .page { height: calc(var(--wh) - 76px - env(safe-area-inset-bottom, 0px)); --tiles: calc(var(--wh) - 590px - env(safe-area-inset-bottom, 0px)); }
   body:not(.owner) .page > .top { display: contents; }
 
   /* The band is the header itself, stretched to the window's edges and on under the cards' top 56px (its grid and
      ring of light with it); what's in it keeps to the page's width. */
   body:not(.owner) .hero {
     grid-column: 1 / -1; grid-row: 1; z-index: 0; overflow: visible;
-    margin: 0 calc(50% - 50vw) -56px; padding: var(--pad) calc(50vw - 50%) calc(var(--pad) + 5px + 56px); border-radius: 0;
-    grid-template-columns: auto minmax(min-content, 1fr) auto; gap: 12px 0; align-items: center;
+    margin: 0 calc(50% - 50vw) -56px; border-radius: 0;
+    padding: calc(var(--pad) + env(safe-area-inset-top, 0px)) calc(50vw - 50%) calc(var(--pad) + 5px + 56px);
+    grid-template-columns: auto minmax(min-content, 1fr) auto; gap: var(--head-gap) 0; align-items: center;
     background: radial-gradient(60% 120% at 85% 0%, rgba(58, 142, 230, 0.3), transparent 60%), linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
-    --rx: calc(var(--bleed) + var(--badge) / 2); --ry: calc(var(--pad) + var(--badge) * 0.565);
+    --rx: calc(var(--bleed) + var(--badge) / 2); --ry: calc(var(--pad) + env(safe-area-inset-top, 0px) + var(--badge) * 0.565);
   }
   /* His badge, then the eyebrow and his name (one line, unless the name is very long); the status light lines up
      with his name. With no name (so no badge) both start at the left. */
@@ -927,14 +941,18 @@ dialog:not([open]) { display: none; }
   body:not(.owner) .hero .badge { grid-column: 1; grid-row: 1; margin-right: var(--badge-gap); }
   body:not(.owner) .hero .shield { width: var(--badge); height: auto; }
   body:not(.owner) .hero .who { grid-column: 2 / -1; grid-row: 1; }
-  body:not(.owner) .hero .eyebrow { font-size: clamp(13px, 1.05vw, 17px); letter-spacing: 0.16em; }
-  body:not(.owner) .hero h1 { font-size: clamp(44px, min(4.1vw, 8.7vh), 70px); line-height: 1; }
-  body:not(.owner) .hero .accepting { grid-column: 2; grid-row: 2; margin-top: -4px; font-size: clamp(14px, 1.1vw, 17px); gap: 11px; }
-  /* Call Me and the license in one line at the right; the box they open goes under them. */
-  body:not(.owner) .hero .hchips { grid-column: 3; grid-row: 2; justify-self: end; justify-content: flex-end; gap: 10px; margin-left: 24px; }
-  body:not(.owner) .hero .hchip { font-size: clamp(14px, 1.05vw, 16px); padding: 10px 16px; min-height: 42px; }
+  body:not(.owner) .hero .eyebrow { font-size: var(--kicker); letter-spacing: 0.16em; }
+  body:not(.owner) .hero h1 { font-size: var(--name); line-height: 1; }
+  body:not(.owner) .hero .accepting { grid-column: 2; grid-row: 2; margin-top: -4px; font-size: clamp(14px, 1.1vw, 17px); gap: 11px; white-space: nowrap; }
+  /* Call Me and the license in one line at the right (a very long license name wraps inside its button, never the
+     status line); the box they open goes under them. */
+  body:not(.owner) .hero .hchips { grid-column: 3; grid-row: 2; justify-self: end; justify-content: flex-end; flex-wrap: nowrap; align-items: center; gap: 10px; margin-left: 24px; }
+  body:not(.owner) .hero #heroCallBtn { flex: none; }
+  body:not(.owner) .hero .hchip { font-size: var(--chip-font); padding: var(--chip-pad); min-height: var(--chip-h); }
   body:not(.owner) .hero .hchip svg { width: 18px; height: 18px; }
   body:not(.owner) .hero .hero-box { grid-column: 2 / -1; grid-row: 3; justify-self: end; max-width: 460px; }
+  body:not(.owner) .hero #heroCall { max-width: var(--call-w); grid-template-columns: var(--call-cols); column-gap: 16px; align-items: center; }
+  body:not(.owner) .hero #pickDay { grid-area: var(--pick-at); margin-top: var(--pick-top); }
   /* The strip runs along the band's bottom edge, behind the cards; it opens from the gap between them. */
   body:not(.owner) .page > .top > .stripe {
     grid-column: 1 / -1; grid-row: 1; align-self: end; margin: 0 calc(50% - 50vw) -56px; border-radius: 0;
@@ -946,11 +964,13 @@ dialog:not([open]) { display: none; }
     content: ""; grid-column: 1; grid-row: 2 / 6; align-self: stretch; z-index: 1;
     background: var(--surface); border-radius: 16px; box-shadow: var(--float-shadow);
   }
-  body:not(.owner) .page > .top > .error { grid-column: 1; grid-row: 2; z-index: 2; margin: 18px 18px 0; }
-  body:not(.owner) .page > .top > .note-box { grid-column: 1; grid-row: 3; z-index: 2; margin: 18px 18px 0; }
+  body:not(.owner) .page > .top > .error { grid-column: 1; grid-row: 2; z-index: 2; margin: var(--edge) 18px 0; }
+  body:not(.owner) .page > .top > .note-box { grid-column: 1; grid-row: 3; z-index: 2; margin: var(--edge) 18px 0; }
   body:not(.owner) .page > .top > .lede { grid-column: 1; grid-row: 4; z-index: 2; margin: 14px 18px 0; }
-  body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: 18px; }
-  body:not(.owner) .page > .key { grid-column: 1; grid-row: 5; z-index: 2; margin: 16px 18px 18px; }
+  body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: var(--edge); }
+  body:not(.owner) .page > .key { grid-column: 1; grid-row: 5; z-index: 2; margin: 16px 18px var(--edge); }
+  body:not(.owner) .note-box { padding: var(--note-pad); font-size: var(--note-font); } /* the day window's too */
+  body:not(.owner) .lede { font-size: var(--lede); }
 
   /* The calendar: as tall as its weeks, up to the room above the links (then it scrolls by itself). Its day tiles
      grow with the window, sharing the height between the weeks shown (--weeks, set with the calendar). */
@@ -958,42 +978,50 @@ dialog:not([open]) { display: none; }
     grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
     overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
   }
-  body:not(.owner) .cal .dow { padding: 16px 0 4px; }
+  body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
   body:not(.owner) .day { min-height: clamp(var(--tile-min), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)), 8.4vw), 176px); }
-  body:not(.owner) .day .num { font-size: clamp(26px, 3.8vh, 42px); }
+  body:not(.owner) .day .num { font-size: clamp(26px, calc(var(--wh) * 0.038), 42px); }
 
-  /* The four links in one line along the bottom; the employee ID and the last update in one line under them. */
+  /* The four links in one line along the bottom; the employee ID and the last update in one line under them. In the
+     narrowest windows they move left just enough to leave the bottom right corner free (for the My Uniform button,
+     about 170 x 56, 16px in: 194px from the window's right edge). */
   body:not(.owner) .page > .foot {
-    grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: 18px;
+    grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: var(--foot-gap); padding: var(--foot-pad) max(0px, 1048px - 100vw) 0 0;
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 14px;
   }
   body:not(.owner) .page > .foot .foot-row { display: contents; }
-  body:not(.owner) .page > .foot .foot-meta { flex-basis: 100%; display: flex; justify-content: center; gap: 18px; margin-top: 4px; }
-  @supports (height: 100dvh) {
-    body:not(.owner) .page { --wh: 100dvh; }
+  body:not(.owner) .page > .foot .linkish { padding-block: var(--link-pad); }
+  body:not(.owner) .page > .foot .foot-meta { flex-basis: 100%; display: flex; justify-content: center; gap: 18px; margin-top: var(--meta-gap); }
+}
+/* Shorter windows step down in three tiers: first the how-to line and the links, then the header's spacing, then the
+   header itself and the panel, so the days keep their room. The preview's bar takes 56px of the window, so the preview
+   steps down 56px sooner, and looks just like the page in a window that much shorter. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) { body:not(.owner) { --lede: 16px; --link-pad: 3px; } }
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 876px) { body.previewing { --lede: 16px; --link-pad: 3px; } }
+/* Below about 720px the days are as small as they get, so the header and the links take less room instead (the
+   calendar still ends 8px above the corner button's top). */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 720px) {
+  body:not(.owner) { --pad: 32px; --foot-gap: 16px; --foot-pad: 0px; --call-w: 580px; --call-cols: minmax(0, 1fr) auto; --pick-at: 1 / 2 / 3 / 3; --pick-top: 0px; }
+}
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 776px) {
+  body.previewing { --pad: 32px; --foot-gap: 16px; --foot-pad: 0px; --call-w: 580px; --call-cols: minmax(0, 1fr) auto; --pick-at: 1 / 2 / 3 / 3; --pick-top: 0px; }
+}
+/* The shortest windows: a smaller header and tighter spacing keep the whole calendar in view. */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
+  body:not(.owner) {
+    --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
+    --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
   }
 }
-/* Shorter laptop windows: a slightly smaller how-to line, and less padding around the links. */
-@media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
-  body:not(.owner) .lede { font-size: 16px; }
-  body:not(.owner) .page > .foot .linkish { padding-block: 3px; }
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 696px) {
+  body.previewing {
+    --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
+    --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
+  }
 }
-/* Below about 720px the days are as small as they get, so the header and the links take less room instead. */
-@media (min-width: 960px) and (min-height: 560px) and (max-height: 720px) {
-  body:not(.owner) .page { --pad: 32px; }
-  body:not(.owner) .page > .foot { margin-top: 10px; padding-top: 0; }
-}
-/* The shortest laptop windows: a smaller header and tighter spacing keep the whole calendar in view. */
-@media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
-  body:not(.owner) .page { --pad: 18px; --badge: 52px; --badge-gap: 14px; --tile-min: 64px; }
-  body:not(.owner) .hero { row-gap: 8px; }
-  body:not(.owner) .hero h1 { font-size: 40px; }
-  body:not(.owner) .hero .eyebrow { font-size: 12px; }
-  body:not(.owner) .hero .hchip { min-height: 34px; padding: 6px 12px; font-size: 14px; }
-  body:not(.owner) .page > .top > .error, body:not(.owner) .page > .top > .note-box, body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: 14px; }
-  body:not(.owner) .page > .key { margin-bottom: 14px; }
-  body:not(.owner) .note-box { padding: 7px 10px; font-size: 14px; }
-  body:not(.owner) .lede { font-size: 15px; }
-  body:not(.owner) .cal .dow { padding-top: 12px; }
-  body:not(.owner) .page > .foot .foot-meta { margin-top: 0; }
+/* A window taller than it is wide (a big tablet held upright, a screen turned on its side): the days reach their
+   widest long before the height runs out, so the page ends under its content instead of keeping the links at the
+   window's bottom. It still never gets taller than the window (then the calendar scrolls by itself). */
+@media (min-width: 960px) and (min-height: 560px) and (orientation: portrait) {
+  body:not(.owner) .page { height: auto; max-height: calc(var(--vh) - var(--below)); }
 }
