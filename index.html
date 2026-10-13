@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="app.css?v=28">
+<link rel="stylesheet" href="app.css?v=33">
 <!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion. -->
 <script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
 </head>
@@ -240,14 +240,12 @@
         <input type="text" id="workNote" maxlength="100"></label>
     </div>
     <div id="editBusy" class="stack" hidden>
-      <p class="muted">Blocks all pickup shifts and shows red to supervisors.</p>
+      <p class="muted">Shows red to supervisors, the same as a day you're working.</p>
       <label class="field"><span class="label">Note (only you see it)</span>
         <input type="text" id="busyNote" maxlength="100"></label>
     </div>
-    <div id="editOpen" class="stack" hidden><p class="muted small">Choose the shifts you would pick up on this date.</p></div>
-    <div id="editPickup" class="stack" hidden>
+    <div id="editOpen" class="stack" hidden>
       <span class="label">Shifts I'll pick up this day</span>
-      <p class="muted small">Pickup choices do not change your scheduled work or paid hours. Shifts that overlap scheduled work stay unavailable.</p>
       <div class="checks" id="editWilling"></div>
       <button type="button" class="linkish" id="useUsual">Use My Usual Shifts</button>
     </div>
@@ -316,15 +314,21 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <span class="label">Every Week</span>
-      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow or P-OT. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors see which shifts you can pick up, never your working times. Busy blocks the whole day; Working leaves non-overlapping pickup shifts available.</p>
+      <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
+      <div class="checks" id="setWilling"></div>
+      <p class="error small" id="noteFull" role="alert" hidden>The night-shift line didn't fit in your note (140 characters). Shorten the note below to make room, then check Overnight again.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Every Week (red until you turn it off)</span>
+      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow or P-OT. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
     </div>
 
     <div class="group">
       <label class="field"><span class="label">Note to supervisors (optional, shown in a box at the top of the page and in each day's window)</span>
         <input type="text" id="setNote" maxlength="140" placeholder="e.g. Looking for extra hours this week"></label>
-      <p class="muted small">You can edit or delete the night-shift explanation here like the rest of your note.</p>
+      <p class="muted small">Checking Overnight above adds "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." to the note; edit or delete it here like the rest. Unchecking Overnight takes it out.</p>
       <label class="field"><span class="label">Show the note until (optional; it hides itself after this date)</span>
         <input type="date" id="setNoteUntil"></label>
       <p class="muted small" id="noteExpired" hidden>This date has passed, so supervisors don't see the note. Change or clear the date to show it again.</p>
@@ -393,7 +397,7 @@ Thu 10/15 2300-0700</pre>
     </div>
     <div class="group">
       <span class="label">P-OT Shifts (half yellow, half green days)</span>
-      <p class="muted small">On P-OT days, Customize Text First shows overtime hour by hour. The start-time range applies to Overnight; the longest-shift limit applies to every shift. Times are optional. Leave a box empty for no limit. Supervisors can see these two settings.</p>
+      <p class="muted small">On a P-OT day, a supervisor enters the shift's start and end times, sees hour by hour which hours would be overtime, and then texts you. Set the start times and the longest shift you'd take on those days. Leave a box empty for no limit. Supervisors can see these two settings.</p>
       <div class="two">
         <label class="field"><span class="label">Start times I'll accept</span>
           <input type="text" id="setPotStart" maxlength="30" placeholder='"1900-0300"' autocomplete="off"></label>
@@ -470,7 +474,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=27"></script>
-<script src="app.js?v=32"></script>
+<script src="parser.js?v=33"></script>
+<script src="app.js?v=33"></script>
 </body>
 </html>
