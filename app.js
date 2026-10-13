@@ -469,19 +469,42 @@
 
   const weekStartOf = (k, ws) => addDays(k, -((dateOf(k).getDay() - ws + 7) % 7));
 
-  // Count each scheduled shift's full paid hours in the week of its listed calendar date.
-  // Clock times describe the shift and conflicts; they do not divide paid hours between weeks.
+  // Split a clock-time span at pay-week midnight boundaries. Offsets stay relative to its start,
+  // so scheduled totals, requested overtime, and the overtime bar use the same allocation.
   const dayNumber = (k) => { const [y, m, d] = k.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const minutesOf = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  function weekSlices(k, span, weekStart) {
+    const start = dayNumber(k) * 1440 + span.start;
+    const slices = [];
+    for (let from = 0; from < span.len;) {
+      const date = addDays(k, Math.floor((span.start + from) / 1440));
+      const week = weekStartOf(date, weekStart);
+      const cutoff = dayNumber(addDays(week, 7)) * 1440;
+      const to = Math.min(span.len, cutoff - start);
+      slices.push({ week, from, to });
+      from = to;
+    }
+    return slices;
+  }
+
+  // Count only the paid hours inside this week's midnight boundaries, including the previous
+  // evening's overnight carryover. When paid hours differ from elapsed time, distribute them
+  // proportionally across the span. Records without clock times count on their listed date.
   function hoursInWeek(weekStartKey, v) {
     let total = 0;
-    for (let i = 0; i < 7; i++) {
+    const weekStart = dateOf(weekStartKey).getDay();
+    for (let i = -1; i < 7; i++) {
       const k = addDays(weekStartKey, i);
       const rec = scheduledRec(k, v);
       if (!rec || rec.s !== "work") continue;
       const paid = Number(rec.hours) || 0;
       if (paid <= 0) continue;
-      total += paid;
+      if (rec.start && rec.end) {
+        const span = { start: minutesOf(rec.start), len: spanHours(rec.start, rec.end) * 60 };
+        for (const slice of weekSlices(k, span, weekStart)) {
+          if (slice.week === weekStartKey) total += paid * (slice.to - slice.from) / span.len;
+        }
+      } else if (i >= 0) total += paid;
     }
     return Math.round(total * 100) / 100;
   }
@@ -506,14 +529,17 @@
   }
   const round2 = (n) => Math.round(n * 100) / 100;
 
-  // A whole shift belongs to the pay week of its start date. An overnight start after midnight is on the
-  // following date, but its end never divides the shift between weeks. null if that week's balance isn't known.
+  // Count overtime separately for the hours in each pay week. An overnight after midnight starts
+  // on the following date. null if any week touched by the request has an unknown balance.
   function otIn(k, span, weekStart, left) {
-    const startDate = addDays(k, Math.floor(span.start / 1440));
-    const ws = weekStartOf(startDate, weekStart), hours = span.len / 60;
-    const remaining = left(ws, hours);
-    if (remaining == null) return null;
-    return { hours: round2(hours), ot: round2(Math.max(0, hours - Math.max(0, remaining))) };
+    let overtime = 0;
+    for (const slice of weekSlices(k, span, weekStart)) {
+      const hours = (slice.to - slice.from) / 60;
+      const remaining = left(slice.week, hours);
+      if (remaining == null) return null;
+      overtime += Math.max(0, hours - Math.max(0, remaining));
+    }
+    return { hours: round2(span.len / 60), ot: round2(overtime) };
   }
   // r: {hours, ot}, or true when an older calendar file only says the shift is overtime.
   // On a P-OT day, {part: true} is overtime of unknown size and {no: [...]} a shift he doesn't take.
@@ -581,8 +607,8 @@
     return out;
   }
 
-  // Include balances for listed open dates and for possible after-midnight starts in the following week.
-  // The extra week near the boundary is conservative; a shift's end never changes its assigned week.
+  // Include balances for listed open dates and any next week that a request of up to 24 hours
+  // could reach, including overnight requests that start after midnight on the following date.
   function otWeeks(p, days) {
     const out = {};
     for (const k of Object.keys(days)) {
@@ -603,7 +629,7 @@
       const l = Math.max(0, round2(v.otAfter - hoursInWeek(w, v)));
       if (l < 24) left[w] = l;
     }
-    return { shift: v.pickup, limit: 24, basis: "shift-date", left };
+    return { shift: v.pickup, limit: 24, basis: "clock", left };
   }
   function cleanOt(raw) {
     if (!raw || typeof raw !== "object" || !raw.left || typeof raw.left !== "object") return null;
@@ -611,7 +637,7 @@
     if (!(shift > 0 && shift <= 24)) return null;
     const left = {};
     for (const [w, n] of Object.entries(raw.left)) if (isKey(w) && typeof n === "number" && n >= 0) left[w] = n;
-    return Object.assign({ shift, left }, raw.limit === 24 ? { limit: 24 } : {}, raw.basis === "shift-date" ? { basis: "shift-date" } : {});
+    return Object.assign({ shift, left }, raw.limit === 24 ? { limit: 24 } : {}, ["clock", "shift-date"].includes(raw.basis) ? { basis: raw.basis } : {});
   }
 
   // ---------- state ----------
@@ -1381,15 +1407,17 @@
   // from 5 AM "the day of".
   const partOfDay = (start) => (start >= 1140 ? "night" : start >= 900 ? "evening" : start >= 300 ? "day" : "");
 
-  // The shift's regular and overtime stretches use the same start-date pay week as its overtime total.
-  // Crossing midnight does not reset the remaining regular hours partway through a shift.
+  // Use the same pay-week slices as the overtime total. At a new week's midnight boundary,
+  // the following hours use that week's remaining regular hours.
   function otStretches(k, span, weekStart, left) {
-    const startDate = addDays(k, Math.floor(span.start / 1440));
-    const ws = weekStartOf(startDate, weekStart);
-    const regular = Math.min(span.len, Math.max(0, left(ws, span.len / 60)) * 60);
     const out = [];
-    if (regular > 0) out.push({ from: 0, to: regular, ot: false });
-    if (regular < span.len) out.push({ from: regular, to: span.len, ot: true });
+    for (const slice of weekSlices(k, span, weekStart)) {
+      const remaining = left(slice.week, (slice.to - slice.from) / 60);
+      if (remaining == null) return null;
+      const regular = Math.min(slice.to - slice.from, Math.max(0, remaining) * 60);
+      if (regular > 0) out.push({ from: slice.from, to: slice.from + regular, ot: false });
+      if (slice.from + regular < slice.to) out.push({ from: slice.from + regular, to: slice.to, ot: true });
+    }
     return out;
   }
   const clockText = (mins) => { const t = Math.round(mins) % 1440, hr = Math.floor(t / 60); return { n: `${hr % 12 || 12}${t % 60 ? `:${pad(t % 60)}` : ""}`, ap: hr < 12 ? "AM" : "PM" }; };
@@ -2406,7 +2434,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week runs through ${end}. Every scheduled shift's full Paid hours count in the week of its listed calendar date, including overnight shifts. Changing clock times does not change Paid hours. A day is green when one more ${num(priv.pickup)}-hour shift would keep the week at ${num(priv.otAfter)} hours or less, P-OT when only part of the requested shift would exceed that amount, and yellow when all of it would. Exactly ${num(priv.otAfter)} scheduled hours is not overtime already worked; an additional shift would be overtime. Pickup availability does not change scheduled hours. The public file contains weekly remaining balances, never individual working times, hours, or notes.`;
+    return `Each pay week ends ${end} at midnight. Only hours inside those boundaries count toward that week. Overnight shifts crossing the boundary are split between the two weeks. Changing clock times preserves Paid hours; if Paid hours differ from the clock-time duration, they are distributed proportionally across it. A day is green when one more ${num(priv.pickup)}-hour shift fits within the remaining regular hours in every week it touches, P-OT when only part would exceed ${num(priv.otAfter)} hours in its week, and yellow when all of it would. Exactly ${num(priv.otAfter)} scheduled hours is not overtime already worked. Pickup availability does not change scheduled hours. The public file contains weekly remaining balances, never individual working times, hours, or notes.`;
   }
 
   // ---------- owner: every-week days ----------
@@ -2451,8 +2479,8 @@
     keepPastWeek();
   }
 
-  // Changes to every-week days count from today. Earlier dates in this pay week keep the saved rule,
-  // so this week's already-scheduled paid hours stay intact.
+  // Changes to every-week days count from today. Earlier dates in this pay week, and the previous
+  // evening when it carries hours into this week, keep the saved rule so those hours stay intact.
   // A day turned off also keeps today. Recomputed on every change, so undoing a change removes the copies it made.
   const autoCopies = {};
   function keepPastWeek() {
@@ -2470,7 +2498,8 @@
     }
     if (!saved) return;
     const today = todayKey(), ws = weekStartOf(today, pub.weekStart);
-    for (let k = ws; k <= today; k = addDays(k, 1)) {
+    const crosses = (r) => r.s === "work" && !!r.start && !!r.end && minutesOf(r.end) <= minutesOf(r.start);
+    for (let k = addDays(ws, -1); k <= today; k = addDays(k, 1)) {
       const dow = dateOf(k).getDay();
       const was = ruleFor(saved.priv.weekly, dow), now = ruleFor(priv.weekly, dow);
       if (!was || (was.from && k < was.from)) continue;
@@ -2483,7 +2512,7 @@
         continue;
       }
       const before = priv.days[k];
-      if (before && (before.s === "work" || before.scheduleOff)) continue;
+      if ((before && (before.s === "work" || before.scheduleOff)) || (k < ws && !crosses(was))) continue;
       const pickBefore = priv.pickups[k], pickAfter = !pickBefore && cleanPickup(before);
       if (pickAfter) priv.pickups[k] = pickAfter;
       priv.days[k] = copy;
