@@ -83,7 +83,7 @@
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", uploads: "sa.uploads" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", pot: "P-OT", ot: "OT", busy: "Busy", unset: "" };
@@ -226,16 +226,19 @@
     };
   })();
 
+  let sheetSeq = 0;
   function showSheet(sel) {
     const d = $(sel);
     d.returnValue = "";
-    if (!d.open) { d.showModal(); nav.sheet(d); }
+    if (!d.open) { d.showModal(); d.sheetSeq = ++sheetSeq; nav.sheet(d); }
   }
+  // The sheet on top (the last one opened, like an item's over Settings): the only one that can be seen and reached.
+  const topSheet = () => Array.prototype.slice.call(document.querySelectorAll("dialog[open]")).sort((a, b) => (a.sheetSeq || 0) - (b.sheetSeq || 0)).pop() || null;
 
   let toastTimer = 0;
   function toast(msg, ms = 3200) {
     const t = $("#toast");
-    const host = document.querySelector("dialog[open]") || document.body; // sheets sit above the page
+    const host = topSheet() || document.body; // sheets sit above the page
     if (t.parentNode !== host) host.append(t);
     t.textContent = msg;
     t.hidden = false;
@@ -247,7 +250,7 @@
     try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back */ }
     const ta = h("textarea", { readonly: true, style: "position:fixed;opacity:0;top:0;left:0" });
     ta.value = text;
-    (document.querySelector("dialog[open]") || document.body).append(ta); // outside an open sheet, the page is inert
+    (topSheet() || document.body).append(ta); // outside the open sheet on top, the page is inert
     ta.select();
     ta.setSelectionRange(0, text.length);
     let ok = false;
@@ -396,6 +399,8 @@
     } catch (e) { /* not allowed here: the same sum below */ }
     return sha256Hex(bytes);
   }
+  // The same hash, worked out at once: edit mode changes the code and its hash together.
+  const codeHash = (code) => sha256Hex(new TextEncoder().encode(`vt-uniform:${code}`));
 
   // keepExtra: carry over simple fields a newer version of the site added, so saving from here doesn't erase them.
   function normalizePub(raw, keepExtra) {
@@ -804,8 +809,17 @@
     const d = { days: {}, pub: {}, priv: {} };
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
-    for (const f of Object.keys(pub)) if (JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup", "uniformCode"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of Object.keys(pub)) if (f !== "uniform" && JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
+    for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    // My Uniform: the code goes with its hash, and each item on its own (by id), so changes from two devices or tabs to
+    // different items both survive. order: the items' order here, so a new item goes back in where it was.
+    d.uni = { items: {}, order: pub.uniform.items.map((x) => x.id) };
+    const code = (p, v) => ({ code: v.uniformCode, hash: p.uniform.hash });
+    if (!same(code(pub, priv), code(saved.pub, saved.priv))) d.uni.code = { to: code(pub, priv), from: code(saved.pub, saved.priv) };
+    for (const id of new Set([...pub.uniform.items, ...saved.pub.uniform.items].map((x) => x.id))) {
+      const to = uniformItemIn(pub, id), from = uniformItemIn(saved.pub, id);
+      if (!same(to, from)) d.uni.items[id] = { to, from };
+    }
     // Every-week days are kept per weekday, so changes from two devices or tabs to different weekdays both survive.
     d.wk = {};
     for (let w = 0; w < 7; w++) {
@@ -814,7 +828,9 @@
     }
     return d;
   }
-  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length;
+  const uniformItemIn = (p, id) => p.uniform.items.filter((x) => x.id === id)[0] || null;
+  const uniSize = (u) => (u && typeof u === "object" ? Object.keys(u.items || {}).length + (u.code ? 1 : 0) : 0);
+  const diffSize = (d) => Object.keys(d.days).length + Object.keys(d.pub).length + Object.keys(d.priv).length + Object.keys(d.wk || {}).length + uniSize(d.uni);
   const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
 
   // Unsaved note changes from the previous version (one note, the night-shift line inside it) become changes to the
@@ -849,22 +865,52 @@
     const next = Object.assign({}, pub);
     for (const [f, e] of Object.entries(oldNoteDraft(d.pub) || {})) {
       if (f === "notes" && !(e && Array.isArray(e.to))) continue; // never lose his notes to a damaged draft
-      if (f in next && take(e, pub[f])) next[f] = e.to;
+      if (f !== "uniform" && f in next && take(e, pub[f])) next[f] = e.to;
     }
     pub = normalizePub(next, true);
     for (const f of ["otAfter", "pickup"]) {
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
-    // His My Uniform code ("" while he has none). Its hash comes back with the public fields above.
-    const code = d.priv && d.priv.uniformCode;
-    if (code && (code.to === "" || cleanCode(code.to)) && take(code, priv.uniformCode)) priv.uniformCode = cleanCode(code.to);
+    applyUniform(d.uni, take);
     for (const [w, e] of Object.entries(d.wk || {})) {
       const dow = Number(w);
       if (!(dow >= 0 && dow <= 6) || !take(e, ruleFor(priv.weekly, dow))) continue;
       priv.weekly = cleanWeekly(priv.weekly.filter((r) => r.d !== dow).concat(e.to ? [Object.assign({}, e.to, { d: dow })] : []), priv.pickup);
     }
     return { applied, skipped };
+  }
+  // My Uniform's part of a diff (see diffOf). take(entry, current) says whether an entry applies. The hash is worked out
+  // again from the code, so the two always go together.
+  function applyUniform(u, take) {
+    if (!u || typeof u !== "object") return;
+    let hash = pub.uniform.hash;
+    const items = pub.uniform.items.slice();
+    const c = u.code;
+    if (c && c.to && typeof c.to === "object" && (c.to.code === "" || cleanCode(c.to.code)) && take(c, { code: priv.uniformCode, hash })) {
+      priv.uniformCode = cleanCode(c.to.code);
+      hash = priv.uniformCode ? codeHash(priv.uniformCode) : /^[0-9a-f]{64}$/.test(c.to.hash) ? c.to.hash : "";
+    }
+    const order = Array.isArray(u.order) ? u.order : [];
+    const rank = (id) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
+    const list = Object.entries(u.items && typeof u.items === "object" ? u.items : {}).sort((a, b) => rank(a[0]) - rank(b[0]));
+    for (const [id, e] of list) {
+      const to = e && e.to ? cleanUniformItem(e.to) : null;
+      if (!e || (e.to && !(to && to.id === id))) continue; // a damaged entry
+      const i = items.findIndex((x) => x.id === id);
+      // A change to an item deleted elsewhere since doesn't bring it back: its drawings went with it.
+      if (i < 0 && e.from) { if (e.to) take(e, null); continue; }
+      if (!take(e, i >= 0 ? items[i] : null)) continue;
+      if (i >= 0) { if (to) items[i] = to; else items.splice(i, 1); continue; }
+      // New here: right after the item it followed on the device that added it (first, if it led the list).
+      let at = order.indexOf(id) < 0 ? items.length : 0;
+      for (let j = order.indexOf(id) - 1; j >= 0; j--) {
+        const p = items.findIndex((x) => x.id === order[j]);
+        if (p >= 0) { at = p + 1; break; }
+      }
+      items.splice(at, 0, to);
+    }
+    pub.uniform = cleanUniform({ hash, items });
   }
 
   // After a save, copies of the changes it included are done. Removing them keeps an old copy from
@@ -880,8 +926,11 @@
       for (const [f, e] of Object.entries(d.pub || {})) if (!e || same(saved.pub[f], e.to)) { delete d.pub[f]; changed = true; }
       for (const [f, e] of Object.entries(d.priv || {})) if (!e || same(saved.priv[f], e.to)) { delete d.priv[f]; changed = true; }
       for (const [w, e] of Object.entries(d.wk || {})) if (!e || same(ruleFor(saved.priv.weekly, Number(w)), e.to)) { delete d.wk[w]; changed = true; }
+      const u = d.uni && typeof d.uni === "object" ? d.uni : {};
+      if (u.code && same({ code: saved.priv.uniformCode, hash: saved.pub.uniform.hash }, u.code.to)) { delete u.code; changed = true; }
+      for (const [id, e] of Object.entries(u.items || {})) if (!e || same(uniformItemIn(saved.pub, id), e.to)) { delete u.items[id]; changed = true; }
       if (!changed) continue;
-      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {}, wk: d.wk || {} })) store.set(key, JSON.stringify(d));
+      if (diffSize({ days: d.days || {}, pub: d.pub || {}, priv: d.priv || {}, wk: d.wk || {}, uni: d.uni })) store.set(key, JSON.stringify(d));
       else store.del(key);
     }
   }
@@ -903,7 +952,7 @@
       privExists = st.privExists;
       needsPublish = st.behind;
       updated = st.updated;
-      if ($("#settingsSheet").open) { renderWeekly(); renderNotes(); }
+      if ($("#settingsSheet").open) { renderWeekly(); renderNotes(); renderUniSettings(); }
     } catch { /* offline: Save will notice a newer version */ }
     busy = false;
     persistDraft();
@@ -3039,6 +3088,508 @@
     $(`#noteTab-${noteSel}`).focus();
   }
 
+  // ---------- owner: My Uniform ----------
+  // Settings → My Uniform: the code (kept private; the public file only gets its hash), a link with the code built in,
+  // and his clothes. Each item opens in a sheet of its own. A drawing is made ready in the browser and uploaded to
+  // uniform/ the moment he taps Save Item; the item itself is then an unsaved change, like any other setting.
+  const CAT_NAME = { top: "Top", pants: "Pants", tie: "Tie", blazer: "Blazer" };
+  const uniReady = (p) => !!p.uniform.hash && ["top", "pants"].every((c) => p.uniform.items.some((x) => x.cat === c));
+  const uniLocked = () => standIn || !privAccess; // the code is private, so changing it needs the private settings
+  let uniAtOpen = { code: "", hash: "" };
+  // The code and its hash change together, so the file never has the hash of a code he doesn't have. "" turns it off.
+  function setUniformCode(code) {
+    priv.uniformCode = code;
+    pub.uniform = { hash: code ? codeHash(code) : "", items: pub.uniform.items };
+  }
+  // Typed in Settings: capitals, letters and numbers only. Like the email box, a half-typed code never replaces the one
+  // from when Settings opened.
+  function readUniCode(t) {
+    const v = t.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    if (v !== t.value) { const at = Math.min(t.selectionStart || v.length, v.length); t.value = v; try { t.setSelectionRange(at, at); } catch (e) { /* ignore */ } }
+    const code = cleanCode(v);
+    $("#uniCodeError").hidden = !v || !!code;
+    if (!v || code) setUniformCode(code);
+    else { priv.uniformCode = uniAtOpen.code; pub.uniform = { hash: uniAtOpen.hash, items: pub.uniform.items }; }
+    renderUniCode();
+  }
+  // Six of these: no I, L, O, 0 or 1, which are easy to mix up in a text.
+  const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  function randomCode() {
+    const n = new Uint32Array(6);
+    try { crypto.getRandomValues(n); } catch (e) { for (let i = 0; i < 6; i++) n[i] = Math.floor(Math.random() * 4294967296); }
+    return Array.from(n, (x) => CODE_CHARS[x % CODE_CHARS.length]).join("");
+  }
+  function newUniCode() {
+    if (uniLocked()) return;
+    const input = $("#setUniCode");
+    input.value = randomCode();
+    readUniCode(input);
+    afterChange();
+  }
+  const uniLink = () => (priv.uniformCode ? `${shareUrl()}#uniform-${priv.uniformCode}` : "");
+  function selectText(el) {
+    try { const r = document.createRange(), s = window.getSelection(); r.selectNodeContents(el); s.removeAllRanges(); s.addRange(r); } catch (e) { /* ignore */ }
+  }
+  async function copyUniLink() {
+    const b = $("#uniCopyLink"), link = uniLink();
+    if (!link) return;
+    const ok = await copyText(link);
+    if (!ok) selectText($("#uniLink"));
+    b.textContent = ok ? "Copied!" : "Press and hold the link to copy it";
+    clearTimeout(b.copiedTimer);
+    b.copiedTimer = setTimeout(() => { b.textContent = "Copy Link With Code"; }, 2500);
+  }
+
+  function renderUniSettings() {
+    const input = $("#setUniCode"), locked = uniLocked();
+    if (document.activeElement !== input) input.value = priv.uniformCode;
+    input.disabled = locked;
+    $("#uniNewCode").disabled = locked;
+    $("#uniLocked").hidden = !locked;
+    renderUniCode();
+    renderUniItems();
+  }
+  function renderUniCode() {
+    const link = uniLink();
+    $("#uniLinkRow").hidden = !link;
+    $("#uniLink").textContent = link.replace(/^https?:\/\//, "");
+    $("#uniLost").hidden = uniLocked() || !!priv.uniformCode || !pub.uniform.hash;
+    $("#uniState").textContent = !pub.uniform.hash ? "My Uniform is off until you set a code."
+      : !uniReady(pub) ? "Add at least one top and one pair of pants. Until then, supervisors don't see the My Uniform button."
+      : saved && uniReady(saved.pub) ? "Supervisors see the My Uniform button." : "Once you tap Save, supervisors see the My Uniform button.";
+  }
+  // His clothes, a card each (tops, then pants, ties and blazers, as the picker shows them), and Add Item.
+  function renderUniItems(focusId) {
+    const items = pub.uniform.items, box = $("#uniItems");
+    const was = box.contains(document.activeElement) ? document.activeElement.dataset.id : null, back = focusId != null ? focusId : was;
+    $("#uniCount").textContent = `· ${items.length} item${items.length === 1 ? "" : "s"}`;
+    const cards = UNIFORM_CATS.flatMap((c) => items.filter((x) => x.cat === c)).map((x) =>
+      h("button", { type: "button", class: "uni-item", "data-id": x.id, "aria-label": `Edit ${x.name} (${CAT_NAME[x.cat]})` }, uniThumb(x, 80, 56), h("span", { class: "u-name", text: x.name })));
+    box.replaceChildren(...cards, items.length < UNIFORM_MAX
+      ? h("button", { type: "button", class: "uni-item add", "data-id": "", text: "+ Add Item" })
+      : h("p", { class: "muted small uni-full", text: `That's as many as My Uniform holds (${UNIFORM_MAX}). Delete one to add another.` }));
+    if (back != null) {
+      const el = box.querySelector(`.uni-item[data-id="${back}"]`) || box.querySelector(".uni-item.add") || box.querySelector(".uni-item");
+      if (el) try { el.focus({ preventScroll: focusId == null }); } catch (e) { el.focus(); }
+    }
+  }
+
+  // ---------- owner: one item of My Uniform ----------
+  // The prompts for the drawing AI (approved word for word): one per category, and one more for a shirt worn with a tie,
+  // so its collar can be shown buttoned up.
+  const PROMPT_WHERE = {
+    top: "- It's a top. The collar sits about 13% down from the top edge, the shoulders span about 40% of the width, and the hem sits about 50% down. Sleeves hang straight down at the sides; long sleeves end at the wrists, about 50% down.\n- If it has a collar and buttons, draw the top button undone with the collar slightly open.",
+    pants: "- They're pants. The waistband sits about 48% down from the top edge and the hems about 96% down, legs straight and slightly apart, about 40% of the width across the hips.",
+    tie: "- It's a tie, hanging straight down the middle. The knot sits about 16% down from the top edge and the tip about 42% down. The tie is about 7% of the width across at its widest.",
+    blazer: "- It's a blazer, worn open. The shoulders span about 42% of the width at about 13% down, sleeves hang straight down to the wrists (about 50% down), and the hem sits about 54% down. Leave a V-shaped gap down the front, from the collar to the hem, where a shirt and tie would show.",
+  };
+  function drawingPrompt(cat) {
+    return "Please draw a clothing illustration for the uniform picker on my website. I've attached a photo of the real item.\n\n" +
+      "WHAT TO DRAW\n- Only the item in the photo, exactly as it is: same color, collar, pockets, buttons, stitching, patches and badges.\n\n" +
+      "STYLE\n- A clean, flat illustration, like a fashion flat sketch: solid colors that match the real fabric, a thin outline a little darker than the fabric, and soft shading only for folds.\n" +
+      "- Straight-on front view, symmetrical, as if worn by an invisible person standing straight with arms relaxed at their sides.\n" +
+      "- No person, mannequin, hanger, shadow, floor, text or watermark.\n\n" +
+      "CANVAS (so it lines up on a mannequin on my website)\n- Portrait, exactly 1:2, for example 800 x 1600 pixels.\n- Transparent background (PNG). If you can't make it transparent, use plain solid white with nothing else on it.\n" +
+      "- Picture a person filling the canvas from the top of the head at the top edge to the soles at the bottom edge, centered left to right. Draw the item only, where it would sit on that person:\n" + PROMPT_WHERE[cat] + "\n\n" +
+      "If I send more items in this chat, keep the same style, canvas and scale for all of them so they match.\n\nGive me just the image.";
+  }
+  const PROMPT_BUTTONED = "Now make a second version of the shirt you just drew.\n\nKeep everything identical: the same canvas size, position, scale, colors, outline, shading and transparent background.\n\nThe only change: button the collar all the way to the top, closed snugly around the neck, the way it's worn with a tie. Don't draw a tie.\n\nGive me just the image.";
+
+  // The item open in its sheet: was (the item in the list, null for a new one), item (the copy being changed), files
+  // (drawings picked for img and img2, made ready but not uploaded; img2 false: take it off), up (an upload under way:
+  // the new id and the files already sent, so trying again picks up where it stopped).
+  let ed = null;
+  let itemFocus = null; // the card to go back to once the sheet closes
+  const blankItem = () => ({ id: "", name: "", cat: "top", img: "", img2: "", tie: true, blazer: false, fit: { x: 0, y: 0, s: 1 }, box: [0, 0, 1, 1] });
+  function openItem(id) {
+    const was = id ? uniformItemIn(pub, id) : null;
+    if (!was && pub.uniform.items.length >= UNIFORM_MAX) return;
+    ed = { was, item: Object.assign(blankItem(), was ? clone(was) : {}), files: { img: null, img2: null }, up: null, busy: false };
+    itemFocus = id || "";
+    $("#itemTitle").textContent = was ? "Edit Item" : "Add Item";
+    for (const r of document.querySelectorAll("#itemCat input")) r.checked = r.value === ed.item.cat;
+    $("#itemTie").checked = ed.item.tie;
+    $("#itemBlazer").checked = ed.item.blazer;
+    $("#itemName").value = ed.item.name;
+    $("#itemDelete").hidden = !was;
+    for (const s of ["#itemError", "#itemFileError", "#itemPromptText"]) $(s).hidden = true;
+    $("#itemCopied").textContent = "";
+    syncItemBusy();
+    syncItem();
+    showSheet("#itemSheet");
+    drawFit(); // once the sheet is open, so the frame has its size
+  }
+  // What shows for the category: the switches and the buttoned-up drawing are for tops (the drawing, with a tie).
+  function syncItem() {
+    const it = ed.item, top = it.cat === "top", tie = top && it.tie, f = ed.files;
+    $("#itemWith").hidden = !top;
+    $("#itemPrompt2").hidden = !tie;
+    $("#itemPrompt2Hint").hidden = !tie;
+    $("#itemB").hidden = !tie;
+    $("#itemPickText").textContent = f.img || it.img ? "Replace Drawing" : "Choose Drawing";
+    $("#itemFileName").textContent = f.img ? f.img.name : "";
+    const has2 = f.img2 === false ? false : !!(f.img2 || it.img2);
+    $("#itemPick2Text").textContent = has2 ? "Replace Drawing" : "Choose Drawing";
+    $("#itemFile2Name").textContent = f.img2 ? f.img2.name : has2 ? "Added" : "";
+    $("#itemDrop2").hidden = !has2;
+    $("#itemOpaque").hidden = !(f.img && f.img.opaque);
+    $("#itemName").placeholder = `e.g. ${{ top: "White uniform shirt, long sleeve", pants: "Black tactical pants", tie: "Navy tie", blazer: "Black blazer" }[it.cat]}`;
+  }
+  function syncItemBusy() {
+    $("#itemSave").disabled = !!(ed && ed.busy);
+    $("#itemSave").textContent = ed && ed.busy ? "Uploading…" : "Save Item";
+    $("#itemDelete").disabled = !!(ed && ed.busy);
+  }
+  function onItemChange(e) {
+    const t = e.target;
+    if (!ed) return;
+    if (t.name === "itemCat") { ed.item.cat = t.value; $("#itemCopied").textContent = ""; $("#itemPromptText").hidden = true; }
+    else if (t.id === "itemTie") ed.item.tie = t.checked;
+    else if (t.id === "itemBlazer") ed.item.blazer = t.checked;
+    else if (t.id === "itemName") { ed.item.name = t.value; return; }
+    else if (t.id === "itemSize") { ed.item.fit.s = roundTo(Math.min(3, Math.max(0.2, Number(t.value) / 100)), 3); placeFit(); return; }
+    else return;
+    syncItem();
+    drawFit(); // the other item shown for scale goes with the category
+  }
+
+  // Copies a prompt. If the browser won't, the prompt shows, selected, to copy by hand.
+  async function copyPrompt(buttoned) {
+    if (!ed) return;
+    const text = buttoned ? PROMPT_BUTTONED : drawingPrompt(ed.item.cat), box = $("#itemPromptText"), line = $("#itemCopied");
+    box.hidden = true;
+    const ok = await copyText(text);
+    line.classList.toggle("todo", !ok);
+    if (ok) { line.textContent = `${buttoned ? "Buttoned-up prompt" : "Drawing prompt"} copied. Paste it into the drawing AI with a photo of the item.`; return; }
+    box.textContent = text;
+    box.hidden = false;
+    try { box.focus({ preventScroll: true }); } catch (e) { box.focus(); }
+    selectText(box);
+    line.textContent = "Press Ctrl+C (or Copy) to copy the selected prompt.";
+  }
+
+  // A picked drawing, made ready here: at most 600 x 1200 (never enlarged), WebP where the browser really makes it
+  // (smaller), PNG otherwise, and the box around what's drawn, from its transparency. A drawing with no see-through
+  // background (plain white, say) still works: its box is the whole picture.
+  const UNI_FILE_MAX = 10 * 1024 * 1024;
+  const sayErr = (text) => Object.assign(new Error(text), { say: text });
+  function decodeImage(file) {
+    const viaImg = () => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => resolve({ src: img, w: img.naturalWidth, h: img.naturalHeight, done: () => URL.revokeObjectURL(url) });
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode")); };
+      img.src = url;
+    });
+    if (typeof createImageBitmap !== "function") return viaImg();
+    return createImageBitmap(file).then((b) => ({ src: b, w: b.width, h: b.height, done: () => { if (b.close) b.close(); } }), viaImg);
+  }
+  const canvasOf = (w, ht) => { const c = document.createElement("canvas"); c.width = w; c.height = ht; return c; };
+  // Halving first keeps thin outlines smooth: one big step down drops most of their pixels.
+  function shrink(src, w0, h0, w, ht) {
+    let cur = src, cw = w0, ch = h0;
+    while (cw / 2 >= w && ch / 2 >= ht) {
+      const c = canvasOf(Math.round(cw / 2), Math.round(ch / 2)), g = c.getContext("2d");
+      g.imageSmoothingQuality = "high";
+      g.drawImage(cur, 0, 0, c.width, c.height);
+      cur = c; cw = c.width; ch = c.height;
+    }
+    const out = canvasOf(w, ht), g = out.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(cur, 0, 0, w, ht);
+    return out;
+  }
+  async function prepareDrawing(file) {
+    if (file.size > UNI_FILE_MAX) throw sayErr(`That file is ${sizeText(file.size)}. The limit is 10 MB, so pick a smaller copy.`);
+    // A file of no known type gets the benefit of the doubt: opening it decides.
+    if (file.type && !/^image\//i.test(file.type) && file.type !== "application/octet-stream") throw sayErr("That file isn't a picture. Pick the drawing (a PNG or WebP file).");
+    let pic;
+    try { pic = await decodeImage(file); } catch (e) { throw sayErr("Couldn't open that picture. Save it as a PNG or WebP and pick it again."); }
+    if (!pic.w || !pic.h) { pic.done(); throw sayErr("Couldn't open that picture. Save it as a PNG or WebP and pick it again."); }
+    const s = Math.min(1, 600 / pic.w, 1200 / pic.h), w = Math.max(1, Math.round(pic.w * s)), ht = Math.max(1, Math.round(pic.h * s));
+    const c = shrink(pic.src, pic.w, pic.h, w, ht);
+    pic.done();
+    const a = c.getContext("2d").getImageData(0, 0, w, ht).data;
+    let x0 = w, y0 = ht, x1 = -1, y1 = -1, clear = 0;
+    for (let y = 0; y < ht; y++) {
+      for (let x = 0; x < w; x++) {
+        const al = a[(y * w + x) * 4 + 3];
+        if (al < 128) clear++;
+        if (al > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+    }
+    if (x1 < 0) throw sayErr("That picture is empty: everything in it is see-through.");
+    let url = c.toDataURL("image/webp", 0.9), ext = "webp";
+    if (url.indexOf("data:image/webp") !== 0) { url = c.toDataURL("image/png"); ext = "png"; }
+    const box = [x0 / w, y0 / ht, (x1 - x0 + 1) / w, (y1 - y0 + 1) / ht].map((n) => roundTo(n, 4));
+    return { url, content: url.split(",")[1], ext, box, w, h: ht, opaque: clear < w * ht * 0.005, name: file.name || "Drawing" };
+  }
+  async function pickDrawing(which, file) {
+    if (!ed || !file) return;
+    const mine = ed, err = $("#itemFileError");
+    err.hidden = true;
+    let d;
+    try { d = await prepareDrawing(file); } catch (e) {
+      if (ed !== mine) return;
+      err.textContent = e.say || "Couldn't open that picture. Save it as a PNG or WebP and pick it again.";
+      err.hidden = false;
+      return;
+    }
+    if (ed !== mine) return;
+    ed.files[which] = d;
+    ed.up = null; // a new drawing: a new upload
+    if (which === "img") ed.item.box = d.box;
+    syncItem();
+    drawFit();
+  }
+
+  // The fit: the mannequin, faintly one other item for scale (pants under a top, a top over pants, a top under a tie or a
+  // blazer), and this item's drawing where its fit puts it. Drag it, or use the arrow keys; the slider sizes it.
+  function fitContext(it) {
+    const others = pub.uniform.items.filter((x) => !ed.was || x.id !== ed.was.id);
+    const first = (cat, ok) => others.filter((x) => x.cat === cat && (!ok || ok(x)))[0] || null;
+    const o = it.cat === "top" ? first("pants") : it.cat === "pants" ? first("top") : first("top", (x) => x[it.cat]) || first("top");
+    return o ? { item: o, src: it.cat === "tie" && o.img2 ? o.img2 : o.img, over: it.cat === "pants" } : null;
+  }
+  function drawFit() {
+    if (!ed) return;
+    const it = ed.item, frame = $("#itemFrame"), ctx = fitContext(it);
+    const src = ed.files.img ? ed.files.img.url : it.img ? uniformSrc(it.img) : "";
+    const layer = (item, s, cls) => { const img = h("img", { class: `u-layer ${cls}`, alt: "", src: s, draggable: "false" }); placeLayer(img, item); return img; };
+    const other = ctx ? layer(ctx.item, uniformSrc(ctx.src), "u-other") : null;
+    ed.layer = src ? layer(it, src, "u-mine") : null;
+    frame.replaceChildren(mannequinSvg(true), ...[ctx && !ctx.over ? other : null, ed.layer, ctx && ctx.over ? other : null,
+      src ? null : h("p", { class: "fit-empty", text: "Pick a drawing to see it here." })].filter(Boolean));
+    frame.classList.toggle("empty", !src);
+    $("#itemSize").value = String(Math.round(it.fit.s * 100));
+    $("#itemSize").disabled = !src;
+    $("#itemReset").disabled = !src;
+    fitOut();
+  }
+  function placeFit() {
+    if (ed.layer) placeLayer(ed.layer, ed.item);
+    fitOut();
+  }
+  function fitOut() {
+    const f = ed.item.fit, way = (n, less, more) => (Math.abs(n) < 0.05 ? "" : `${num(roundTo(Math.abs(n), 1))}% ${n < 0 ? less : more}`);
+    const moved = [way(f.x, "left", "right"), way(f.y, "up", "down")].filter(Boolean);
+    $("#itemSizeOut").textContent = `${Math.round(f.s * 100)}%`;
+    $("#itemFitOut").textContent = !ed.layer ? "" : moved.length ? `Moved ${moved.join(" and ")}.` : "Not moved.";
+  }
+  const fitClamp = (n) => roundTo(Math.min(50, Math.max(-50, n)), 2);
+  let drag = null, dragEnd = 0;
+  function dragStart(x, y) {
+    if (!ed || !ed.layer) return false;
+    const r = $("#itemFrame").getBoundingClientRect();
+    drag = { x, y, w: r.width || 1, h: r.height || 1, fx: ed.item.fit.x, fy: ed.item.fit.y };
+    return true;
+  }
+  function dragMove(x, y) {
+    if (!drag || !ed) return;
+    ed.item.fit.x = fitClamp(drag.fx + ((x - drag.x) / drag.w) * 100);
+    ed.item.fit.y = fitClamp(drag.fy + ((y - drag.y) / drag.h) * 100);
+    placeFit();
+  }
+  function dragStop() { if (drag) { drag = null; dragEnd = Date.now(); } }
+  // The arrow keys move it half a percent of the frame (with Shift, five).
+  function onFitKey(e) {
+    if (!ed || !ed.layer) return;
+    const n = e.shiftKey ? 5 : 0.5, d = { ArrowLeft: [-n, 0], ArrowRight: [n, 0], ArrowUp: [0, -n], ArrowDown: [0, n] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    ed.item.fit.x = fitClamp(ed.item.fit.x + d[0]);
+    ed.item.fit.y = fitClamp(ed.item.fit.y + d[1]);
+    placeFit();
+  }
+  function wireFit() {
+    const frame = $("#itemFrame");
+    frame.addEventListener("keydown", onFitKey);
+    if (window.PointerEvent) {
+      frame.addEventListener("pointerdown", (e) => {
+        if (e.button > 0 || !dragStart(e.clientX, e.clientY)) return;
+        e.preventDefault();
+        try { frame.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+        try { frame.focus({ preventScroll: true }); } catch (x) { frame.focus(); }
+      });
+      frame.addEventListener("pointermove", (e) => dragMove(e.clientX, e.clientY));
+      frame.addEventListener("pointerup", dragStop);
+      frame.addEventListener("pointercancel", dragStop);
+      return;
+    }
+    // Browsers from before pointer events (Safari 12): the mouse, and a finger.
+    frame.addEventListener("mousedown", (e) => {
+      if (e.button > 0 || !dragStart(e.clientX, e.clientY)) return;
+      e.preventDefault();
+      frame.focus();
+      const move = (m) => dragMove(m.clientX, m.clientY);
+      const up = () => { dragStop(); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    });
+    frame.addEventListener("touchstart", (e) => { const t = e.touches[0]; if (e.touches.length === 1 && dragStart(t.clientX, t.clientY)) e.preventDefault(); }, { passive: false });
+    frame.addEventListener("touchmove", (e) => { const t = e.touches[0]; if (drag && t) { e.preventDefault(); dragMove(t.clientX, t.clientY); } }, { passive: false });
+    frame.addEventListener("touchend", dragStop);
+    frame.addEventListener("touchcancel", dragStop);
+  }
+
+  // ---------- owner: uploading the drawings ----------
+  // Like the credentials PDF: straight to GitHub with his key. A file that turns out to be there already (a try that
+  // went through without an answer) is replaced; two saves in the same moment just try again.
+  const mimeOf = (path) => (/\.webp$/i.test(path) ? "image/webp" : /\.png$/i.test(path) ? "image/png" : "image/jpeg");
+  async function putUniformFile(path, content) {
+    const put = (sha) => gh("PUT", `/contents/${path}`, Object.assign({ message: "Add uniform image", content }, sha ? { sha } : {}));
+    try { return await put(); } catch (e) {
+      if (e.status !== 409 && e.status !== 422) throw e;
+      let sha = null;
+      try { const j = await gh("GET", `/contents/${path}`); sha = j && j.sha; } catch (x) { if (x.status !== 404) throw x; }
+      if (!sha && e.status === 422) throw e; // not about a file already there (too big, say)
+      return put(sha);
+    }
+  }
+  // A drawing straight from GitHub (the site can be a minute or two behind).
+  async function apiDrawing(path) {
+    const r = await fetch(`${API}/contents/${path}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.raw" } });
+    if (!r.ok) throw Object.assign(new Error(`GitHub ${r.status}`), { status: r.status });
+    return new Blob([await r.blob()], { type: mimeOf(path) });
+  }
+  const dataUrlOf = (blob) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error || new Error("read"));
+    r.readAsDataURL(blob);
+  });
+  // A drawing already in uniform/, read back to store under the item's new id (from this visit's memory, the site, or
+  // GitHub when the site doesn't have it yet).
+  async function existingDrawing(path) {
+    let url = uniformMem[path] || "";
+    try {
+      if (url.indexOf("data:") !== 0) {
+        let blob = null;
+        try { const r = await fetch(url || path, { cache: "no-store" }); if (r.ok && /^image\//.test(r.headers.get("content-type") || "")) blob = await r.blob(); } catch (e) { /* from GitHub below */ }
+        url = await dataUrlOf(blob || (await apiDrawing(path)));
+      }
+    } catch (e) { throw sayErr("Couldn't load this item's other drawing to store it again. Check your connection, or pick that drawing again too."); }
+    return { url, content: url.split(",")[1], ext: /\.(\w+)$/.exec(path)[1] };
+  }
+  const uploadError = (e) => (e.say ? e.say
+    : e.status === 401 ? "GitHub no longer accepts your key. In Settings, tap Stop Editing on This Device, then connect again."
+    : e.status === 403 || e.status === 404 ? "Your GitHub key can't save files. Set its Contents permission to Read and write."
+    : e.status === 413 || e.status === 422 ? "GitHub didn't accept the drawing. Try a smaller copy of it."
+    : "Couldn't upload the drawing. Check your connection and try again.");
+  // Drawings this browser uploaded, so the cleanup after a save knows it may remove them once nothing uses them.
+  function readUploads() { try { const m = JSON.parse(store.get(LS.uploads) || "{}"); return m && typeof m === "object" ? m : {}; } catch { return {}; } }
+  function noteUpload(path) { const m = readUploads(); m[path] = Date.now(); store.set(LS.uploads, JSON.stringify(m)); }
+  const newUniformId = () => Date.now().toString(36) + Array.from({ length: 4 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("");
+  const whenFree = () => new Promise((resolve) => { const wait = () => (busy ? setTimeout(wait, 150) : resolve()); wait(); });
+
+  // Save Item: new drawings go up first (under a new id, the item's other drawing with them); then the item takes its
+  // place in the list, as an unsaved change.
+  async function saveItem() {
+    if (!ed || ed.busy) return;
+    const mine = ed, it = ed.item, f = ed.files, err = $("#itemError");
+    it.name = $("#itemName").value.trim().slice(0, 60);
+    err.hidden = true;
+    const fail = (text, focus) => { err.textContent = text; err.hidden = false; if (focus) $(focus).focus(); };
+    if (!f.img && !it.img) return fail("Pick a drawing for this item first.", "#itemFile");
+    if (!it.name) return fail("Give it a name. Supervisors see it, and it's in the text they send you.", "#itemName");
+    const tie = it.cat === "top" && it.tie;
+    const keep2 = tie && f.img2 !== false ? f.img2 || it.img2 || null : null; // its buttoned-up drawing (new, or the one it had)
+    let id = it.id, img = it.img, img2 = typeof keep2 === "string" ? keep2 : "";
+    if (!id || f.img || (tie && f.img2)) {
+      ed.busy = true;
+      syncItemBusy();
+      try {
+        mine.up = mine.up || { id: newUniformId(), done: {} };
+        id = mine.up.id;
+        const send = async (d, path) => {
+          if (!mine.up.done[path]) { await putUniformFile(path, d.content); mine.up.done[path] = true; noteUpload(path); }
+          uniformMem[path] = d.url; // shown from here until the site has it
+        };
+        const one = f.img || (await existingDrawing(it.img));
+        img = `uniform/${id}.${one.ext}`;
+        await send(one, img);
+        if (keep2) {
+          const two = typeof keep2 === "string" ? await existingDrawing(keep2) : keep2;
+          img2 = `uniform/${id}-b.${two.ext}`;
+          await send(two, img2);
+        }
+      } catch (e) {
+        mine.busy = false;
+        if (ed === mine) { syncItemBusy(); fail(uploadError(e)); }
+        return;
+      }
+    }
+    await whenFree(); // a reload or merge under way finishes first, so it doesn't drop this
+    if (ed !== mine) return; // closed meanwhile: its files go unused, and the next save removes them
+    mine.busy = false;
+    const item = cleanUniformItem(Object.assign({}, it, { id, img, img2 }));
+    if (!item) { syncItemBusy(); return fail("Couldn't save this item. Check its drawing and name, then try again."); }
+    const list = pub.uniform.items.slice(), at = mine.was ? list.findIndex((x) => x.id === mine.was.id) : -1;
+    if (at >= 0) list[at] = item; else list.push(item);
+    pub.uniform = { hash: pub.uniform.hash, items: list };
+    itemFocus = item.id;
+    ed = null;
+    $("#itemSheet").close("");
+    afterChange();
+    renderUniSettings();
+    toast(`Item ${mine.was ? "updated" : "added"}. Tap Save to show supervisors.`, 4200);
+  }
+  function deleteItem() {
+    if (!ed || !ed.was || ed.busy) return;
+    if (!window.confirm(`Delete "${ed.was.name}"? Supervisors stop seeing it once you tap Save.`)) return;
+    const id = ed.was.id;
+    pub.uniform = { hash: pub.uniform.hash, items: pub.uniform.items.filter((x) => x.id !== id) };
+    itemFocus = "";
+    ed = null;
+    $("#itemSheet").close("");
+    afterChange();
+    renderUniSettings();
+    toast("Deleted. Tap Save to update what supervisors see.", 4200);
+  }
+
+  // After a save: drawings nothing uses any more are removed from uniform/ (best effort; one that fails stays until the
+  // next time). A drawing another device uploaded for an item it hasn't saved yet looks unused from here, so a file is
+  // only removed when this save stopped using it, this browser uploaded it, or it's older than unsaved changes are kept
+  // (30 days; the file name starts with when it was made).
+  async function cleanUniformFiles(before) {
+    const used = {}, was = {}, mine = readUploads();
+    const refs = (list, into) => { for (const x of list || []) { if (x && x.img) into[x.img] = true; if (x && x.img2) into[x.img2] = true; } };
+    refs(saved.pub.uniform.items, used);
+    refs(pub.uniform.items, used);
+    // Items in unsaved changes of this browser's other tabs.
+    for (const key of store.keys(LS.draftPrefix)) {
+      try { const d = JSON.parse(store.get(key)); refs(Object.values((d.uni && d.uni.items) || {}).map((e) => e && e.to), used); } catch { /* unreadable */ }
+    }
+    if (before) refs(before.pub.uniform.items, was);
+    const savedNow = {};
+    refs(saved.pub.uniform.items, savedNow);
+    const forget = (paths) => { const m = readUploads(); for (const p of paths) delete m[p]; store.set(LS.uploads, JSON.stringify(m)); };
+    forget(Object.keys(mine).filter((p) => savedNow[p])); // saved now: from here on, a later save removes it once it's unused
+    if (!Object.keys(was).concat(Object.keys(mine)).some((p) => !used[p])) return; // nothing this device knows went unused
+    let list;
+    try { list = await gh("GET", "/contents/uniform"); } catch (e) { return; }
+    const gone = [];
+    for (const file of Array.isArray(list) ? list : []) {
+      const path = `uniform/${file && file.name}`;
+      if (!file || file.type !== "file" || used[path]) continue;
+      const m = /^([a-z0-9]{12})(?:-b)?\./.exec(file.name), made = m ? parseInt(m[1].slice(0, 8), 36) : 0;
+      if (!(was[path] || mine[path] || !(Date.now() - made < 30 * 86400000))) continue; // maybe another device's unsaved item
+      try { await gh("DELETE", `/contents/${path}`, { message: "Remove unused uniform image", sha: file.sha }); gone.push(path); } catch (e) { /* next time */ }
+    }
+    forget(gone);
+  }
+  // Edit mode: a drawing the site doesn't have yet (uploaded a moment ago, here or on another device) comes from GitHub.
+  const fromApi = {};
+  function onImgError(e) {
+    const img = e.target;
+    if (!owner || !token || !img || img.tagName !== "IMG") return;
+    const path = img.getAttribute("src") || "";
+    if (!/^uniform\/[A-Za-z0-9-]+\.(png|webp|jpe?g)$/.test(path) || uniformMem[path] || fromApi[path]) return;
+    fromApi[path] = apiDrawing(path).then((blob) => {
+      uniformMem[path] = URL.createObjectURL(blob);
+      for (const x of document.querySelectorAll(`img[src="${path}"]`)) x.src = uniformMem[path];
+    }).catch(() => { /* stays empty */ });
+  }
+
   let fbAtOpen = "";
   let potAtOpen = { from: "", to: "" };
   function openSettings() {
@@ -3052,6 +3603,10 @@
     $("#setLicNo").value = pub.licNo;
     $("#setLicIssued").value = pub.licIssued;
     $("#setLicExpires").value = pub.licExpires;
+    uniAtOpen = { code: priv.uniformCode, hash: pub.uniform.hash };
+    $("#uniCodeError").hidden = true;
+    $("#setUniCode").value = priv.uniformCode;
+    renderUniSettings();
     $("#setFeedback").value = pub.feedback;
     fbAtOpen = pub.feedback;
     $("#setFeedbackError").hidden = true;
@@ -3084,6 +3639,7 @@
     else if (t.id === "setLicNo") pub.licNo = t.value.trim().slice(0, 40);
     else if (t.id === "setLicIssued") pub.licIssued = isDay(t.value) ? t.value : "";
     else if (t.id === "setLicExpires") pub.licExpires = isDay(t.value) ? t.value : "";
+    else if (t.id === "setUniCode") { if (uniLocked()) return; readUniCode(t); }
     else if (t.id === "setFeedback") {
       const typed = t.value.trim(), id = feedbackId(typed);
       $("#setFeedbackError").textContent = "That doesn't look like an email address. Until it's fixed, the address you had stays.";
@@ -3198,7 +3754,7 @@
         let skipped = 0;
         for (const d of drafts) skipped += applyDiff(d, true).skipped;
         restored = changes().days.size + (changes().settings ? 1 : 0);
-        if (skipped) setTimeout(() => toast(`${skipped} unsaved change${skipped === 1 ? " was" : "s were"} skipped because that day was saved from somewhere else since.`, 6000), 3500);
+        if (skipped) setTimeout(() => toast(`${skipped} unsaved change${skipped === 1 ? " was skipped because it was" : "s were skipped because they were"} saved differently from somewhere else since.`, 6000), 3500);
       }
       loadError = false;
       busy = false;
@@ -3321,6 +3877,7 @@
     const pubDaysOut = derivePublic(snapPub, payload.priv);
     const pubOut = Object.assign({ v: 2 }, snapPub, { days: pubDaysOut, weekly: weeklyPublic(payload.priv), ot: derivePublicOt(snapPub, payload.priv, pubDaysOut), updated: stamp, rev });
     const privText = JSON.stringify(Object.assign(JSON.parse(payload.text), { rev }));
+    const before = saved; // what this save replaces (for drawings it stops using)
     let stage = "check";
     try {
       // Check both files before writing either, so a newer save from another device is never overwritten.
@@ -3370,6 +3927,7 @@
       store.set(LS.lastWeekly, JSON.stringify(saved.priv.weekly));
       store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
+      cleanUniformFiles(before).catch(() => { /* best effort */ });
     } catch (e) {
       if (e.conflict || (stage === "private" && e.status === 409)) showSheet("#conflictSheet");
       else if (e.key || (stage === "private" && e.status === 403)) { privAccess = false; showSheet("#keySheet"); }
@@ -3463,6 +4021,8 @@
     $("#textAnyway").addEventListener("click", () => { const go = callGo; callGo = null; $("#callSheet").close(); if (go) go(); });
     $("#textAnywayLink").addEventListener("click", () => { const go = callGo; callGo = null; if (go) go(); setTimeout(() => $("#callSheet").close(), 0); });
     $("#callShow").addEventListener("click", () => { $("#callNumber").hidden = false; $("#callNumber").focus(); });
+    // A drag in the fit editor that ends outside the item's sheet isn't a tap on the backdrop.
+    $("#itemSheet").addEventListener("click", (e) => { if (e.target === e.currentTarget && Date.now() - dragEnd < 400) e.stopImmediatePropagation(); }, true);
     for (const d of document.querySelectorAll("dialog.sheet")) {
       d.addEventListener("click", (e) => { if (e.target === d) d.close(""); });
       d.addEventListener("cancel", () => { d.returnValue = ""; });
@@ -3533,6 +4093,7 @@
     $("#settingsSheet").addEventListener("close", () => {
       if (!$("#setFeedbackError").hidden) toast("Your feedback email didn't change, because the new one wasn't a full email address.", 5000);
       else if (!$("#setPotError").hidden) toast("Your P-OT start times didn't change, because the new ones couldn't be read.", 5000);
+      else if (!$("#uniCodeError").hidden) toast("Your My Uniform code didn't change, because the new one wasn't 4 to 8 letters or numbers.", 5000);
     });
     $("#credRemove").addEventListener("click", removeCred);
     $("#fbTest").addEventListener("click", onFeedbackTest);
@@ -3552,10 +4113,42 @@
     $("#noteTabs").addEventListener("keydown", onNoteKey);
     $("#noteAdd").addEventListener("click", addNote);
     $("#noteDelete").addEventListener("click", deleteNote);
+    // Settings → My Uniform, and the sheet for one item.
+    $("#uniNewCode").addEventListener("click", newUniCode);
+    $("#uniKeyHow").addEventListener("click", () => showSheet("#keySheet"));
+    $("#uniCopyLink").addEventListener("click", copyUniLink);
+    $("#uniItems").addEventListener("click", (e) => { const b = e.target.closest(".uni-item"); if (b) openItem(b.dataset.id); });
+    $("#itemForm").addEventListener("input", onItemChange);
+    $("#itemForm").addEventListener("change", onItemChange);
+    $("#itemForm").addEventListener("submit", (e) => { e.preventDefault(); saveItem(); }); // Enter in the name box
+    for (const [sel, which] of [["#itemFile", "img"], ["#itemFile2", "img2"]]) {
+      $(sel).addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = ""; // picking the same file again still counts
+        pickDrawing(which, file);
+      });
+    }
+    $("#itemDrop2").addEventListener("click", () => { if (!ed) return; ed.files.img2 = false; ed.up = null; syncItem(); $("#itemFile2").focus(); });
+    $("#itemPrompt").addEventListener("click", () => copyPrompt(false));
+    $("#itemPrompt2").addEventListener("click", () => copyPrompt(true));
+    iconLabel($("#itemPrompt"), "copy", "Copy Drawing Prompt");
+    iconLabel($("#itemPrompt2"), "copy", "Copy Buttoned-Up Prompt");
+    $("#itemReset").addEventListener("click", () => { if (!ed) return; ed.item.fit = { x: 0, y: 0, s: 1 }; $("#itemSize").value = "100"; placeFit(); });
+    $("#itemSave").addEventListener("click", saveItem);
+    $("#itemDelete").addEventListener("click", deleteItem);
+    $("#itemCancel").addEventListener("click", () => $("#itemSheet").close(""));
+    $("#itemSheet").addEventListener("close", () => {
+      ed = null;
+      drag = null;
+      // Back to its card in Settings (drawn again meanwhile), or to Add Item.
+      if ($("#settingsSheet").open && itemFocus != null) { renderUniItems(itemFocus); itemFocus = null; }
+    });
+    wireFit();
+    document.addEventListener("error", onImgError, true);
     $("#setNoteText").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
     $("#signOut").addEventListener("click", () => {
       leaving = true;
-      for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly]) store.del(k);
+      for (const k of [LS.token, ...store.keys(LS.draftPrefix), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly, LS.uploads]) store.del(k);
       nav.leave(() => location.reload());
     });
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));

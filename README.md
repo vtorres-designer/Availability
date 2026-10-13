@@ -16,20 +16,21 @@ Live at <https://vtorres-designer.github.io/Availability/>. The capital A matter
 
 A navy header with a faint display grid holds:
 
-- **Your badge:** a shield with your initials (from your name in Settings), "Security Officer" and your name.
-- **The status line,** with a softly pulsing green light: "Accepting overnight requests", built from the shifts you'll pick up in Settings ("Accepting overnight & swing requests", "Accepting overnight, swing & morning requests"). Uncheck them all and it says "Not taking extra shifts right now", with the light off.
+- **Your badge:** a shield with your initials (from your name in Settings), "Security Professional" and your name.
+- **The status line,** with a green status light that glows and dims on the same beat as your name: "Accepting overnight requests", built from the shifts you'll pick up in Settings ("Accepting overnight & swing requests", "Accepting overnight, swing & morning requests"). Uncheck them all and it says "Not taking extra shifts right now", with the light off.
 - **Call Me** (a rotary phone): it doesn't show your number. It opens a small box: "Best for shifts starting within 10 hours." and "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me.", with a **Pick a Day** button. That scrolls to the calendar only if it isn't already on screen (on a laptop it is), and makes the days they can ask about glow twice. So every request goes through the calendar's screening first; your number comes at the end, the same as always. The 10 follows your Settings (Ask supervisors to call when a shift starts within). At 0, the box says "Texting is the best way to reach me." instead. It shows only when your cell number is set.
 - **Your license:** "Denver Security Guard License · Active". Tap it to see the number and dates ("Issued Jun 16, 2026 · Expires Jun 16, 2027 · Renews yearly"). After the expiration date it says Expired, and edit mode reminds you to enter the new dates. Set it in Settings → License; leave the name empty to hide it.
 
 **When the page opens** (about 3 seconds, and nothing waits on it):
 1. The page breathes in. Your name falls into place letter by letter, and the days drop in on a diagonal wave from the top left to the bottom right.
 2. The status light switches on and "Accepting overnight requests" types itself out like a terminal.
-3. Once it has finished, a sparkle flashes in the middle of the strip under the header (on a laptop, in the gap between the panel and the calendar), and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines and sparkles.
+3. Once it has finished, a sparkle flashes in the middle of the strip under the header (on a laptop, in the gap between the panel and the calendar), and the strip opens out both ways. A ring of light runs out along the grid from your badge, and the badge shines.
 4. A shine crosses Call Me, then the license button.
+5. Once every shine is done, a big sparkle (a star, a small star and a ring of light) bursts on the badge's top-right corner.
 
 **Then, for as long as the page is open:**
 - the strip's colors flow and the grid drifts slowly
-- the status light pulses, and your name glows in step with it
+- the status light glows and dims, and your name glows in step with it
 - the green, yellow and P-OT days breathe a soft glow together (P-OT glows green); a day under a mouse holds its full glow
 - the blue arrow in front of "Tap a green or yellow day to text me about covering it." nudges toward it
 - every 9 seconds the Call Me and license icons glitch for a split second
@@ -38,14 +39,28 @@ While the calendar loads, the page stays out of sight (never more than 4 seconds
 
 The days a supervisor can ask about look like raised buttons; busy days lie flat and a little sunken, so the eye goes to the days you can take. Times and labels (week names, weekdays, "UPDATED 19:02 · OCT 8") use a monospace readout font, and today has a thin glowing outline. The links at the bottom each have a small icon (left out on the smallest phones, so each pair still fits on one line).
 
-**The night-shift line is part of your note:** "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." Checking **Overnight** under the shifts you'll pick up (Settings) adds it to your note, where you can edit or delete it like the rest; unchecking Overnight takes it out, and checking it again adds it back. If it doesn't fit in the note's 140 characters, Settings says so. The first time you open edit mode after this update, the line moves into your note on its own (tap **Save** to publish it; if your note is too long to fit it, a message says so); until then the page shows it in the Note box by itself. Like the rest of the note, it hides after a **Show the note until** date.
+## Notes to supervisors
 
-**Your note** (Settings → Note to supervisors) shows in a framed **Note** box near the top of the page, and again at the top of every day's window, so it's in front of supervisors right when they ask you for a shift. Give it a **Show the note until** date and it hides itself after that day, so a note like "Looking for extra hours this week" doesn't go stale.
+You can have up to 10 notes, each up to 140 characters, and each shows where you choose. Set them in **Settings → Notes to supervisors**: one tab per note, then **+ Add Note**. For the open note:
+
+- **The text,** with a counter (140 characters, one line).
+- **Show until** (optional): the note hides itself after that day, by the supervisor's clock, so a note like "Looking for extra hours this week" doesn't go stale. Once the date has passed, Settings says supervisors don't see it.
+- **Show this note on,** three switches:
+  - **Front page:** in the Note box under the header. Several front-page notes sit one under the other, each with its own NOTE tag.
+  - **Day window:** at the top of the window that opens when a day is tapped, on every step except the Customize Text First form.
+  - **Customize Text form:** at the top of that form instead. So a note never shows twice in one place, and the form shows exactly the form notes.
+- **Delete Note** (your own notes only). The rest are numbered again: Note 1, Note 2…
+
+A new note starts on the front page only. Where no note is switched on, nothing shows: no empty box, no gap. Notes are never part of the text a supervisor sends. A tab's small light is on while its note shows somewhere.
+
+**The night-shift note** ("A night shift is listed under the day it starts. Tue means Tue night into Wed morning.") is always there as the **Night shifts** tab, on the front page to start with. It shows only while **Overnight** is checked under the shifts you'll pick up: uncheck Overnight and the note and its tab go away; check it again and they come back as they were. You can change its text and switches, or empty it so nothing shows, but not delete it.
+
+Every change to a note is an ordinary unsaved change: tap **Save** to publish it. Your note from before this version came over by itself (the night-shift line from it became the Night shifts note), so there's nothing to redo.
 
 ## How supervisors text you
 
 1. **They tap a green or yellow day** and are asked **Which shift do you need covered?** (Morning, Swing or Overnight). A shift you don't take gets a short reply, like "Sorry, I'm not accepting Morning shifts right now." (P-OT days skip this step; see below.)
-2. **A simple window** asks **When does the shift start?** and **When does the shift end?**: a box for the time ("11", "1130", "11:30", "11pm") with **AM** and **PM** buttons. A 24-hour time like 2300 or 0700 picks PM or AM by itself.
+2. **A simple window** has **Starts** and **Ends** side by side: each a box for the time ("11", "1130", "11:30", "11pm") with a two-part **AM | PM** bar under it. A 24-hour time like 2300 or 0700 picks PM or AM by itself. Side by side, they leave room on a phone for **Send Text Now** and **Customize Text First** right under the text, without scrolling.
 3. Under that is **Your Text**, the message as it will go out, updating as they enter the times:
 
    > Hi Vincent. Are you available to cover an overnight shift on the night of Tuesday, Oct 13, from 11:00 PM to 7:00 AM? Let me know. Thanks!
@@ -85,7 +100,7 @@ Your **P-OT Shifts** settings decide what you'll take on those days:
 
 Either box can be left empty for no limit. A shift you'd turn down shows no bar and can't be sent, and if a supervisor changes the Shift Time on the full form to one you'd turn down, the top line says why and sending turns off. Supervisors can see these two settings, since their page does the checking; they say what you'd accept, not when you work.
 
-### On a laptop
+## On a laptop
 
 On a wide screen (a laptop or desktop, or a tablet turned sideways) the front page fills the window. The navy header becomes a band across the whole width: your badge and name large on the left, the status light under your name, and Call Me and the license button in one line on the right, with the box they open right under them. Below the band, a white panel on the left holds your front-page notes, the "Tap a green or yellow day" line and the color key, and the calendar sits beside it; both float over the band's lower edge, with the strip running along the band's bottom behind them. The four links run in one line along the bottom, with the Employee ID and Updated line under them. The days grow with the window, sharing its height between the weeks shown, so with three weeks the whole page fits without scrolling, from a small 960 × 560 window up to a big desktop screen (on short windows the header and spacing get tighter, and in Call Me's box the Pick a Day button sits beside the text). When the calendar has more weeks than fit, it scrolls by itself, with the weekday names staying at its top, and the page doesn't move. In a window taller than it is wide (a big tablet held upright), the page ends under the calendar instead of keeping the links at the very bottom. See What Supervisors See shows this same layout, just as it looks in a window shorter by the height of the bar along its bottom. A browser from before about 2020 shows the one-column page that a tablet held upright gets instead.
 
@@ -107,6 +122,90 @@ Every step is a screen of its own, so Back (the phone's gesture or the browser's
 
 The code is a "knock first", not a lock: the public calendar file has only a scrambled form of it (its SHA-256 hash), and anyone with the code can open the page. The code itself is saved with your private settings, never in the public file.
 
+### Setting it up (edit mode)
+
+**Settings → My Uniform**, right after License:
+
+- **Code for My Uniform:** 4 to 8 letters or numbers (small letters become capitals). **New Random Code** makes a 6-character one without the letters and numbers that look alike (I, L, O, 0 and 1). Text it to a supervisor once you've confirmed their shift. Change it any time; once you tap **Save**, the old code and old links stop working. Leave the box empty to turn My Uniform off. A code that's too short is never used: the one you had stays, and Settings tells you.
+- **Copy Link With Code** copies your calendar's link with the code built in (like `…/Availability/#uniform-K7Q2MX`), to text instead of the code. The link opens straight to the clothes. The link is shown under the button.
+- The code is kept with your private settings, so changing it needs your key's **Variables** permission. If your key can't save those, the box is switched off, with a line saying why.
+- **My clothes:** a card for each item (its drawing on a white tile, and its name), tops first, then pants, ties and blazers, and **+ Add Item** at the end (up to 40 items). Tap a card to change or delete it. A line under them says whether supervisors see the button yet (it needs a code, a top and a pair of pants).
+
+### Adding an item
+
+**+ Add Item** opens a window (on a laptop, the mannequin sits beside the rest):
+
+1. **Category:** Top, Pants, Tie or Blazer. Pick it first: the drawing prompt changes to match.
+2. **For a top, two switches:** **Can be worn with a tie** (off for polos and anything without a collar) and **Can be worn with a blazer** (usually long-sleeve dress shirts only). When a supervisor picks that top, they decide whether the Tie and Blazer rows are open.
+3. **Copy Drawing Prompt.** Paste it into a drawing AI with a photo of the item. For a top that can be worn with a tie, **Copy Buttoned-Up Prompt** asks for a second drawing with the collar buttoned up: paste it in the same chat right after the AI draws the shirt, so it changes only the collar. If your browser won't copy, the prompt shows on screen, selected, so you can copy it yourself.
+4. **Choose Drawing:** the picture the AI made. Use a drawing with a transparent background (PNG or WebP). One on plain white still works, but it covers the mannequin, and the window says so. For a top worn with a tie, there's also **Buttoned-up version (for a tie)** (optional; **Remove It** takes it off again).
+5. **Name:** supervisors see it, and it's in the text they send you (up to 60 characters).
+6. **Fit on the mannequin:** the drawing on the mannequin, with one of your other items faintly behind it for scale (pants under a top, a top over pants, a top under a tie or a blazer). If the AI put it a little off, drag it into place and use **Size** to make it bigger or smaller, once per item. **Reset** puts it back where the drawing had it. With a keyboard, tab to the mannequin and use the arrow keys (hold Shift to move it further).
+7. **Save Item** uploads the drawing right away. The item itself is then an unsaved change, like any other: tap **Save** to show it to supervisors. **Cancel** drops what you changed in the window. **Delete Item** asks first, then takes it off the list (for supervisors, once you tap Save).
+
+Before uploading, the page gets each drawing ready: anything bigger than 600 × 1200 is made smaller (never bigger), it's stored as WebP where the browser can make it (PNG otherwise), and the edges of what's drawn are found from its transparent part, so the picker's cards show just the clothes. A file that isn't a picture, or one over 10 MB, is turned away with a message saying why.
+
+Until GitHub Pages has a new drawing (a minute or two), edit mode and See What Supervisors See show it from the upload, or from GitHub after a reload. A new drawing gets a new file name, so no one's browser keeps showing an old one (changing an item's name, switches or fit keeps its files). After each **Save**, drawings nothing uses any more are deleted from `uniform/`. One that another device uploaded for an item it hasn't saved yet is left alone for 30 days, as long as unsaved changes are kept.
+
+Uploads use your token's **Contents** permission, like the credentials PDF. If GitHub turns one down, the window says why and keeps everything, so you can tap **Save Item** again.
+
+### The drawing prompts
+
+What **Copy Drawing Prompt** copies, here for a top:
+
+```
+Please draw a clothing illustration for the uniform picker on my website. I've attached a photo of the real item.
+
+WHAT TO DRAW
+- Only the item in the photo, exactly as it is: same color, collar, pockets, buttons, stitching, patches and badges.
+
+STYLE
+- A clean, flat illustration, like a fashion flat sketch: solid colors that match the real fabric, a thin outline a little darker than the fabric, and soft shading only for folds.
+- Straight-on front view, symmetrical, as if worn by an invisible person standing straight with arms relaxed at their sides.
+- No person, mannequin, hanger, shadow, floor, text or watermark.
+
+CANVAS (so it lines up on a mannequin on my website)
+- Portrait, exactly 1:2, for example 800 x 1600 pixels.
+- Transparent background (PNG). If you can't make it transparent, use plain solid white with nothing else on it.
+- Picture a person filling the canvas from the top of the head at the top edge to the soles at the bottom edge, centered left to right. Draw the item only, where it would sit on that person:
+- It's a top. The collar sits about 13% down from the top edge, the shoulders span about 40% of the width, and the hem sits about 50% down. Sleeves hang straight down at the sides; long sleeves end at the wrists, about 50% down.
+- If it has a collar and buttons, draw the top button undone with the collar slightly open.
+
+If I send more items in this chat, keep the same style, canvas and scale for all of them so they match.
+
+Give me just the image.
+```
+
+For the other categories, the lines after "where it would sit on that person:" are:
+
+- **Pants:** They're pants. The waistband sits about 48% down from the top edge and the hems about 96% down, legs straight and slightly apart, about 40% of the width across the hips.
+- **Tie:** It's a tie, hanging straight down the middle. The knot sits about 16% down from the top edge and the tip about 42% down. The tie is about 7% of the width across at its widest.
+- **Blazer:** It's a blazer, worn open. The shoulders span about 42% of the width at about 13% down, sleeves hang straight down to the wrists (about 50% down), and the hem sits about 54% down. Leave a V-shaped gap down the front, from the collar to the hem, where a shirt and tie would show.
+
+**Copy Buttoned-Up Prompt** copies:
+
+```
+Now make a second version of the shirt you just drew.
+
+Keep everything identical: the same canvas size, position, scale, colors, outline, shading and transparent background.
+
+The only change: button the collar all the way to the top, closed snugly around the neck, the way it's worn with a tie. Don't draw a tie.
+
+Give me just the image.
+```
+
+### Photo tips
+
+For the photo you give the drawing AI:
+
+- **One item per photo,** all of it in the frame and filling most of it.
+- **Flat and straight on:** lay it on a bed or the floor (or hang it on a door), buttoned and smoothed out, sleeves straight down at the sides, and shoot from straight above (or straight in front).
+- **A plain background** that's a different color from the item: dark pants on a light sheet, a white shirt on something darker.
+- **Even light,** like daylight from a window. No flash, and no strong shadows across it.
+- **The details close enough to read:** patches, badges, pockets and buttons, since the drawing copies them.
+- **Pants buttoned and zipped,** legs straight and slightly apart. Ties hanging straight; blazers open.
+- **Every item in the same chat,** one after another, so the drawings match in style and size. A clear phone photo is plenty.
+
 ## Works on any device
 
 Supervisors can open the link in any current browser on an iPhone, Android phone, iPad, Windows PC, Mac, Chromebook or Linux computer. Phones and browsers back to about 2019 work too. See "Sending, by device" above for how each one sends.
@@ -125,7 +224,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), your My Uniform drawings and their names (once you add them; the code that opens them isn't in the page), and when you last saved.
+The page never shows your shift times, the hours of any one day, your private day notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your notes to supervisors, your short-notice hours, your license (if you set it), your My Uniform drawings and their names (once you add them; the code that opens them isn't in the page), and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -140,7 +239,7 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 - `index.html`, `app.css`, `app.js`: the site.
 - `parser.js`: reads a pasted schedule.
 - `credentials.pdf`: your credentials, if you've uploaded them. Settings adds, replaces and removes it.
-- `uniform/`: the My Uniform drawings, once you've added some.
+- `uniform/`: the My Uniform drawings, once you've added some. Settings adds them, and a save deletes the ones nothing uses any more.
 - `vendor/qrcode.js`: draws the QR code for computers. It's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 (MIT license), kept in the repo so the page never loads code from another site.
 - `data.json`: the public calendar. The site rewrites it when you tap **Save**.
 - `.nojekyll`: tells GitHub Pages to serve the files as they are.
@@ -151,7 +250,7 @@ The Admin Login window only shows a link to GitHub's token page and a box for th
 
 1. Open GitHub's [fine-grained tokens](https://github.com/settings/personal-access-tokens) page. To make a token: **Generate new token**, name it **Availability calendar**, pick the longest expiration, and under Repository access choose **Only select repositories → Availability**. If you already have one, open it and tap **Regenerate token** to get a new code (GitHub only shows a code once).
 2. The token needs two repository permissions, both set to **Read and write**:
-   - **Contents** saves the public calendar.
+   - **Contents** saves the public calendar, and uploads your credentials PDF and My Uniform drawings.
    - **Variables** keeps your hours private.
 3. Copy the code (it starts with `github_pat_`), tap **Admin Login** at the bottom of the calendar, paste it and tap **Connect**. The same token works on every device; paste it on each one. Keep a copy in a password manager.
 4. If you made your token before Variables was needed, the site asks you to add it. Go to GitHub → Settings → Developer settings → Fine-grained tokens → **Availability calendar** → **Edit**, and set **Variables** to **Read and write**. You don't need to paste the token again.
@@ -197,15 +296,17 @@ Pick what a tap does in the toolbar:
 
 **See What Supervisors See** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
 
-Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days you changed are put back. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add My Changes to It** keeps both, and your change wins on any day you both edited. **Load the Newer One** drops what you changed on this device.
+Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days and settings you changed are put back (My Uniform's clothes item by item), and anything saved differently since is skipped, with a message. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add My Changes to It** keeps both, and your change wins on any day you both edited. **Load the Newer One** drops what you changed on this device.
 
 ## Settings
 
 - **Every Week:** check the days you work (or are busy) every single week. They show red every week until you uncheck them. For a day you work, you can add the start and end times and paid hours, so they count toward overtime and the yellow and P-OT days stay right. To change just one date, like a holiday, tap that day on the calendar (or paste it in Add Schedule). Picking **Every Week** in that day's editor puts it back. Adding, changing or turning off a day counts from today: days already past in this pay week keep what they were, and a day you turn off still counts today. On your calendar, these days show a small ↻. Supervisors just see red.
 - The shifts you'll usually pick up. Supervisors see the names only.
-- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, how many hours ahead a shift has to be before supervisors are asked to call instead (10 by default; 0 turns it off), and an optional note with an optional show-until date (shown in the Note box and in each day's window). Changing your name changes it in both places. Supervisors see it after you tap **Save**.
+- **Notes to supervisors:** see Notes to supervisors above.
+- Your name (shown at the top, and the first name is used in texts), your **employee ID** (shown in small grey text at the very bottom, above the time you last saved), your cell number, and how many hours ahead a shift has to be before supervisors are asked to call instead (10 by default; 0 turns it off). Changing your name changes it everywhere it shows. Supervisors see it after you tap **Save**.
 - **Credentials PDF:** **Upload PDF**, **Replace PDF** or **Remove PDF**. These happen right away, without tapping Save. Supervisors see the change within a minute or two. The limit is 20 MB.
 - **License:** the name, number, issue date and expiration date for the button at the top of the page.
+- **My Uniform:** the code, the link with it, and your clothes (see Setting it up, under My Uniform).
 - **Email for feedback:** where Send Feedback messages go. They're forwarded by [FormSubmit](https://formsubmit.co), a free service with no account. The first message to a new address sends you an email from FormSubmit; open it and tap **Activate Form**, or nothing arrives. Tap **Send a Test** to do that right away. Reports sent before you activate are delivered once you do. Like everything in Settings except the PDF, the address reaches supervisors when you tap **Save**.
 - **Pay week ends** sets the day your pay week ends at midnight (Thursday for you). Hours are counted by the clock: a Thursday 2300-0700 shift counts 1 hour toward that week and 7 toward the next.
 - **P-OT Shifts:** the start times and longest shift you'd take on a P-OT day (see P-OT days above).
@@ -217,6 +318,6 @@ Changes you haven't saved stay on that device, even if the tab closes. They come
 - Anyone with the link can see your name, employee ID, cell number, license number and dates (if you set them), calendar colors and credentials PDF. The page tells search engines not to list it.
 - Your feedback email is in the public calendar file, because supervisors' browsers send reports to it, and a saved address stays in the file's history even if you change it later. To keep it private, tap **Send a Test**, activate, and paste the random code FormSubmit emails you in place of your email before you tap **Save**.
 - After you publish a new version of the site, reload any calendar tab you left open on your phone or computer before editing there. An old tab doesn't know about newer settings.
-- A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions.
+- A replaced or removed credentials PDF stays in the repository's history on GitHub, so anyone who looks there can still find older versions. The same goes for My Uniform drawings.
 - Your GitHub token is saved only in that device's browser. To remove it, use **Settings → Stop Editing on This Device**, or delete the token on GitHub. Stop Editing also clears that browser's unsaved changes and its backup copy of your every-week days and times, and closes edit mode in that browser's other tabs.
 - Older versions of `data.json` stay in the repo's history. The first version held the default shift times, not your real ones.
