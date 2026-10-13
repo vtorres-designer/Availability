@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_blank">
+<style>
+body { font: 14px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; color: #141b2b; margin: 0; padding: 4px 2px; }
+form { display: grid; gap: 12px; }
+label { display: grid; gap: 4px; font-weight: 600; }
+small { font-weight: 400; color: #586276; }
+input { font: inherit; padding: 8px 9px; border: 1px solid #c7d0de; border-radius: 8px; }
+button { font-family: inherit; font-weight: 700; font-size: 14px; padding: 10px; border-radius: 9px; border: 0; background: #1c7f46; color: #fff; cursor: pointer; }
+.box { background: #f2f4f8; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+code { font: 12.5px ui-monospace, Menlo, monospace; word-break: break-all; background: #fff; padding: 2px 4px; border-radius: 4px; user-select: all; }
+.ok { color: #1c7f46; font-weight: 700; } .no { color: #b3261e; font-weight: 700; }
+</style>
+</head>
+<body>
+<form id="f">
+  <label>Gemini API key <small id="g"></small><input name="gemini" type="password" autocomplete="off" placeholder="Paste from aistudio.google.com (API keys)"></label>
+  <label>GitHub key for your private hours <small id="h"></small><input name="github" type="password" autocomplete="off" placeholder="Optional. Lets the rules see your shift times."></label>
+  <label>Gemini model <small>Leave as is unless Gemini says the model isn't found.</small><input name="model"></label>
+  <label>Your website <input name="siteUrl"></label>
+  <button type="submit">Save</button>
+  <span id="msg"></span>
+</form>
+<div class="box" id="info" style="margin-top:14px"></div>
+<script>
+var S = <?!= state ?>;
+function show(s) {
+  document.getElementById("g").innerHTML = s.hasGemini ? '<span class="ok">Saved.</span> Paste a new one to replace it.' : '<span class="no">Not set yet.</span>';
+  document.getElementById("h").innerHTML = s.hasGithub ? '<span class="ok">Saved.</span> Type - to remove it.' : "Not set. Without it, work days count as busy.";
+  document.querySelector("[name=model]").value = s.model;
+  document.querySelector("[name=siteUrl]").value = s.siteUrl;
+  document.getElementById("info").innerHTML =
+    "<b>For your iPhone Shortcut</b> (the key):<code>" + s.secret + "</code>" +
+    (s.url ? "<b>Web app address</b> (for the Shortcut):<code>" + s.url + "</code><b>Your inbox</b> (save to your Home Screen):<code>" + s.inbox + "</code>"
+           : "<b>Web app address:</b> not deployed yet. Do Deploy &gt; New deployment, then open this window again.");
+}
+show(S);
+document.getElementById("f").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var fd = new FormData(e.target), o = {};
+  fd.forEach(function (v, k) { o[k] = String(v); });
+  document.getElementById("msg").textContent = "Saving…";
+  google.script.run.withSuccessHandler(function (s) { e.target.reset(); show(s); document.getElementById("msg").innerHTML = '<span class="ok">Saved.</span>'; })
+    .withFailureHandler(function (err) { document.getElementById("msg").innerHTML = '<span class="no">' + err.message + "</span>"; }).saveSetup(o);
+});
+</script>
+</body>
+</html>

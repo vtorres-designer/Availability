@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+/* The page an alert opens: one text, what was read from it, why, and the reply to approve.
+   Also the inbox (recent texts) and My Sites, each from the saved link. */
+:root { --bg: #f2f4f8; --fg: #141b2b; --muted: #586276; --line: #dfe5ee; --card: #fff; --navy: #0f264a; --blue: #2f7de0; --green: #1c7f46; --red: #b3261e; }
+@media (prefers-color-scheme: dark) { :root { --bg: #10141c; --fg: #e8ecf3; --muted: #9aa5b8; --line: #2a3242; --card: #181e29; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; -webkit-text-size-adjust: 100%; }
+.head { color: #fff; padding: 14px 16px; display: grid; gap: 6px; padding-top: max(14px, env(safe-area-inset-top));
+  background: linear-gradient(rgba(120,180,255,.07) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, rgba(120,180,255,.07) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(160deg, #0f264a, #081831); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge { font: 700 11px ui-monospace, Menlo, monospace; letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; color: #fff; }
+.when { margin-left: auto; font: 600 12px ui-monospace, Menlo, monospace; color: #9fc0ea; }
+h1 { margin: 0; font-size: 23px; line-height: 1.15; }
+.sub { font-size: 14px; color: #c3d4ec; }
+nav { display: flex; gap: 6px; }
+nav button { font-family: inherit; font-weight: 600; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; }
+nav button[aria-current="page"] { background: #fff; color: var(--navy); }
+main { padding: 14px 16px 40px; display: grid; gap: 12px; max-width: 640px; margin: 0 auto; }
+.lbl { font-family: inherit; font-weight: 700; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bubble { background: #e5e7eb; color: #141b2b; border-radius: 18px 18px 18px 4px; padding: 9px 12px; justify-self: start; max-width: 95%; white-space: pre-wrap; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+dl.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 14.5px; }
+dl.facts dt { color: var(--muted); font-weight: 600; } dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+.path { display: grid; gap: 5px; font-size: 14.5px; }
+.path div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; }
+.ok { color: var(--green); font-weight: 700; } .no { color: var(--red); font-weight: 700; } .end { color: var(--blue); font-weight: 700; }
+.final { font-weight: 700; }
+textarea { width: 100%; min-height: 92px; font: inherit; color: #fff; background: var(--blue); border: 0; border-radius: 18px 18px 4px 18px; padding: 10px 12px; resize: vertical; }
+textarea:focus { outline: 3px solid #9fc0ea; }
+.to { font-size: 13px; color: var(--muted); text-align: right; margin-top: -6px; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn { display: block; text-align: center; font-family: inherit; font-weight: 700; font-size: 16px; padding: 13px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--fg); text-decoration: none; cursor: pointer; }
+.btn.go { grid-column: 1 / -1; background: var(--green); border-color: var(--green); color: #fff; }
+.btn.small { padding: 8px 12px; font-size: 14px; display: inline-block; }
+.btn.sms { background: var(--green); border-color: var(--green); color: #fff; }
+.done { background: #e7f5ec; color: #14532d; border: 1px solid #b6e0c4; border-radius: 12px; padding: 10px 12px; font-size: 14.5px; }
+.warn { background: #fff8e6; color: #5c3d00; border: 1px solid #f0d48a; border-radius: 12px; padding: 10px 12px; font-size: 14.5px; display: grid; gap: 8px; }
+.out { display: flex; gap: 6px; flex-wrap: wrap; }
+.out button { font-family: inherit; font-weight: 600; font-size: 14px; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+.out button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.item { display: grid; gap: 2px; padding: 11px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: inherit; cursor: pointer; text-align: left; font: inherit; width: 100%; }
+.item .t { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 11px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.site .a { font-size: 14px; color: var(--muted); }
+.site .acts { grid-row: span 3; display: grid; gap: 6px; }
+form { display: grid; gap: 8px; }
+label { display: grid; gap: 3px; font-size: 14px; font-weight: 600; }
+input { font: inherit; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+.muted { color: var(--muted); font-size: 14px; }
+.err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="head" id="head"></div>
+<main id="main"><p class="muted">Loading…</p></main>
+<script>
+var BOOT = <?!= boot ?>;
+var COLORS = { top: "#b3261e", urgent: "#1c7f46", special: "#8a5a00", alert: "#8a5a00", accept: "#6b3fa0", ask: "#2f6fb8", network: "#0f6e74", question: "#2f6fb8", decline: "#5d6573", ignore: "#5d6573" };
+var auth = { k: BOOT.k, t: BOOT.t };
+var view = BOOT.id ? "entry" : BOOT.page === "sites" ? "sites" : "inbox", cur = BOOT.id, entry = null;
+function api(fn) {
+  var args = [].slice.call(arguments, 1);
+  return new Promise(function (ok, no) { var r = google.script.run.withSuccessHandler(ok).withFailureHandler(no); r[fn].apply(r, args); });
+}
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+var $ = function (id) { return document.getElementById(id); };
+function smsHref(phone, body) { var p = String(phone || "").replace(/[^\d+]/g, ""); if (p.length === 10) p = "+1" + p; return "sms:" + p + (body ? "&body=" + encodeURIComponent(body) : ""); }
+
+function head(badge, color, title, sub, when) {
+  $("head").innerHTML = (badge ? '<div class="row"><span class="badge" style="background:' + color + '">' + esc(badge) + '</span><span class="when">' + esc(when || "") + "</span></div>" : "") +
+    "<h1>" + esc(title) + "</h1>" + (sub ? '<div class="sub">' + esc(sub) + "</div>" : "") +
+    (auth.k ? '<nav><button type="button" data-v="inbox"' + (view === "inbox" ? ' aria-current="page"' : "") + '>Inbox</button><button type="button" data-v="sites"' + (view === "sites" ? ' aria-current="page"' : "") + ">My Sites</button></nav>" : "");
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("nav button"); if (b) { view = b.dataset.v; draw(); }
+  var it = e.target.closest("[data-open]"); if (it) { view = "entry"; cur = +it.dataset.open; draw(); }
+});
+function fail(e) { $("main").innerHTML = '<p class="err">' + esc(e && e.message || e) + "</p>"; }
+
+function draw() {
+  window.scrollTo(0, 0);
+  $("main").onclick = null;
+  if (view === "entry") return api("apiEntry", auth, cur).then(drawEntry, fail);
+  if (view === "sites") return api("apiSites", auth).then(drawSites, fail);
+  return api("apiList", auth).then(drawInbox, fail);
+}
+
+// ---------- one text ----------
+var FACT_NAMES = { site: "Site", date: "Date", time: "Time", hoursByDay: "Hours by day", calendar: "Your calendar", offers: "Shifts" };
+function drawEntry(e) {
+  entry = e;
+  head(e.label || "Text", COLORS[e.level] || "#5d6573", e.facts && e.facts.summary || "A text", "From " + e.from + (e.allied ? "" : " (not in your Allied contacts)"), e.received);
+  var facts = Object.keys(FACT_NAMES).filter(function (k) { return e.info[k]; }).map(function (k) { return "<dt>" + FACT_NAMES[k] + "</dt><dd>" + esc(e.info[k]) + "</dd>"; }).join("");
+  var path = e.path.map(function (p) { var m = { ok: "✓", no: "✕", end: "→", skip: "–" }[p[0]] || ""; return '<div class="' + (p[0] === "end" ? "final" : "") + '"><span class="' + p[0] + '">' + m + "</span><span>" + esc(p[1]) + "</span></div>"; }).join("");
+  var handled = e.action && e.action !== "";
+  var html = '<div class="lbl">Their text</div><div class="bubble">' + esc(e.text) + "</div>" +
+    (facts ? '<div class="lbl">What I read</div><div class="card"><dl class="facts">' + facts + "</dl></div>" : "") +
+    '<div class="lbl">Why</div><div class="card path">' + path + "</div>" +
+    (e.newSite ? '<div class="warn"><span><b>' + esc(e.newSite) + "</b> isn't in My Sites.</span><button type=\"button\" class=\"btn small\" id=\"addSite\">Add to My Sites</button></div>" : "");
+  if (e.suggested && e.action !== "Ignored") {
+    html += '<div class="lbl">Reply</div><textarea id="reply" aria-label="Reply">' + esc(e.actual || e.suggested) + '</textarea><div class="to">to ' + esc(e.from) + " · tap the text to edit it</div>" +
+      (handled ? '<div class="done">' + esc(e.action) + (e.action === "Sent" || e.action === "Auto-sent" ? ": “" + esc(e.actual) + "”" : "") + "</div>" : "") +
+      '<div class="btns"><a class="btn go" id="send" href="#">' + (handled ? "Send again in Messages" : "Send in Messages") + '</a><a class="btn" href="' + smsHref(e.phone) + '">Open chat</a><button type="button" class="btn" id="skip">Don\'t reply</button></div>' +
+      '<p class="muted">Send opens Messages with this reply typed; tap Send there. If you change it in Messages, fix it here first so the log matches.</p>';
+  } else {
+    html += '<div class="btns"><a class="btn go" href="' + smsHref(e.phone) + '">Open chat with ' + esc(e.from) + "</a></div>";
+  }
+  html += '<div class="lbl">How did it turn out?</div><div class="out" id="out">' + ["Got the shift", "Didn't get it", "Withdrawn", "Rule was wrong"].map(function (o) { return '<button type="button" aria-pressed="' + (e.outcome === o) + '">' + o + "</button>"; }).join("") + "</div>" +
+    '<input id="note" placeholder="Notes for the next version (optional)" aria-label="Notes">' +
+    (e.error ? '<p class="err">Error: ' + esc(e.error) + "</p>" : "") +
+    (!auth.k ? '<p class="muted">Your inbox and My Sites are on your saved Shift Assistant link.</p>' : "");
+  $("main").innerHTML = html;
+  var send = $("send");
+  if (send) send.addEventListener("click", function () {
+    var text = $("reply").value.trim();
+    send.href = smsHref(e.phone, text);
+    api("apiAct", auth, e.id, "sent", text).then(function () { e.action = "Sent"; e.actual = text; });
+  });
+  if ($("skip")) $("skip").addEventListener("click", function () { api("apiAct", auth, e.id, "skip", "").then(function () { draw(); }); });
+  $("out").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button"); if (!b) return;
+    api("apiOutcome", auth, e.id, b.textContent, $("note").value || null).then(function () { e.outcome = b.textContent; [].forEach.call($("out").children, function (x) { x.setAttribute("aria-pressed", String(x === b)); }); });
+  });
+  if ($("addSite")) $("addSite").addEventListener("click", function () {
+    var o = (e.facts && e.facts.offers || [])[0] || {};
+    api("apiSaveSite", auth, { name: e.newSite, address: o.address || "", supervisor: e.from, phone: e.phone }, e.id).then(function () {
+      $("addSite").parentNode.outerHTML = '<div class="done">Added ' + esc(e.newSite) + " to My Sites with " + esc(e.from) + " as the supervisor. Change it any time in the sheet.</div>";
+    }, fail);
+  });
+}
+
+// ---------- inbox ----------
+function drawInbox(list) {
+  head("", "", "Shift Assistant", "Your recent texts, newest first.");
+  $("main").innerHTML = list.length ? list.map(function (e) {
+    return '<button type="button" class="item" data-open="' + e.id + '"><span class="row"><span class="badge" style="background:' + (COLORS[e.level] || "#5d6573") + '">' + esc(e.label) + "</span><b>" + esc(e.from) + '</b><span class="when" style="color:var(--muted)">' + esc(e.received) + '</span></span><span class="t">' + esc(e.text) + '</span><span class="t">' + esc(e.action || "Waiting for you") + (e.outcome ? " · " + esc(e.outcome) : "") + "</span></button>";
+  }).join("") : '<p class="muted">No texts yet.</p>';
+}
+
+// ---------- My Sites ----------
+function drawSites(sites) {
+  head("", "", "My Sites", "Offers from sites not on this list come to you as special requests.");
+  $("main").innerHTML = sites.map(function (s) {
+    return '<div class="site"><b>' + esc(s.name) + '</b><div class="acts">' + (s.phone ? '<a class="btn small sms" href="' + smsHref(s.phone) + '">Text</a>' : "") + '<button type="button" class="btn small" data-edit="' + s.row + '">Edit</button></div>' +
+      '<span class="a">' + esc(s.address || "No address yet") + '</span><span class="a">' + esc(s.supervisor ? s.supervisor + (s.phone ? " · " + s.phone : "") : "No supervisor yet") + "</span></div>";
+  }).join("") + '<button type="button" class="btn" data-edit="new">+ Add a site</button><div id="form"></div>';
+  $("main").onclick = function (ev) {
+    var b = ev.target.closest("[data-edit]"); if (!b) return;
+    var s = b.dataset.edit === "new" ? { row: null, name: "", aliases: [], address: "", supervisor: "", phone: "", notes: "" } : sites.filter(function (x) { return String(x.row) === b.dataset.edit; })[0];
+    $("form").innerHTML = '<form class="card" id="sf"><b>' + (s.row ? "Edit " + esc(s.name) : "New site") + "</b>" +
+      [["name", "Site name"], ["aliases", "Other names supervisors use (commas between)"], ["address", "Address"], ["supervisor", "Supervisor"], ["phone", "Supervisor phone"], ["notes", "Notes"]].map(function (f) {
+        return "<label>" + f[1] + '<input name="' + f[0] + '" value="' + esc(f[0] === "aliases" ? s.aliases.join(", ") : s[f[0]]) + '"' + (f[0] === "phone" ? ' type="tel"' : "") + "></label>";
+      }).join("") + '<button class="btn go" type="submit">Save</button></form>';
+    $("sf").scrollIntoView({ behavior: "smooth" });
+    $("sf").addEventListener("submit", function (ev2) {
+      ev2.preventDefault();
+      var fd = new FormData(ev2.target), o = { row: s.row };
+      fd.forEach(function (v, k) { o[k] = k === "aliases" ? String(v).split(/\s*,\s*/).filter(Boolean) : String(v).trim(); });
+      api("apiSaveSite", auth, o, null).then(drawSites, fail);
+    });
+  };
+}
+draw();
+</script>
+</body>
+</html>
