@@ -102,6 +102,50 @@
   </footer>
 </main>
 
+<!-- Supervisors: My Uniform. The corner button, then a full-screen view over the page in three steps: the code from
+     his text, the clothes to pick, and the mannequin wearing them with the text to send. -->
+<button type="button" class="ufab" id="uniformBtn" hidden><span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><b>My Uniform</b><span class="u-lock"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code</span></button>
+<section class="uni" id="uniform" aria-label="My Uniform" hidden>
+  <div class="u-code" id="uCode" hidden>
+    <div class="u-hero">
+      <button type="button" class="u-pill u-cal"><span aria-hidden="true">‹ </span><span class="sr">Back to the </span>Calendar</button>
+      <div class="u-mid">
+        <div class="u-row1">
+          <span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+          <div><p class="u-kick u-who"></p><h2 tabindex="-1">My Uniform</h2></div>
+        </div>
+        <p class="u-lead">Booked a shift with me? Pick what you'd like me to wear.</p>
+      </div>
+    </div>
+    <div class="u-stripe" aria-hidden="true"></div>
+    <form class="u-codecard" id="uCodeForm" novalidate autocomplete="off">
+      <label class="u-lock" for="uCodeIn"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code from my text</label>
+      <input type="text" class="u-codein" id="uCodeIn" maxlength="8" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="····" aria-describedby="uCodeErr">
+      <p class="u-err" id="uCodeErr" role="alert"></p>
+      <button type="submit" class="btn go wide" id="uOpen">Open</button>
+    </form>
+    <div class="u-below" aria-hidden="true"></div>
+  </div>
+  <div class="u-sheet u-pick" id="uPick" hidden>
+    <button type="button" class="u-pill u-cal"><span aria-hidden="true">‹ </span><span class="sr">Back to the </span>Calendar</button>
+    <div class="u-head"><p class="u-kick u-who"></p><h2 tabindex="-1">My Uniform</h2></div>
+    <div class="u-rows" id="uRows"></div>
+    <p class="u-lbl" id="uPicksLabel">Your picks</p>
+    <div class="u-picks" id="uPicks" role="group" aria-labelledby="uPicksLabel"></div>
+    <button type="button" class="btn go wide" id="uSeeBtn" disabled>See It On the Mannequin</button>
+  </div>
+  <div class="u-sheet u-see" id="uSee" hidden>
+    <button type="button" class="u-pill" id="uChange"><span aria-hidden="true">‹ </span>Change Outfit</button>
+    <div class="u-head"><p class="u-kick">My Uniform</p><h2 tabindex="-1">Your Pick</h2></div>
+    <div class="u-stage"><div class="u-frame" id="uFrame" role="img"></div></div>
+    <div class="u-out">
+      <p class="u-lbl">Your text</p>
+      <p class="u-text" id="uText"></p>
+      <div id="uSend"></div>
+    </div>
+  </div>
+</section>
+
 <!-- Owner toolbar -->
 <nav class="toolbar" id="toolbar" hidden aria-label="Editing tools">
   <div class="brushes" role="radiogroup" aria-label="What a tap does">

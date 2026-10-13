@@ -91,6 +91,22 @@ On a wide screen (a laptop or desktop, or a tablet turned sideways) the front pa
 
 Edit mode keeps its two columns: the header (as a card), the edit-mode box, color key and links on the left, the calendar on the right, scrolling by itself. On a short laptop screen, edit mode may scroll a little to reach the Employee ID and Updated lines, but the calendar stays in view. The full message form sits side by side too: the boxes on the left, the message and the QR code on the right, so nothing needs scrolling.
 
+## My Uniform
+
+Supervisors who booked a shift with you can pick what you'll wear, from drawings of your own clothes. A small navy **My Uniform** button (a green shirt, with a green lock and CODE under the words) floats in the bottom right corner of the page, with a shine crossing it now and then. It shows once you've set a code and added at least one top and one pair of pants, on the page supervisors see and in See What Supervisors See (above the preview's bar), never in edit mode. On a phone the page ends far enough below the links that the button never covers them; on a laptop the bottom right corner is kept free for it.
+
+It opens a full-screen page over the calendar, in three steps:
+
+1. **The code.** Your header's look across the top half of the screen: "My Uniform", "Booked a shift with me? Pick what you'd like me to wear.", then a card with a box for the **code from my text** and **Open** (Enter works too), and a faint mannequin underneath. Small letters and spaces are fine. A wrong code says "That code doesn't match. Check my text and try again." Once a code works, that browser tab doesn't ask again until it's closed (and if you change the code, the old one stops working right away).
+2. **The clothes.** A row of cards for each kind: Tops, Pants, Tie and Blazer (rows you have nothing for are left out). Each card shows just the drawing's clothes, cropped close, and its name. One pick per row; tapping another card replaces it. Tie and Blazer start on **None**. A top that can't be worn with a tie or a blazer (a polo) switches those rows off with a line like "No tie with the navy polo.", and drops a tie or blazer already picked. The picks show under **Your picks** as bubbles, each with an × to take it off. **See It On the Mannequin** turns on once there's a top and pants. On a phone each row scrolls sideways; on a wider screen all the cards are in view.
+3. **Your Pick.** A flat navy mannequin wearing the picks, layered pants, top, tie, blazer (a shirt shows buttoned up when a tie is picked and you've added that drawing), and **Your text**: "Hi Vincent, for the shift please wear: White uniform shirt, long sleeve; navy tie; black blazer; black dress pants. Thanks!" **Send As Text** works like the calendar's texts: on a phone it opens their texting app with your number and the text (with Copy Message and Copy Number for other apps); on a computer it shows a QR code to scan, your number, and a **Copy Message** button. There's no short-notice check here, since it isn't about a shift time. On a laptop the mannequin stands beside the text.
+
+Every step is a screen of its own, so Back (the phone's gesture or the browser's button) steps back one screen at a time, and **‹ Calendar** (or Escape) closes it, leaving the calendar where it was. **‹ Change Outfit** goes back to the clothes with the picks still there.
+
+**Links:** add `#uniform` to your calendar's link to open the code page, or `#uniform-` and the code (like `…/Availability/#uniform-K7Q2MX`) to open straight to the clothes. The code is cleared from the address bar right away, so it isn't left in a link someone copies. A wrong or old code in a link shows the code page with that code and the message.
+
+The code is a "knock first", not a lock: the public calendar file has only a scrambled form of it (its SHA-256 hash), and anyone with the code can open the page. The code itself is saved with your private settings, never in the public file.
+
 ## Works on any device
 
 Supervisors can open the link in any current browser on an iPhone, Android phone, iPad, Windows PC, Mac, Chromebook or Linux computer. Phones and browsers back to about 2019 work too. See "Sending, by device" above for how each one sends.
@@ -109,7 +125,7 @@ Anyone can tap **Share This Calendar** at the bottom of the page, next to **See 
 
 ## What supervisors never see
 
-The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), and when you last saved.
+The page never shows your shift times, the hours of any one day, notes (like the site name), or whether a red day is work or something personal. It shows the days, the colors, the shift names you'll pick up, your P-OT start times and longest shift, your name, your number, your note, your short-notice hours, your license (if you set it), your My Uniform drawings and their names (once you add them; the code that opens them isn't in the page), and when you last saved.
 
 To count overtime hours from whatever shift time a supervisor types, the public calendar file also has your usual shift length and, for each pay week within one usual shift of overtime, how many hours you have left before it. Weeks further from overtime aren't listed. From those numbers someone could work out your weekly total ("2 hours left, so he's at 38"), which you're fine with. GitHub keeps every older copy of the file, so comparing two copies can also show how many hours a newly red day added.
 
@@ -124,6 +140,7 @@ The public calendar file (`data.json`) holds only that public part. Your times, 
 - `index.html`, `app.css`, `app.js`: the site.
 - `parser.js`: reads a pasted schedule.
 - `credentials.pdf`: your credentials, if you've uploaded them. Settings adds, replaces and removes it.
+- `uniform/`: the My Uniform drawings, once you've added some.
 - `vendor/qrcode.js`: draws the QR code for computers. It's [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 (MIT license), kept in the repo so the page never loads code from another site.
 - `data.json`: the public calendar. The site rewrites it when you tap **Save**.
 - `.nojekyll`: tells GitHub Pages to serve the files as they are.
