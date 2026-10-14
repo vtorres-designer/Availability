@@ -83,7 +83,7 @@
   const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d4.", draftPrefix3: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", lastPub: "sa.pubcopy", uploads: "sa.uploads" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d4.", draftPrefix3: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", uploads: "sa.uploads" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", pot: "P-OT", ot: "OT", busy: "Busy", unset: "" };
@@ -285,7 +285,8 @@
   // front page, the day window, the Customize Text form. One note is always the night-shift line (auto: "night"): it
   // shows only while he takes overnights, and it can be edited or emptied but not deleted.
   const NIGHT_LINE = "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.";
-  const NOTES_MAX = 10;
+  const NOTES_MAX = 10; // of his own: the night-shift note doesn't count (he can't add or delete it, and it hides with Overnight)
+  const ownNotes = (list) => list.filter((n) => !n.auto).length;
   const nightNote = (id, text) => ({ id, text, until: "", front: true, day: false, form: false, auto: "night" });
   const noteNum = (n) => (/^n\d{1,4}$/.test(n.id) ? Number(n.id.slice(1)) : 0);
   // One note with all its fields, in this order (null if it isn't one).
@@ -300,12 +301,12 @@
     const out = [];
     let night = null;
     for (const n of list) {
-      const c = out.length < NOTES_MAX ? cleanNote1(n) : null;
+      const c = out.length <= NOTES_MAX ? cleanNote1(n) : null;
       if (!c) continue;
       if (c.auto) {
         if (night) continue; // only one
         night = c;
-      } else if (!night && out.length >= NOTES_MAX - 1) continue; // room for the night note
+      } else if (ownNotes(out) >= NOTES_MAX) continue;
       out.push(c);
     }
     // Ids are "n1", "n2"... and unique; a missing or repeated one gets the next free number.
@@ -548,7 +549,8 @@
       }
     }
     // Settings a newer version of the site added are kept, so saving from here doesn't erase them.
-    for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev" && k !== "pickups" && k !== "notesPublic" && k !== "notesLostAt") d[k] = r[k];
+    // pubCopy is this version's own (see save), read straight from the variable.
+    for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev" && k !== "pickups" && k !== "pubCopy") d[k] = r[k];
     // Picks on work days can't be shown here. They're set aside under their own name (never folded in again, so a
     // later change to that day wins), so no note or shift list he typed is lost.
     if (kept) d.pickupsSetAside = Object.assign({}, r.pickupsSetAside && typeof r.pickupsSetAside === "object" ? r.pickupsSetAside : {}, kept);
@@ -940,23 +942,25 @@
   // dropped without a word. full: what applyDiff returned.
   function fullText(full) {
     const out = [];
-    const n = full ? full.notes : 0, items = full ? full.items : [];
-    if (n) out.push(`You can have ${NOTES_MAX} notes, so ${n === 1 ? "a new note" : `${n} new notes`} from here ${n === 1 ? "wasn't" : "weren't"} added.`);
+    const notes = full ? full.notes : [], items = full ? full.items : [];
+    // The note's whole text, so he can add it again (nothing else keeps it).
+    if (notes.length) out.push(`You can have ${NOTES_MAX} notes of your own, so ${notes.map((x) => (x.trim() ? `"${x.trim()}"` : "a new empty note")).join(", ")} ${notes.length === 1 ? "wasn't" : "weren't"} added. Delete one, then add it again.`);
     if (items.length) out.push(`My Uniform holds ${UNIFORM_MAX} items, so ${items.map((x) => `"${x}"`).join(", ")} ${items.length === 1 ? "wasn't" : "weren't"} added. Delete one, then add it again.`);
     return out.join(" ");
   }
   // Notes' part of a diff (see diffOf), note by note as applyUniform goes item by item. Ids are "n1", "n2"... in the order notes were
   // added, so a note added here and one added elsewhere can share one: the one from here then takes the next free id
   // (noteMoved: from which id to which, so the note open in Settings follows it).
-  // There's always one night-shift note, and it's never removed. Returns how many new notes didn't fit.
+  // There's always one night-shift note, and it's never removed. Returns the texts of new notes that didn't fit.
   const noteMoved = {};
   function applyNotes(u, take) {
     for (const k of Object.keys(noteMoved)) delete noteMoved[k];
-    if (!u || typeof u !== "object" || !u.items || typeof u.items !== "object") return 0;
+    if (!u || typeof u !== "object" || !u.items || typeof u.items !== "object") return [];
     const notes = pub.notes.slice(), order = Array.isArray(u.order) ? u.order : [];
     const rank = (id) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
     const list = Object.entries(u.items).sort((a, b) => keeps(a) - keeps(b) || rank(a[0]) - rank(b[0]));
-    let free = Math.max(0, ...notes.map(noteNum), ...list.map(([id]) => noteNum({ id }))) + 1, full = 0;
+    let free = Math.max(0, ...notes.map(noteNum), ...list.map(([id]) => noteNum({ id }))) + 1;
+    const full = [];
     for (const [id, entry] of list) {
       let e = entry;
       const to = e && e.to ? cleanNote1(e.to) : null;
@@ -964,7 +968,8 @@
       let i = notes.findIndex((n) => n.id === id);
       // The night-shift note is the one marked night, whatever its id: a file an older copy of the page saved numbers the
       // notes by their place, so its id can change. A change to it goes to it, and a change to another note never does.
-      if ((to && to.auto) || (e.from && e.from.auto)) {
+      // What it changes to decides (a note of his that took the night-shift note's old id is still his).
+      if (to ? to.auto : e.from && e.from.auto) {
         i = notes.findIndex((n) => n.auto);
         if (i >= 0 && notes[i].id !== id) {
           const nid = notes[i].id, from = e.from ? cleanNote1(Object.assign({}, e.from, { id: nid })) : null;
@@ -977,7 +982,7 @@
       if (!take(e, i >= 0 ? notes[i] : null)) continue;
       if (i >= 0) { if (to) notes[i] = to; else notes.splice(i, 1); continue; }
       if (!to) continue;
-      if (to.auto || notes.length >= NOTES_MAX) { if (!to.auto) full++; continue; }
+      if (to.auto || ownNotes(notes) >= NOTES_MAX) { if (!to.auto) full.push(to.text); continue; }
       // New here: right after the note it followed on the device that added it (first, if it led the list).
       let at = order.indexOf(id) < 0 ? notes.length : 0;
       for (let j = order.indexOf(id) - 1; j >= 0; j--) {
@@ -2507,7 +2512,7 @@
   function showUni(step, back) {
     const el = $("#uniform");
     uni.step = step;
-    uni.shownAt = Date.now(); // a fast second tap doesn't land on what just appeared (see wire)
+    uni.shownAt = performance.now(); // a fast second tap doesn't land on what just appeared (see wire)
     for (const [s, sel] of Object.entries(UNI_STEPS)) $(sel).hidden = s !== step;
     if (step === "code") fillCode();
     if (step === "pick") { buildPicker(); syncPicker(); }
@@ -2518,6 +2523,9 @@
       : step === "code" && !isPhone() ? (unlocked() ? "#uOpen" : "#uCodeIn") : `${UNI_STEPS[step]} h2`;
     const f = target && $(target);
     if (f) try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); }
+    // A window zoomed far in can leave it out of sight: brought to the middle (with Open under the code box, mostly).
+    const b = f && f.getBoundingClientRect();
+    if (b && (b.bottom > window.innerHeight || b.top < 0)) try { f.scrollIntoView({ block: "center" }); } catch (e) { /* old browser */ }
   }
   function openUniform(step) {
     const el = $("#uniform");
@@ -2569,8 +2577,17 @@
   // failed load, still opens it); once it's used, it's gone, so a later reload doesn't open My Uniform again.
   const UNI_LINK = "sa.uniformLink";
   let uniLinkWaiting = "";
+  // Also with anything after it: a text that ends with the link can hand over "?", "/" or ")" with it.
+  const isUniformLink = (hash) => /^#uniform(?![A-Za-z0-9])/i.test(hash);
+  // The code: the letters and numbers right after "#uniform-" (spaces in it don't count).
+  function linkCode(hash) {
+    if (hash.charAt(8) !== "-") return "";
+    let raw = hash.slice(9);
+    try { raw = decodeURIComponent(raw); } catch (e) { /* as it is */ }
+    return raw.match(/^[A-Za-z0-9 ]*/)[0].replace(/ /g, "").slice(0, 8).toUpperCase();
+  }
   function takeUniformLink() {
-    if (!/^#uniform(?:-[^/?#]*)?$/i.test(location.hash)) return;
+    if (!isUniformLink(location.hash)) return;
     uniLinkWaiting = location.hash;
     session.set(UNI_LINK, uniLinkWaiting);
     try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) { /* ignore */ }
@@ -2578,15 +2595,12 @@
   async function routeUniform() {
     takeUniformLink();
     const link = uniLinkWaiting || session.get(UNI_LINK) || "";
-    const m = link.match(/^#uniform(?:-([^/?#]*))?$/i);
-    if (!m) return;
+    if (!isUniformLink(link)) return;
     // The calendar isn't in yet (boot comes back for it), or it couldn't be read (a refresh comes back for it).
     if (!dataIn) { if (loadError && !ownerView()) toast("My Uniform isn't available right now.", 4200); return; }
     uniLinkWaiting = "";
     session.del(UNI_LINK);
-    let raw = m[1] || "";
-    try { raw = decodeURIComponent(raw); } catch (e) { /* as it is */ }
-    const code = raw.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase();
+    const code = linkCode(link);
     if (!uniformLive()) {
       // Not open (yet): a code that matches is still kept for this visit, so it opens unlocked once it is.
       if (code && pub.uniform.hash) { try { await tryUniformCode(code); } catch (e) { /* ask again */ } }
@@ -2630,7 +2644,8 @@
       const t = inCal ? Math.max(b.top, top) : b.top, btm = inCal ? Math.min(b.bottom, bottom) : b.bottom;
       return b.width > 0 && btm > t && b.left < r.right && b.right > r.left && t < r.bottom && btm > r.top;
     };
-    fab.classList.toggle("tuck", Array.prototype.some.call(document.querySelectorAll("#weeks .day, .foot .linkish, .foot .empid"), under));
+    // Never while it has the focus: stepping aside would drop the focus to the page.
+    fab.classList.toggle("tuck", fab !== document.activeElement && Array.prototype.some.call(document.querySelectorAll("#weeks .day, .foot .linkish, .foot .empid"), under));
   }
   function fabCheck() { if (!fabFrame) fabFrame = requestAnimationFrame(fabDodge); }
 
@@ -3213,7 +3228,7 @@
     const n = openNote();
     renderNoteTabs(list);
     if (lost) try { (noteSel ? $(`#noteTab-${noteSel}`) : $("#noteAdd")).focus(); } catch (e) { /* ignore */ }
-    $("#noteAdd").hidden = pub.notes.length >= NOTES_MAX;
+    $("#noteAdd").hidden = ownNotes(pub.notes) >= NOTES_MAX;
     $("#noteNone").hidden = !!n;
     $("#noteEdit").hidden = !n;
     if (!n) return;
@@ -3237,8 +3252,9 @@
     const key = JSON.stringify(list.map((x) => [x.id, noteTitle(x), x.id === noteSel, lit(x)]));
     if (key === noteTabsKey && tabs.children.length === list.length) return;
     noteTabsKey = key;
+    // The light, said: it's only drawn.
     tabs.replaceChildren(...list.map((x) => h("button", { type: "button", role: "tab", class: "note-tab", id: `noteTab-${x.id}`, "data-id": x.id,
-      "aria-selected": String(x.id === noteSel), "aria-controls": "noteEdit", tabindex: x.id === noteSel ? "0" : "-1" },
+      "aria-selected": String(x.id === noteSel), "aria-controls": "noteEdit", tabindex: x.id === noteSel ? "0" : "-1", "aria-label": `${noteTitle(x)}, ${lit(x) ? "showing" : "not showing"}` },
     h("span", { class: lit(x) ? "pip" : "pip off", "aria-hidden": "true" }), noteTitle(x))));
     if (focused && noteSel) $(`#noteTab-${noteSel}`).focus();
   }
@@ -3271,7 +3287,7 @@
     return true;
   }
   function addNote() {
-    if (pub.notes.length >= NOTES_MAX) return;
+    if (ownNotes(pub.notes) >= NOTES_MAX) return;
     // A new id, also unlike the notes deleted since the last save, so a change to a deleted note can't land on it.
     const n = { id: `n${Math.max(0, ...pub.notes.map(noteNum), ...(saved ? saved.pub.notes.map(noteNum) : [])) + 1}`, text: "", until: "", front: true, day: false, form: false };
     // Right after his last note, so the night-shift line keeps its place.
@@ -3348,7 +3364,21 @@
     input.value = randomCode();
     readUniCode(input);
     afterChange();
+    // The focus stays on the button, so the new code is said (the box and the link changed out of sight of a screen reader).
+    uniSay(`New code ${input.value.split("").join(" ")}. It works for supervisors once you tap Save.`);
   }
+  // The "couldn't read the code" line: the box starts empty there, so emptying it can't turn My Uniform off. This does.
+  function uniTurnOff() {
+    if (uniLocked()) return;
+    uniAtOpen = { code: "", hash: "" }; // a half-typed code now falls back to off
+    $("#setUniCode").value = "";
+    readUniCode($("#setUniCode"));
+    afterChange();
+    try { $("#setUniCode").focus(); } catch (e) { /* ignore */ }
+    uniSay("My Uniform is off. Supervisors stop seeing it once you tap Save.");
+  }
+  // Said to screen readers (Settings → My Uniform's status line, out of sight).
+  const uniSay = (text) => { const el = $("#uniSaid"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 50); };
   const uniLink = () => (priv.uniformCode ? `${shareUrl()}#uniform-${priv.uniformCode}` : "");
   function selectText(el) {
     try { const r = document.createRange(), s = window.getSelection(); r.selectNodeContents(el); s.removeAllRanges(); s.addRange(r); } catch (e) { /* ignore */ }
@@ -3365,7 +3395,9 @@
 
   function renderUniSettings() {
     const input = $("#setUniCode"), locked = uniLocked();
-    if (document.activeElement !== input) input.value = priv.uniformCode;
+    // Not the box he's in, nor one still holding a code too short to use (it keeps what he typed, and its line, as the
+    // email box does).
+    if (document.activeElement !== input && $("#uniCodeError").hidden) input.value = priv.uniformCode;
     input.disabled = locked;
     $("#uniNewCode").disabled = locked;
     $("#uniLocked").hidden = !locked;
@@ -3460,10 +3492,11 @@
     $("#itemOpaque").hidden = !(f.img && f.img.opaque);
     $("#itemName").placeholder = `e.g. ${{ top: "White uniform shirt, long sleeve", pants: "Black tactical pants", tie: "Navy tie", blazer: "Black blazer" }[it.cat]}`;
   }
-  // While it uploads, the window stays open (Cancel, ×, Escape and a tap outside wait), so the item isn't lost.
+  // While it uploads, the window stays open (Cancel, ×, Escape and a tap outside wait), so the item isn't lost. Save Item
+  // only says it's off (saveItem waits): a disabled button would drop the keyboard's focus to the page.
   function syncItemBusy() {
     const busyNow = !!(ed && ed.busy);
-    $("#itemSave").disabled = busyNow;
+    $("#itemSave").setAttribute("aria-disabled", String(busyNow));
     $("#itemSave").textContent = busyNow ? "Uploading…" : "Save Item";
     for (const s of ["#itemDelete", "#itemCancel", "#itemSheet .x"]) $(s).disabled = busyNow;
   }
@@ -3815,7 +3848,9 @@
       const m = /^([a-z0-9]{12})(?:-b)?\./.exec(file.name), made = m ? parseInt(m[1].slice(0, 8), 36) : 0;
       // One uploaded here in the last minutes may belong to an item a Save Item is still adding (in this tab or another).
       const fresh = mine[path] && Date.now() - mine[path] < 10 * 60000;
-      if (!(was[path] || (mine[path] && !fresh) || !(Date.now() - made < 30 * 86400000))) continue; // maybe another device's unsaved item
+      // With no clothes saved, an old file may be one of a list an older copy of the page dropped: it stays.
+      const old = saved.pub.uniform.items.length && !(Date.now() - made < 30 * 86400000);
+      if (!(was[path] || (mine[path] && !fresh) || old)) continue; // maybe another device's unsaved item
       try { await gh("DELETE", `/contents/${path}`, { message: "Remove unused uniform image", sha: file.sha }); gone.push(path); } catch (e) { /* next time */ }
     }
     forget(gone);
@@ -3948,11 +3983,10 @@
     const otBehind = read && nearOt(file.ot) !== nearOt(derivePublicOt(p, v, derived));
     return !!file.migrated || upcoming(file.days) !== upcoming(derived) || !same(file.weekly, weeklyPublic(v)) || otBehind;
   }
-  // The private settings also say (this version writes both; older copies keep fields they don't know):
-  //   notesPublic: the public file has his notes and My Uniform, so a file without them was saved by an older copy;
-  //   notesLostAt: when an older copy removed them and the device that saved found no copy of its own to put back; the
-  //     device that has one puts them back on its next visit (see putBackLost), then its save clears it.
-  const LOST_FOR = 30 * 86400000; // as long as unsaved changes are kept
+  // The private settings also keep a copy of the notes and My Uniform clothes his last save in this version had (pubCopy,
+  // see save). An older copy of this page leaves both out of the public file when it saves, but it keeps settings it
+  // doesn't know in the private ones, so the copy is still there. Like his hours, the copy wins where the file doesn't
+  // have what it says, and the file needs publishing again.
   async function loadOwnerState(tok) {
     const [pubRes, privRes] = await Promise.all([getPublicRemote(tok), getPrivateRemote(tok)]);
     const file = readPublicFile(pubRes.raw);
@@ -3964,6 +3998,33 @@
     } else {
       v = file.migrated ? file.migrated.priv : privFromPublicDays(file.days, file.weekly);
     }
+    // Older copies of this page don't know every-week days and save without them. The new version always writes the key.
+    const weeklyLost = privRes.status === 200 && !/"weekly"\s*:/.test(privRes.value || "");
+    // Nor his notes or My Uniform, which they leave out of the public file (this version always writes both).
+    const raw = pubRes.raw && typeof pubRes.raw === "object" ? pubRes.raw : {};
+    const pubLost = raw.v === 2 && (!Array.isArray(raw.notes) || !raw.uniform || typeof raw.uniform !== "object");
+    // The copy is newer than the file when the file lost them, or when the private settings were saved after it (a save
+    // writes the same rev into both, private first: the public part of his last save didn't go through). Only a save by an
+    // older copy (both with one rev) took them off his page; that's said (lostWhat, for lostText).
+    const copy = parsed && parsed.pubCopy && typeof parsed.pubCopy === "object" && Array.isArray(parsed.pubCopy.notes) ? parsed.pubCopy : null;
+    const lostWhat = [];
+    let copyBehind = false;
+    if (copy && (pubLost || parsed.rev !== raw.rev)) {
+      const older = pubLost && typeof raw.rev === "string" && raw.rev === parsed.rev;
+      let notes = cleanNotes(copy.notes);
+      // A note the older copy added (its one note) stays too. (Otherwise the copy is just newer: what isn't in it was deleted.)
+      if (older) {
+        const texts = notes.map((n) => n.text);
+        notes = cleanNotes(notes.filter((n) => !n.auto).concat(p.notes.filter((n) => !n.auto && texts.indexOf(n.text) < 0), notes.filter((n) => n.auto)));
+      }
+      const core = (list, own) => list.filter((n) => !n.auto === own).map((n) => Object.assign({}, n, { id: "" }));
+      if (!same(core(notes, true), core(p.notes, true))) lostWhat.push("notes");
+      else if (!same(core(notes, false), core(p.notes, false))) lostWhat.push("night"); // only the night-shift note differs
+      if (!same(notes, p.notes)) { p.notes = notes; copyBehind = true; }
+      const items = cleanUniform({ items: copy.items }).items;
+      if (!same(items, p.uniform.items)) { if (items.length) lostWhat.push("My Uniform clothes"); p.uniform = { hash: p.uniform.hash, items }; copyBehind = true; }
+      if (!older) lostWhat.length = 0;
+    }
     // The private schedule is the source of truth and the public file is built from it. If they differ
     // (a save stopped after storing the hours), the public file just needs publishing again.
     // My Uniform's code and its hash go together. A save that stopped after the private settings (or an older copy of
@@ -3973,23 +4034,12 @@
     const pubHash = p.uniform.hash;
     const wanted = v.uniformCode ? codeHash(v.uniformCode) : parsed && parsed.uniformCode === "" ? "" : pubHash, hashBehind = wanted !== pubHash;
     if (hashBehind) p.uniform = { hash: wanted, items: p.uniform.items };
-    const behind = fileBehind(file, v, privRes.status === 200) || hashBehind;
-    // Older copies of this page don't know every-week days and save without them. The new version always writes the key.
-    const weeklyLost = privRes.status === 200 && !/"weekly"\s*:/.test(privRes.value || "");
-    // Nor his notes or My Uniform, which they leave out of the public file (this version always writes both). The first
-    // visit after an older version saved looks the same: only notesPublic tells that this version had saved them.
-    const raw = pubRes.raw && typeof pubRes.raw === "object" ? pubRes.raw : {};
-    const pubLost = raw.v === 2 && (!Array.isArray(raw.notes) || !raw.uniform || typeof raw.uniform !== "object");
-    const lostAt = parsed && typeof parsed.notesLostAt === "number" && Date.now() - parsed.notesLostAt < LOST_FOR ? parsed.notesLostAt : 0;
-    const lost = (pubLost && !!parsed && parsed.notesPublic === true) || (!pubLost && !!lostAt);
-    return { weeklyLost, pubLost, lost, lostAt, pub: p, priv: v, pubHash, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
+    const behind = fileBehind(file, v, privRes.status === 200) || hashBehind || copyBehind;
+    return { weeklyLost, lostWhat, pub: p, priv: v, pubHash, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
   }
-  const keepPubCopy = (p) => store.set(LS.lastPub, JSON.stringify({ notes: p.notes, items: p.uniform.items }));
-  let lostSince = 0; // see notesLostAt (loadOwnerState): an older copy removed his notes and clothes, and they aren't back yet
-  // What an older open copy of this page left out when it saved: every-week days (from the private settings), and the
-  // notes and My Uniform's clothes (from the public file). This device's last copy puts them back, as unsaved changes,
-  // with any notes and clothes added since. Also when another device that had no copy saved since (st.lostAt): this
-  // device's copy is then kept until it's put back. Returns what came back, for lostText.
+  // What an older open copy of this page left out when it saved: every-week days (from the private settings: this device's
+  // last copy of them puts them back, as unsaved changes), and the notes and My Uniform's clothes (the private settings'
+  // copy put them back already, see loadOwnerState). Returns what came back, for lostText.
   function putBackLost(st) {
     const back = [];
     try {
@@ -3997,28 +4047,15 @@
       if (st.weeklyLost && last.length && !priv.weekly.length) { priv.weekly = last; back.push("every-week days"); }
       else if (!st.weeklyLost) store.set(LS.lastWeekly, JSON.stringify(st.priv.weekly));
     } catch { /* unreadable */ }
-    let put = false;
-    try {
-      const last = JSON.parse(store.get(LS.lastPub) || "null");
-      if ((st.pubLost || st.lostAt) && last && typeof last === "object") {
-        if (Array.isArray(last.notes)) {
-          const copy = cleanNotes(last.notes), texts = copy.map((n) => n.text);
-          const added = pub.notes.filter((n) => !n.auto && texts.indexOf(n.text) < 0);
-          const notes = cleanNotes(copy.filter((n) => !n.auto).concat(added, copy.filter((n) => n.auto)));
-          if (!same(notes, pub.notes)) { pub.notes = notes; back.push("notes"); }
-        }
-        const copy = cleanUniform({ items: last.items }).items, ids = copy.map((x) => x.id);
-        if (copy.some((x) => !uniformItemIn(pub, x.id))) {
-          pub.uniform = cleanUniform({ hash: pub.uniform.hash, items: copy.concat(pub.uniform.items.filter((x) => ids.indexOf(x.id) < 0)) });
-          back.push("My Uniform clothes");
-        }
-        put = back.indexOf("notes") >= 0 || back.indexOf("My Uniform clothes") >= 0;
-      } else if (!st.pubLost) keepPubCopy(st.pub);
-    } catch { /* unreadable */ }
-    lostSince = st.lost && !put ? st.lostAt || Date.now() : 0;
-    return back;
+    return back.concat(st.lostWhat);
   }
-  const lostText = (back, kept) => `An older open copy of this page removed your ${back.length > 1 ? `${back.slice(0, -1).join(", ")} and ${back[back.length - 1]}` : back[0]} when it saved. ${kept ? "They're back, and saved." : "They're back here. Tap Save to keep them."}`;
+  // back: what came back ("night": his night-shift note, which the older copy changed rather than removed).
+  function lostText(back, kept) {
+    const gone = back.filter((x) => x !== "night"), night = back.indexOf("night") >= 0;
+    const what = [gone.length ? `removed your ${gone.length > 1 ? `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}` : gone[0]}` : "", night ? "changed your night-shift note" : ""].filter(Boolean).join(" and ");
+    const after = gone.length ? (kept ? "They're back, and saved." : "They're back here. Tap Save to keep them.") : kept ? "It's back as you had it, and saved." : "It's back as you had it here. Tap Save to keep it.";
+    return `An older open copy of this page ${what} when it saved. ${after}`;
+  }
 
   async function enterOwner() {
     busy = true;
@@ -4040,8 +4077,8 @@
       dataIn = true;
       store.del(LS.draft2); // from a test build; never stored real data
       forgetAutoCopies();
-      const back = putBackLost(st), copy = !!store.get(LS.lastPub);
-      let restored = 0;
+      const back = putBackLost(st), was = JSON.stringify([pub, priv]);
+      let restored = false;
       if (!standIn) {
         // The first version of the site stored a full copy; only its marked days that are still unset here come back.
         try {
@@ -4066,31 +4103,21 @@
         }
         drafts.sort((a, b) => (a.ts || 0) - (b.ts || 0));
         let skipped = 0, replaced = 0;
-        const full = { notes: 0, items: [] };
+        const full = { notes: [], items: [] };
         // Unsaved changes made on the replaced Oct 12-13 copy (it kept a "pickups" list) follow different rules,
         // so they aren't guessed at; he's told to check those days instead.
         for (const d of drafts) {
           if (d.pickups) { replaced++; continue; }
           const r = applyDiff(d, true);
-          skipped += r.skipped; full.notes += r.full.notes; full.items.push(...r.full.items);
+          skipped += r.skipped; full.notes.push(...r.full.notes); full.items.push(...r.full.items);
         }
-        restored = changes().days.size + (changes().settings ? 1 : 0);
+        // Only what the unsaved changes brought (not what was put back above).
+        restored = JSON.stringify([pub, priv]) !== was;
         const said = [skipped ? `${skipped} unsaved change${skipped === 1 ? " was skipped because it was" : "s were skipped because they were"} saved differently from somewhere else since.` : "", fullText(full)].filter(Boolean).join(" ");
         if (said) setTimeout(() => toast(said, 6000), 3500);
         if (replaced) setTimeout(() => toast("Changes you hadn't saved on the Oct 12-13 version of this site couldn't be brought back. Check the days you changed then.", 8000), said ? 10000 : 3500);
       }
       if (back.length) setTimeout(() => toast(lostText(back), 8000), 600);
-      // An older copy removed his notes and clothes (the private settings say this version had saved them), and this device
-      // has no copy to put back: he's told where they still are. Its saves keep saying so (notesLostAt) until that
-      // device has put them back.
-      else if (lostSince) setTimeout(() => toast("An older open copy of this page removed your My Uniform clothes and notes when it saved. To get them back, open edit mode on the device you last saved them from.", 8000), 600);
-      // An older copy dropped My Uniform before this version could mark it (the code is still in the private settings, and
-      // drawings are in uniform/), and this device has no copy of the clothes to put back.
-      else if (st.pubLost && !copy && priv.uniformCode && !pub.uniform.items.length) {
-        gh("GET", "/contents/uniform").then((list) => {
-          if (Array.isArray(list) && list.length) toast("An older open copy of this page removed your My Uniform clothes and notes when it saved. To get them back, open edit mode on the device you last saved them from.", 8000);
-        }).catch(() => { /* none there, or offline */ });
-      }
       loadError = false;
       busy = false;
       persistDraft();
@@ -4104,7 +4131,7 @@
         } catch { /* offline: the save will report it */ }
       }
       if (!privAccess && !$("#keySheet").open) showSheet("#keySheet");
-      return { restored: restored > 0 };
+      return { restored };
     } catch (e) {
       busy = false;
       owner = false;
@@ -4161,11 +4188,11 @@
 
   const byteLength = (text) => new TextEncoder().encode(text).length;
 
-  // The private variable's contents, trimmed of old days if it would be too big for GitHub.
-  function privatePayload(v, ws) {
+  // The private variable's contents, trimmed of old days if it would be too big for GitHub. copy: see pubCopy (save).
+  function privatePayload(v, ws, copy) {
     const today = todayKey();
     for (const cutoff of [addDays(today, -60), addDays(today, -14), weekStartOf(today, ws)]) {
-      const out = Object.assign({}, v, { v: 2, rev: "", days: {} });
+      const out = Object.assign({}, v, { v: 2, rev: "", days: {} }, copy ? { pubCopy: copy } : {});
       for (const k of Object.keys(v.days).sort()) if (k >= cutoff) out.days[k] = v.days[k];
       const text = JSON.stringify(out);
       if (byteLength(text) <= VAR_LIMIT) return { text, priv: normalizePriv(out), cutoff };
@@ -4204,7 +4231,7 @@
     if (!privAccess) { showSheet("#keySheet"); return false; }
     // Work from a snapshot, so edits made while saving stay as unsaved changes.
     const snapPub = clone(pub);
-    const payload = privatePayload(clone(priv), snapPub.weekStart);
+    const payload = privatePayload(clone(priv), snapPub.weekStart, { notes: snapPub.notes, items: snapPub.uniform.items });
     if (!payload) { toast("Your calendar has too many days to save. Clear some far-off days and try again.", 6000); return false; }
     saving = true;
     renderOwnerBits();
@@ -4212,11 +4239,10 @@
     const rev = `${stamp}~${Math.random().toString(36).slice(2, 6)}`;
     const pubDaysOut = derivePublic(snapPub, payload.priv);
     const pubOut = Object.assign({ v: 2 }, snapPub, { days: pubDaysOut, weekly: weeklyPublic(payload.priv), ot: derivePublicOt(snapPub, payload.priv, pubDaysOut), updated: stamp, rev });
-    // The private settings say that the public file has his notes and clothes now, and whether some are still missing
-    // since an older copy saved (see loadOwnerState). A code this device couldn't read (the file has a hash, the private
-    // settings no code) is left out, so it isn't taken for one he turned off.
-    const privOut = Object.assign(JSON.parse(payload.text), { rev, notesPublic: true });
-    if (lostSince) privOut.notesLostAt = lostSince; else delete privOut.notesLostAt;
+    // The private settings keep a copy of the notes and clothes the public file gets (pubCopy, see loadOwnerState). A code
+    // this device couldn't read (the file has a hash, the private settings no code) is left out, so it isn't taken for
+    // one he turned off.
+    const privOut = Object.assign(JSON.parse(payload.text), { rev });
     if (!payload.priv.uniformCode && snapPub.uniform.hash) delete privOut.uniformCode;
     const privText = JSON.stringify(privOut);
     const before = saved; // what this save replaces (for drawings it stops using)
@@ -4238,9 +4264,9 @@
       pubSha = remotePub.sha;
       privExists = remotePriv.status === 200;
       if (privExists) privAt = remotePriv.updatedAt;
-      // Hours first: they're the source of truth. If the public file then fails, the next load republishes it. The public
-      // settings (notes, My Uniform, ...) are only in that file, so until it's written they stay unsaved changes, kept in
-      // this tab's draft like any other: a reload then doesn't lose them.
+      // Hours first: they're the source of truth. If the public file then fails, the next load republishes it (notes and
+      // clothes too: their copy went with the hours). The other public settings are only in that file, so until it's
+      // written they stay unsaved changes, kept in this tab's draft like any other: a reload then doesn't lose them.
       stage = "private";
       lastPrivText = privText;
       await writePrivate(privText, force);
@@ -4271,7 +4297,6 @@
       pruneOtherDrafts();
       forgetAutoCopies();
       store.set(LS.lastWeekly, JSON.stringify(saved.priv.weekly));
-      keepPubCopy(saved.pub);
       store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
       cleanUniformFiles(before).catch(() => { /* best effort */ });
@@ -4355,7 +4380,12 @@
     if (!standIn) {
       privAccess = true;
       render();
-      if ($("#settingsSheet").open) renderUniSettings();
+      if ($("#settingsSheet").open) {
+        renderUniSettings();
+        // Show Me How, which the closed steps gave the focus back to, is gone now: on to the code box it unlocked.
+        const a = document.activeElement;
+        if (!a || a === document.body || $("#uniLocked").contains(a)) try { $("#setUniCode").focus(); } catch (e) { /* ignore */ }
+      }
       toast("Your key is set.");
       return;
     }
@@ -4462,6 +4492,9 @@
     $("#editForm").addEventListener("change", onEditChange);
     for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
     $("#useUsual").addEventListener("click", () => { setDay(editKey, { s: "open" }); fillEdit(false); afterChange(); });
+    // Enter on a checkbox or switch would press Done (the form's default button) and close Settings, losing his place in
+    // the notes: it does nothing there, as in an item's window. Enter in a text box is still Done.
+    $("#settingsForm").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("input[type=checkbox], input[type=radio]")) e.preventDefault(); });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
     $("#noteTabs").addEventListener("click", (e) => {
@@ -4478,6 +4511,7 @@
     $("#uniNewCode").addEventListener("click", newUniCode);
     $("#uniKeyHow").addEventListener("click", () => showSheet("#keySheet"));
     $("#uniCopyLink").addEventListener("click", copyUniLink);
+    $("#uniTurnOff").addEventListener("click", uniTurnOff);
     $("#uniItems").addEventListener("click", (e) => { const b = e.target.closest(".uni-item"); if (b) openItem(b.dataset.id); });
     $("#itemForm").addEventListener("input", onItemChange);
     $("#itemForm").addEventListener("change", onItemChange);
@@ -4511,19 +4545,25 @@
     $("#setNoteText").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
     $("#signOut").addEventListener("click", () => {
       leaving = true;
-      for (const k of [LS.token, ...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly, LS.lastPub, LS.uploads]) store.del(k);
+      for (const k of [LS.token, ...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly, LS.uploads]) store.del(k);
       nav.leave(() => location.reload());
     });
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));
     $("#importBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openImport()));
     $("#unlockDiscard").addEventListener("click", () => {
-      for (const k of [...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.lastWeekly, LS.lastPub]) store.del(k);
+      for (const k of [...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.lastWeekly]) store.del(k);
       $("#unlockDraft").hidden = true;
       toast("Discarded");
     });
     // Two tabs editing at once would overwrite each other's unsaved changes.
     window.addEventListener("storage", (e) => {
       if (owner && e.key === LS.savedSignal) rebase();
+      // Stop Editing (or Discard, in the connect window) in a tab of an older version of the page: it clears only its own
+      // kind of unsaved changes, and always the every-week days' copy, which a key that stopped working leaves. This
+      // version's unsaved changes go too, as its own Stop Editing clears them.
+      if ((e.key === LS.token || e.key === LS.lastWeekly) && !e.newValue && !store.get(LS.token) && !store.get(LS.lastWeekly)) {
+        for (const k of [...store.keys(LS.draftPrefix), LS.uploads]) store.del(k);
+      }
       // Stop Editing in another tab: this one stops too (even mid-load), so it doesn't keep his hours on screen or write new drafts.
       if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; nav.leave(() => location.reload()); }
     });
@@ -4554,7 +4594,8 @@
       });
     }
     // Keep "today" right if the page stays open past midnight.
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+    // Not before the calendar is in: that would swap "Loading calendar…" for a gray calendar.
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && (dataIn || loadError)) render(); });
 
     // My Uniform. Its screens take part in Back like a window's steps: open while they show.
     const uniEl = $("#uniform");
@@ -4563,8 +4604,10 @@
     $("#uniformBtn").addEventListener("click", () => openUniform(unlocked() ? "pick" : "code"));
     // As in the day window, a tap right after the clothes or the mannequin appear is the second half of a double tap (on
     // the corner button, Open or See It On the Mannequin): it would pick clothes, or send the text.
+    // Timed from when the tap happened (the event's own time), not when a busy phone gets round to it.
     uniEl.addEventListener("click", (e) => {
-      if (uni.step !== "code" && Date.now() - (uni.shownAt || 0) < 350) { e.preventDefault(); e.stopImmediatePropagation(); }
+      const at = e.timeStamp > 1e12 || !e.timeStamp ? performance.now() : e.timeStamp; // older browsers: a date, or none
+      if (uni.step !== "code" && at - (uni.shownAt || 0) < 350) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
     for (const b of uniEl.querySelectorAll(".u-cal")) b.addEventListener("click", closeUniform);
     $("#uChange").addEventListener("click", () => nav.back(uniEl, () => showUni("pick", true)));
@@ -4603,6 +4646,16 @@
     // Escape closes it, as it closes a window.
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !uniEl.hidden && !document.querySelector("dialog[open]")) closeUniform(); });
     window.addEventListener("hashchange", () => { routeUniform(); });
+    // From the keyboard, a footer link brings the page's end into view, where the corner button has room under the links:
+    // so the next Tab reaches it (stepped aside, it can't take the focus). A click there doesn't move the page.
+    let tabAt = 0;
+    document.addEventListener("keydown", (e) => { if (e.key === "Tab") tabAt = Date.now(); }, true);
+    $(".page > .foot").addEventListener("focusin", () => {
+      if ($("#uniformBtn").hidden || Date.now() - tabAt > 500) return;
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      fabDodge();
+    });
+    $("#uniformBtn").addEventListener("blur", fabCheck);
     window.addEventListener("scroll", fabCheck, { passive: true });
     $(".page > .cal").addEventListener("scroll", fabCheck, { passive: true });
     window.addEventListener("resize", fabCheck);
@@ -4670,8 +4723,10 @@
     takeUniformLink();
     checkCred();
     const slow = setTimeout(() => reveal(false), 1500);
+    let late = false;
     try {
       const file = readPublicFile(await calendarFile());
+      late = loadError; // the 15 s load error was up, with a gray calendar that could be tapped
       pub = file.pub;
       pubDays = file.days;
       pubWeekly = file.weekly;
@@ -4683,6 +4738,9 @@
       loadError = true;
     }
     render();
+    // A day window opened on that gray calendar shows the day as it was then ("Not set yet"): it closes now that the real
+    // days are in (and a My Uniform link that waited opens with nothing over it).
+    if (late) for (const s of ["#callSheet", "#daySheet"]) if ($(s).open) $(s).close("");
     clearTimeout(slow);
     reveal(true);
     restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });

@@ -53,26 +53,26 @@
   :root:not([data-theme="light"]) {
     --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
     --accent: #8db0f2; --accent-ink: #0d1220;
-    --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
+    --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
     --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
     --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
     --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
     --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --err: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
   --accent: #8db0f2; --accent-ink: #0d1220;
-  --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
+  --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
   --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
   --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
   --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
   --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --err: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
   color-scheme: dark;
 }
 
@@ -300,9 +300,13 @@ h2 { font-size: 28px; line-height: 1.05; }
 .week-head .hrs { font: 400 12px/1.2 var(--font-mono); }
 .week-head .hrs.over { color: var(--ink); font-weight: 700; }
 .loading { color: var(--muted); }
-/* If the page's own script never comes (the calendar then never replaces this line), it says so after 20 seconds. */
-.loading .load-late { display: block; margin-top: 6px; color: var(--busy); visibility: hidden; animation: load-late 0s 20s forwards; }
+/* If the page's own script is slow to come (the calendar then doesn't replace this line yet), a line says so after 20
+   seconds; if it fails (index.html's onerror), another says it couldn't load. Red text in the dark theme: --err. */
+.loading .load-late, .loading .load-fail { display: block; margin-top: 6px; color: var(--err, var(--busy)); }
+.loading .load-late { color: var(--muted); visibility: hidden; animation: load-late 0s 20s forwards; }
 @keyframes load-late { to { visibility: visible; } }
+.loading .load-fail, .app-failed .loading .load-late { display: none; }
+.app-failed .loading .load-fail { display: block; }
 
 .day {
   position: relative;
@@ -413,7 +417,7 @@ a.linkish { display: inline-block; }
   text-decoration: none; text-align: center;
 }
 .btn.primary { background: var(--accent); color: var(--accent-ink); }
-.btn.primary:disabled { opacity: 0.55; cursor: default; }
+.btn.primary:disabled, .btn.primary[aria-disabled="true"] { opacity: 0.55; cursor: default; }
 .btn.ghost { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 14px; border-radius: 10px; }
 .btn.wide { width: 100%; }
@@ -504,7 +508,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 /* A field label with a small link at the other end (Undo My Edits). */
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .field-head .linkish { padding: 0; font-size: 13px; }
-.error { color: var(--busy); font-weight: 700; }
+.error { color: var(--err, var(--busy)); font-weight: 700; }
 .steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; }
 
 .seg { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -546,7 +550,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .preview { display: grid; gap: 8px; }
 .preview:empty { display: none; }
 .pv-sum { font-weight: 700; font-size: 14px; }
-.pv-sum.warn { color: var(--busy); }
+.pv-sum.warn { color: var(--err, var(--busy)); }
 .pv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
 .pv-item {
   display: flex; gap: 10px; align-items: flex-start;
@@ -555,7 +559,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .pv-item .dot { margin-top: 5px; }
 .pv-text { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
 .pv-warn { color: var(--muted); font-size: 13px; }
-.pv-warn.strong { color: var(--busy); font-weight: 700; }
+.pv-warn.strong { color: var(--err, var(--busy)); font-weight: 700; }
 .pv-err { box-shadow: inset 0 0 0 2px var(--busy); }
 .pv-x {
   flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 1px;
@@ -642,11 +646,11 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
 }
 @keyframes intro-failsafe { to { opacity: 1; visibility: visible; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
-/* Where the page reaches the window's edges (phones, edit mode on laptops up to about 1215px wide, and the header band
-   that supervisors see on any laptop), any swell past full size would widen the page for a moment. */
+/* Where the page reaches the window's edges (phones, and the laptop layout: the header band supervisors see, edit mode
+   up to about 1215px wide), any swell past full size would widen the page for a moment. Edit mode on a wider laptop
+   takes the same one, so the fade isn't started over when edit mode comes in during it. */
 @keyframes inhale-flat { 0% { opacity: 0; transform: scale(0.975); } 100% { opacity: 1; transform: none; } }
-@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) and (max-width: 1215px) { .page.inhale { animation-name: inhale-flat; } }
-@media (min-width: 960px) and (min-height: 560px) { body:not(.owner) .page.inhale { animation-name: inhale-flat; } }
+@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) { .page.inhale { animation-name: inhale-flat; } }
 @keyframes drop { 0% { opacity: 0; transform: translateY(-22px) scale(0.92); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
 @keyframes dot-on { from { background: #42566b; box-shadow: none; } to { background: var(--led); } }
 @keyframes name-glow { 0%, 100% { text-shadow: 0 0 14px rgba(120, 190, 255, 0.8); } 50% { text-shadow: 0 0 2px rgba(120, 190, 255, 0.15); } }
@@ -1303,6 +1307,13 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
       --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
     }
+  }
+  /* Under about 616px the bar leaves the preview less room than supervisors ever have (their page goes to one column
+     there): a smaller header and days, so his preview still shows the whole calendar, as theirs does. */
+  @media (min-width: 960px) and (min-height: 560px) and (max-height: 615px) {
+    body.previewing { --pad: 6px; --badge: 44px; --name: 34px; --tile-min: clamp(44px, calc(var(--room) / 3 - 6px), 64px); }
+    body.previewing .day { padding: 4px 2px 5px; }
+    body.previewing .day .num { font-size: 24px; }
   }
   /* A window taller than it is wide (a big tablet held upright, a screen turned on its side): the days reach their
      widest long before the height runs out, so the page ends under its content instead of keeping the links at the
