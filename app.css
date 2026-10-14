@@ -19,6 +19,7 @@
   --busy-ink: #ffffff;
   --none: #e2e6ee;
   --none-ink: #6d7689;
+  --none-small: #5e6576; /* small text on a Not Set Yet day (the month tag): 4.5:1 on --none */
   --hatch: rgba(255, 255, 255, 0.22);
   --note-bg: #e7edfa;
   --note-line: #c7dbf5;
@@ -54,7 +55,7 @@
     --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
     --accent: #8db0f2; --accent-ink: #0d1220;
     --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
-    --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
+    --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c; --none-small: #8993a6;
     --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
     --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
@@ -67,7 +68,7 @@
   --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
   --accent: #8db0f2; --accent-ink: #0d1220;
   --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
-  --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
+  --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c; --none-small: #8993a6;
   --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
   --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
@@ -343,6 +344,7 @@ h2 { font-size: 28px; line-height: 1.05; }
 /* Owner only: striped red tells "busy" (blocked) apart from "working". Supervisors see plain red for both. */
 .day.hatch { background-image: repeating-linear-gradient(135deg, var(--hatch) 0 5px, transparent 5px 11px); }
 .day.unset { background: var(--none); color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); }
+.day.unset .mon, .day.unset .tag { color: var(--none-small); }
 .day.past { background: transparent; color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
 .day.past:active { transform: none; }
 /* Today: a thin glowing outline. */
@@ -1262,6 +1264,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
       overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
       scroll-padding-top: calc(var(--dow-top) + 24px); /* a day reached with the keyboard comes into view below the weekday names */
+      scroll-padding-bottom: 8px; /* with its focus ring (3px, 2px out) */
     }
     body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
     body:not(.owner) .day {

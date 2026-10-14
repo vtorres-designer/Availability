@@ -14,6 +14,9 @@
 <!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion.
      First in line, so it never waits for a stylesheet. -->
 <script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
+<!-- A My Uniform link's code leaves the address bar at once (before anything else loads, and even if app.js never
+     does): it waits in this tab's session for app.js (see takeUniformLink there). -->
+<script>try { if (/^#uniform(?![A-Za-z0-9])/i.test(location.hash)) { sessionStorage.setItem("sa.uniformLink", location.hash); history.replaceState(history.state, "", location.pathname + location.search); } } catch (e) { /* app.js takes it */ }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- The fonts load without holding up the page: a slow or stuck font server never leaves it blank (it shows in the
