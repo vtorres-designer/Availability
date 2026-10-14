@@ -108,7 +108,7 @@ Edit mode keeps its two columns: the header (as a card), the edit-mode box, colo
 
 ## My Uniform
 
-Supervisors who booked a shift with you can pick what you'll wear, from drawings of your own clothes. A small navy **My Uniform** button (a green shirt, with a green lock and CODE under the words) floats in the bottom right corner of the page, with a shine crossing it now and then. It shows once you've set a code and added at least one top and one pair of pants, on the page supervisors see and in See What Supervisors See (above the preview's bar), never in edit mode. On a phone the page ends far enough below the links that the button never covers them; on a laptop the bottom right corner is kept free for it.
+Supervisors who booked a shift with you can pick what you'll wear, from drawings of your own clothes. A small navy **My Uniform** button (a green shirt, with a green lock and CODE under the words) floats in the bottom right corner of the page, with a shine crossing it now and then. It shows once you've set a code and added at least one top and one pair of pants, on the page supervisors see and in See What Supervisors See (above the preview's bar), never in edit mode. On a phone the page ends far enough below the links that the button never covers them there; while it would sit on a day or a link (or the employee ID) as the page scrolls, it steps aside until they've scrolled past, so a tap meant for a day never opens My Uniform. On a laptop the bottom right corner is kept free for it.
 
 It opens a full-screen page over the calendar, in three steps:
 
@@ -118,7 +118,7 @@ It opens a full-screen page over the calendar, in three steps:
 
 Every step is a screen of its own, so Back (the phone's gesture or the browser's button) steps back one screen at a time, and **‹ Calendar** (or Escape) closes it, leaving the calendar where it was. **‹ Change Outfit** goes back to the clothes with the picks still there.
 
-**Links:** add `#uniform` to your calendar's link to open the code page, or `#uniform-` and the code (like `…/Availability/#uniform-K7Q2MX`) to open straight to the clothes. The code is cleared from the address bar right away, so it isn't left in a link someone copies. A wrong or old code in a link shows the code page with that code and the message.
+**Links:** add `#uniform` to your calendar's link to open the code page, or `#uniform-` and the code (like `…/Availability/#uniform-K7Q2MX`) to open straight to the clothes. The code is cleared from the address bar right away (even when My Uniform can't open, which then says "My Uniform isn't available right now."), so it isn't left in a link someone copies. A wrong or old code in a link shows the code page with that code and the message. Opened from a link, the first tap inside it lets Back return to the calendar instead of leaving the page.
 
 The code is a "knock first", not a lock: the public calendar file has only a scrambled form of it (its SHA-256 hash), and anyone with the code can open the page. The code itself is saved with your private settings, never in the public file.
 
@@ -127,8 +127,8 @@ The code is a "knock first", not a lock: the public calendar file has only a scr
 **Settings → My Uniform**, right after License:
 
 - **Code for My Uniform:** 4 to 8 letters or numbers (small letters become capitals). **New Random Code** makes a 6-character one without the letters and numbers that look alike (I, L, O, 0 and 1). Text it to a supervisor once you've confirmed their shift. Change it any time; once you tap **Save**, the old code and old links stop working. Leave the box empty to turn My Uniform off. A code that's too short is never used: the one you had stays, and Settings tells you.
-- **Copy Link With Code** copies your calendar's link with the code built in (like `…/Availability/#uniform-K7Q2MX`), to text instead of the code. The link opens straight to the clothes. The link is shown under the button.
-- The code is kept with your private settings, so changing it needs your key's **Variables** permission. If your key can't save those, the box is switched off, with a line saying why.
+- **Copy Link With Code** copies your calendar's link with the code built in (like `…/Availability/#uniform-K7Q2MX`), to text instead of the code. The link opens straight to the clothes. The link is shown under the button. A new code (and its link) works for supervisors only once you've tapped **Save**, and a line under the link says so until then.
+- The code is kept with your private settings, so changing it needs your key's **Variables** permission. If your key can't save those, the box is switched off, with a line saying why. If a save stopped halfway (your private settings saved, the public file not), the next visit notices that the public file still has the old code and shows **Save 1 Change** to finish it.
 - **My clothes:** a card for each item (its drawing on a white tile, and its name), tops first, then pants, ties and blazers, and **+ Add Item** at the end (up to 40 items). Tap a card to change or delete it. A line under them says whether supervisors see the button yet (it needs a code, a top and a pair of pants).
 
 ### Adding an item
@@ -141,11 +141,11 @@ The code is a "knock first", not a lock: the public calendar file has only a scr
 4. **Choose Drawing:** the picture the AI made. Use a drawing with a transparent background (PNG or WebP). One on plain white still works, but it covers the mannequin, and the window says so. For a top worn with a tie, there's also **Buttoned-up version (for a tie)** (optional; **Remove It** takes it off again).
 5. **Name:** supervisors see it, and it's in the text they send you (up to 60 characters).
 6. **Fit on the mannequin:** the drawing on the mannequin, with one of your other items faintly behind it for scale (pants under a top, a top over pants, a top under a tie or a blazer). If the AI put it a little off, drag it into place and use **Size** to make it bigger or smaller, once per item. **Reset** puts it back where the drawing had it. With a keyboard, tab to the mannequin and use the arrow keys (hold Shift to move it further).
-7. **Save Item** uploads the drawing right away. The item itself is then an unsaved change, like any other: tap **Save** to show it to supervisors. **Cancel** drops what you changed in the window. **Delete Item** asks first, then takes it off the list (for supervisors, once you tap Save).
+7. **Save Item** uploads the drawing right away (the window stays open until the upload is done; if a phone's Back closes it anyway, the item is still added). The item itself is then an unsaved change, like any other: tap **Save** to show it to supervisors. **Cancel** drops what you changed in the window. **Delete Item** asks first, then takes it off the list (for supervisors, once you tap Save). An item deleted in another tab or on another device while its window was open here isn't brought back.
 
 Before uploading, the page gets each drawing ready: anything bigger than 600 × 1200 is made smaller (never bigger), it's stored as WebP where the browser can make it (PNG otherwise), and the edges of what's drawn are found from its transparent part, so the picker's cards show just the clothes. A file that isn't a picture, or one over 10 MB, is turned away with a message saying why.
 
-Until GitHub Pages has a new drawing (a minute or two), edit mode and See What Supervisors See show it from the upload, or from GitHub after a reload. A new drawing gets a new file name, so no one's browser keeps showing an old one (changing an item's name, switches or fit keeps its files). After each **Save**, drawings nothing uses any more are deleted from `uniform/`. One that another device uploaded for an item it hasn't saved yet is left alone for 30 days, as long as unsaved changes are kept.
+Until GitHub Pages has a new drawing (a minute or two), edit mode and See What Supervisors See show it from the upload, or from GitHub after a reload. A new drawing gets a new file name, so no one's browser keeps showing an old one (changing an item's name, switches or fit keeps its files). After each **Save**, drawings nothing uses any more are deleted from `uniform/`. One that another device uploaded for an item it hasn't saved yet is left alone for 30 days, as long as unsaved changes are kept, and one this browser uploaded in the last 10 minutes waits for a later save (it may belong to an item still being added).
 
 Uploads use your token's **Contents** permission, like the credentials PDF. If GitHub turns one down, the window says why and keeps everything, so you can tap **Save Item** again.
 
@@ -296,7 +296,9 @@ Pick what a tap does in the toolbar:
 
 **See What Supervisors See** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
 
-Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days and settings you changed are put back (My Uniform's clothes item by item), and anything saved differently since is skipped, with a message. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add My Changes to It** keeps both, and your change wins on any day you both edited. **Load the Newer One** drops what you changed on this device.
+Changes you haven't saved stay on that device, even if the tab closes. They come back the next time you open the site. If you saved from another device in the meantime, only the days and settings you changed are put back (notes and My Uniform's clothes one by one, so a note or item added elsewhere stays), and anything saved differently since is skipped, with a message. Everything else comes from the newer save. If two devices save at nearly the same moment, the site asks what to do. **Add My Changes to It** keeps both, and your change wins on any day you both edited. If that would make more than 10 notes or 40 items, the ones saved elsewhere stay and the site says which of yours weren't added. **Load the Newer One** drops what you changed on this device.
+
+If a save stores your hours but the public file then fails, your public changes (notes, My Uniform, and the rest of Settings) stay as unsaved changes on that device until a save gets through. An older copy of this page left open somewhere (from before notes and My Uniform) drops them when it saves; the next time you open edit mode on a device that saw them, they come back as unsaved changes, with a message. Close old tabs on every device after an update.
 
 ## Settings
 
