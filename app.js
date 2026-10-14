@@ -507,6 +507,13 @@
   const weeklyPublic = (v) => (v.weekly || []).map((r) => r.d);
   const cleanDows = (list) => (Array.isArray(list) ? [0, 1, 2, 3, 4, 5, 6].filter((d) => list.indexOf(d) >= 0) : []);
 
+  // Whether the replaced Oct 12-13 copy counted him as working that day: a work record, or an every-week work
+  // day that wasn't marked off (raw is the day's record as saved, before cleanPrivRec drops its "scheduleOff").
+  function workingOn(k, v, raw) {
+    const cur = v.days[k], rule = ruleOn(k, v);
+    if (cur && cur.s === "work") return true;
+    return !!(rule && rule.s === "work" && !(raw && raw.scheduleOff === true));
+  }
   function normalizePriv(raw) {
     const r = raw && typeof raw === "object" ? raw : {};
     const d = defaultPriv();
@@ -521,8 +528,27 @@
         if (rec) d.days[k] = rec;
       }
     }
+    // A replaced copy of this site (Oct 12-13) kept the days he'd pick up shifts in a separate "pickups" list.
+    // Fold them back into days, except where he's scheduled to work: that copy never let a pick cancel his work.
+    let kept = null;
+    if (r.pickups && typeof r.pickups === "object" && !Array.isArray(r.pickups)) {
+      for (const [k, v] of Object.entries(r.pickups)) {
+        if (!isKey(k) || !v || (v.s !== "open" && v.s !== "busy")) continue;
+        const cur = d.days[k], chatWork = workingOn(k, d, r.days && r.days[k]);
+        const busyPick = v.s === "busy" || (Array.isArray(v.w) && !v.w.length);
+        // Set aside where the day is Working here, and an Available pick where that copy counted him working:
+        // a pick never turns a day greener than that copy showed it.
+        if ((cur ? cur.s === "work" : chatWork) || (chatWork && !busyPick)) { (kept = kept || {})[k] = v; continue; }
+        const note = cleanNote(v.note) || (cur && cur.s === "busy" && v.s === "busy" ? cur.note : undefined);
+        const rec = cleanPrivRec({ s: v.s, w: v.w, note }, d.pickup);
+        if (rec) d.days[k] = rec;
+      }
+    }
     // Settings a newer version of the site added are kept, so saving from here doesn't erase them.
-    for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev") d[k] = r[k];
+    for (const k of Object.keys(r)) if (!(k in d) && k !== "v" && k !== "rev" && k !== "pickups") d[k] = r[k];
+    // Picks on work days can't be shown here. They're set aside under their own name (never folded in again, so a
+    // later change to that day wins), so no note or shift list he typed is lost.
+    if (kept) d.pickupsSetAside = Object.assign({}, r.pickupsSetAside && typeof r.pickupsSetAside === "object" ? r.pickupsSetAside : {}, kept);
     return d;
   }
 
@@ -3936,12 +3962,19 @@
           store.del(key);
         }
         drafts.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        let skipped = 0;
+        let skipped = 0, replaced = 0;
         const full = { notes: 0, items: [] };
-        for (const d of drafts) { const r = applyDiff(d, true); skipped += r.skipped; full.notes += r.full.notes; full.items.push(...r.full.items); }
+        // Unsaved changes made on the replaced Oct 12-13 copy (it kept a "pickups" list) follow different rules,
+        // so they aren't guessed at; he's told to check those days instead.
+        for (const d of drafts) {
+          if (d.pickups) { replaced++; continue; }
+          const r = applyDiff(d, true);
+          skipped += r.skipped; full.notes += r.full.notes; full.items.push(...r.full.items);
+        }
         restored = changes().days.size + (changes().settings ? 1 : 0);
         const said = [skipped ? `${skipped} unsaved change${skipped === 1 ? " was skipped because it was" : "s were skipped because they were"} saved differently from somewhere else since.` : "", fullText(full)].filter(Boolean).join(" ");
         if (said) setTimeout(() => toast(said, 6000), 3500);
+        if (replaced) setTimeout(() => toast("Changes you hadn't saved on the Oct 12-13 version of this site couldn't be brought back. Check the days you changed then.", 8000), said ? 10000 : 3500);
       }
       if (back.length) setTimeout(() => toast(lostText(back), 8000), 600);
       // An older copy dropped My Uniform (the code is still in the private settings, and drawings are in uniform/), and
