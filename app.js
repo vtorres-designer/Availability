@@ -953,13 +953,16 @@
   // (noteMoved: from which id to which, so the note open in Settings follows it).
   // There's always one night-shift note, and it's never removed. Returns the texts of new notes that didn't fit.
   const noteMoved = {};
+  // The highest note id ever saved (the private settings' copy keeps it, see save): a new note never takes the id of one
+  // deleted and saved, which another device may still have an unsaved change to.
+  let noteTop = 0;
   function applyNotes(u, take) {
     for (const k of Object.keys(noteMoved)) delete noteMoved[k];
     if (!u || typeof u !== "object" || !u.items || typeof u.items !== "object") return [];
     const notes = pub.notes.slice(), order = Array.isArray(u.order) ? u.order : [];
     const rank = (id) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
     const list = Object.entries(u.items).sort((a, b) => keeps(a) - keeps(b) || rank(a[0]) - rank(b[0]));
-    let free = Math.max(0, ...notes.map(noteNum), ...list.map(([id]) => noteNum({ id }))) + 1;
+    let free = Math.max(noteTop, ...notes.map(noteNum), ...list.map(([id]) => noteNum({ id }))) + 1;
     const full = [];
     for (const [id, entry] of list) {
       let e = entry;
@@ -1009,12 +1012,21 @@
     const order = Array.isArray(u.order) ? u.order : [];
     const rank = (id) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
     const list = Object.entries(u.items && typeof u.items === "object" ? u.items : {}).sort((a, b) => keeps(a) - keeps(b) || rank(a[0]) - rank(b[0]));
-    for (const [id, e] of list) {
-      const to = e && e.to ? cleanUniformItem(e.to) : null;
+    for (let [id, e] of list) {
+      let to = e && e.to ? cleanUniformItem(e.to) : null;
       if (!e || (e.to && !(to && to.id === id))) continue; // a damaged entry
       const i = items.findIndex((x) => x.id === id);
       // A change to an item deleted elsewhere since doesn't bring it back: its drawings went with it.
       if (i < 0 && e.from) { if (e.to) take(e, null); continue; }
+      // Changed elsewhere too: only the parts changed here are taken, so the other save's changes stay (and a drawing
+      // it stopped using, which its cleanup removed, isn't pointed at again).
+      const was = to && i >= 0 && e.from ? cleanUniformItem(e.from) : null;
+      if (was && !same(items[i], was)) {
+        const both = mergeItem(items[i], was, to);
+        if (!both) continue;
+        to = both;
+        e = { to, from: e.from };
+      }
       if (!take(e, i >= 0 ? items[i] : null)) continue;
       if (i >= 0) { if (to) items[i] = to; else items.splice(i, 1); continue; }
       // The list is full with items saved elsewhere: those stay, and he's told this one wasn't added.
@@ -1029,6 +1041,16 @@
     }
     pub.uniform = cleanUniform({ hash, items });
     return full;
+  }
+
+  // An item's parts that go together: its name; its kind; its drawing with how it sits on the mannequin; the drawing
+  // buttoned up for a tie, with the switch for it.
+  const ITEM_PARTS = [["name"], ["cat", "blazer"], ["img", "fit", "box"], ["img2", "tie"]];
+  // cur as saved elsewhere, with the parts this device changed (from was to to) taken from to.
+  function mergeItem(cur, was, to) {
+    const out = Object.assign({}, cur);
+    for (const part of ITEM_PARTS) if (part.some((f) => !same(was[f], to[f]))) for (const f of part) out[f] = to[f];
+    return cleanUniformItem(out);
   }
 
   // After a save, copies of the changes it included are done. Removing them keeps an old copy from
@@ -1055,19 +1077,35 @@
     }
   }
 
+  // Unsaved changes of this tab that a newer tab took over (it brought them back and removed this tab's record of them,
+  // see enterOwner): they're that tab's now, so what he does with them there (Save, or undo them) decides. Until one
+  // changes again here, this tab doesn't store it again or put it back after a save. diffOf's shape; null: none.
+  let handed = null;
+  function withoutHanded(d) {
+    if (!handed || !d.uni || !d.nt) return d;
+    const both = [[d.days, handed.days], [d.pub, handed.pub], [d.priv, handed.priv], [d.wk, handed.wk], [d.uni.items, handed.uni.items], [d.nt.items, handed.nt.items]];
+    for (const [mine, gone] of both) {
+      for (const k of Object.keys(gone)) if (mine[k] && same(mine[k].to, gone[k].to)) delete mine[k]; else delete gone[k];
+    }
+    if (handed.uni.code && d.uni.code && same(d.uni.code.to, handed.uni.code.to)) delete d.uni.code;
+    else delete handed.uni.code;
+    return d;
+  }
+
   // Another tab on this device saved: start from that save and keep this tab's own unsaved changes on top.
   async function rebase() {
     if (!owner || busy || saving || standIn) return;
     busy = true;
     try {
       const st = await loadOwnerState(token);
-      const mine = diffOf(), was = saved;
+      const mine = withoutHanded(diffOf()), was = saved;
+      handed = null;
       saved = { pub: clone(st.pub), priv: clone(st.priv) };
       pub = clone(st.pub);
       priv = clone(st.priv);
       forgetAutoCopies();
       const back = putBackLost(st);
-      const said = [back.length ? lostText(back) : "", fullText(applyDiff(mine, false).full)].filter(Boolean).join(" ");
+      const said = [back.length ? lostSaid(st, back) : "", fullText(applyDiff(mine, false).full)].filter(Boolean).join(" ");
       if (noteMoved[noteSel]) noteSel = noteMoved[noteSel]; // the note open in Settings took a new id: it stays open
       pubSha = st.pubSha;
       privAt = st.privAt;
@@ -1085,7 +1123,7 @@
 
   function persistDraft() {
     if (standIn || busy) return; // never store edits made on a stand-in or a half-loaded calendar
-    const d = diffOf();
+    const d = withoutHanded(diffOf());
     if (diffSize(d)) store.set(OWN_DRAFT, JSON.stringify(Object.assign({ ts: Date.now() }, d)));
     else store.del(OWN_DRAFT);
   }
@@ -2572,8 +2610,9 @@
     nav.closed($("#uniform"));
   }
   // "#uniform" and "#uniform-<CODE>" (a wrong or old code shows the code screen, with it filled in). The address bar
-  // is cleared at once, before the calendar is in and even when My Uniform can't open, so the code isn't left in it or
-  // in a copied link. Until the calendar is in, the link waits in this tab's session (a reload meanwhile, or after a
+  // is cleared at once (by a line at the top of index.html, before this file has even loaded; here, if that couldn't),
+  // before the calendar is in and even when My Uniform can't open, so the code isn't left in it or in a copied link.
+  // Until the calendar is in, the link waits in this tab's session (a reload meanwhile, or after a
   // failed load, still opens it); once it's used, it's gone, so a later reload doesn't open My Uniform again.
   const UNI_LINK = "sa.uniformLink";
   let uniLinkWaiting = "";
@@ -2632,6 +2671,10 @@
   // of a day that can be seen counts: a calendar that scrolls by itself (laptops) hides the rest of its weeks, and those
   // never put the button away. It checks again as that calendar scrolls, and as a box in the header opens or closes.
   let fabFrame = 0;
+  // The last thing done was a key (not a tap, a click or a touch).
+  let byKeys = false;
+  document.addEventListener("keydown", () => { byKeys = true; }, true);
+  for (const t of ["pointerdown", "mousedown", "touchstart"]) document.addEventListener(t, () => { byKeys = false; }, { capture: true, passive: true });
   function fabDodge() {
     fabFrame = 0;
     const fab = $("#uniformBtn");
@@ -2644,8 +2687,10 @@
       const t = inCal ? Math.max(b.top, top) : b.top, btm = inCal ? Math.min(b.bottom, bottom) : b.bottom;
       return b.width > 0 && btm > t && b.left < r.right && b.right > r.left && t < r.bottom && btm > r.top;
     };
-    // Never while it has the focus: stepping aside would drop the focus to the page.
-    fab.classList.toggle("tuck", fab !== document.activeElement && Array.prototype.some.call(document.querySelectorAll("#weeks .day, .foot .linkish, .foot .empid"), under));
+    // Never while it has the keyboard's focus: stepping aside would drop the focus to the page. Focus the page gave it
+    // back after a tap or a Back gesture doesn't keep it there (a finger's scroll never moves the focus).
+    const kept = fab === document.activeElement && byKeys;
+    fab.classList.toggle("tuck", !kept && Array.prototype.some.call(document.querySelectorAll("#weeks .day, .foot .linkish, .foot .empid"), under));
   }
   function fabCheck() { if (!fabFrame) fabFrame = requestAnimationFrame(fabDodge); }
 
@@ -3091,7 +3136,10 @@
     gapBox.hidden = !plan.gaps.length || errors.length > 0;
     if (plan.gaps.length && errors.length) box.append(h("p", { class: "muted small", text: "Fix the skipped lines to fill in the gray days between your dates." }));
     if (plan.gaps.length) {
-      $("#gapLegend").textContent = `${plan.gaps.length} gray day${plan.gaps.length === 1 ? "" : "s"} between ${shortDay(plan.final.size ? [...plan.final.keys()].sort()[0] : plan.gaps[0])} and ${shortDay([...plan.final.keys()].sort().pop())} aren't in your list.`;
+      const one = plan.gaps.length === 1;
+      $("#gapLegend").textContent = `${plan.gaps.length} gray day${one ? "" : "s"} between ${shortDay(plan.final.size ? [...plan.final.keys()].sort()[0] : plan.gaps[0])} and ${shortDay([...plan.final.keys()].sort().pop())} ${one ? "isn't" : "aren't"} in your list.`;
+      $("#gapGray + span").textContent = one ? "Leave It Gray" : "Leave Them Gray";
+      $("#gapOpen + span").textContent = one ? "Mark It Available" : "Mark Them Available";
     }
     const gapOpen = !gapBox.hidden && $("#gapOpen").checked;
     const total = n + (gapOpen ? plan.gaps.length : 0);
@@ -3288,8 +3336,9 @@
   }
   function addNote() {
     if (ownNotes(pub.notes) >= NOTES_MAX) return;
-    // A new id, also unlike the notes deleted since the last save, so a change to a deleted note can't land on it.
-    const n = { id: `n${Math.max(0, ...pub.notes.map(noteNum), ...(saved ? saved.pub.notes.map(noteNum) : [])) + 1}`, text: "", until: "", front: true, day: false, form: false };
+    // A new id, also unlike the notes deleted since the last save and before (noteTop), so a change to a deleted note
+    // can't land on it.
+    const n = { id: `n${Math.max(noteTop, ...pub.notes.map(noteNum), ...(saved ? saved.pub.notes.map(noteNum) : [])) + 1}`, text: "", until: "", front: true, day: false, form: false };
     // Right after his last note, so the night-shift line keeps its place.
     let at = 0;
     pub.notes.forEach((x, i) => { if (!x.auto) at = i + 1; });
@@ -4007,15 +4056,19 @@
     // writes the same rev into both, private first: the public part of his last save didn't go through). Only a save by an
     // older copy (both with one rev) took them off his page; that's said (lostWhat, for lostText).
     const copy = parsed && parsed.pubCopy && typeof parsed.pubCopy === "object" && Array.isArray(parsed.pubCopy.notes) ? parsed.pubCopy : null;
-    const lostWhat = [];
+    if (copy && Number(copy.noteTop) > 0 && Number(copy.noteTop) < 1e4) noteTop = Math.max(noteTop, Math.floor(Number(copy.noteTop)));
+    const lostWhat = [], dropped = [];
     let copyBehind = false;
     if (copy && (pubLost || parsed.rev !== raw.rev)) {
       const older = pubLost && typeof raw.rev === "string" && raw.rev === parsed.rev;
       let notes = cleanNotes(copy.notes);
       // A note the older copy added (its one note) stays too. (Otherwise the copy is just newer: what isn't in it was deleted.)
+      // One that no longer fits (he has 10 of his own) is named with its whole text (dropped, see fullText).
       if (older) {
-        const texts = notes.map((n) => n.text);
-        notes = cleanNotes(notes.filter((n) => !n.auto).concat(p.notes.filter((n) => !n.auto && texts.indexOf(n.text) < 0), notes.filter((n) => n.auto)));
+        const texts = notes.map((n) => n.text), added = p.notes.filter((n) => !n.auto && texts.indexOf(n.text) < 0);
+        notes = cleanNotes(notes.filter((n) => !n.auto).concat(added, notes.filter((n) => n.auto)));
+        const kept = notes.map((n) => n.text);
+        for (const n of added) if (kept.indexOf(n.text) < 0) dropped.push(n.text);
       }
       const core = (list, own) => list.filter((n) => !n.auto === own).map((n) => Object.assign({}, n, { id: "" }));
       if (!same(core(notes, true), core(p.notes, true))) lostWhat.push("notes");
@@ -4023,7 +4076,7 @@
       if (!same(notes, p.notes)) { p.notes = notes; copyBehind = true; }
       const items = cleanUniform({ items: copy.items }).items;
       if (!same(items, p.uniform.items)) { if (items.length) lostWhat.push("My Uniform clothes"); p.uniform = { hash: p.uniform.hash, items }; copyBehind = true; }
-      if (!older) lostWhat.length = 0;
+      if (!older) { lostWhat.length = 0; dropped.length = 0; }
     }
     // The private schedule is the source of truth and the public file is built from it. If they differ
     // (a save stopped after storing the hours), the public file just needs publishing again.
@@ -4035,7 +4088,7 @@
     const wanted = v.uniformCode ? codeHash(v.uniformCode) : parsed && parsed.uniformCode === "" ? "" : pubHash, hashBehind = wanted !== pubHash;
     if (hashBehind) p.uniform = { hash: wanted, items: p.uniform.items };
     const behind = fileBehind(file, v, privRes.status === 200) || hashBehind || copyBehind;
-    return { weeklyLost, lostWhat, pub: p, priv: v, pubHash, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
+    return { weeklyLost, lostWhat, dropped, pub: p, priv: v, pubHash, pubSha: pubRes.sha, privAt: privRes.updatedAt || null, privExists: privRes.status === 200, privAccess: privRes.status !== 403, updated: file.updated, behind };
   }
   // What an older open copy of this page left out when it saved: every-week days (from the private settings: this device's
   // last copy of them puts them back, as unsaved changes), and the notes and My Uniform's clothes (the private settings'
@@ -4049,6 +4102,8 @@
     } catch { /* unreadable */ }
     return back.concat(st.lostWhat);
   }
+  // lostText, then the note the older copy added that didn't fit (st: from loadOwnerState), with its whole text.
+  const lostSaid = (st, back, kept) => [lostText(back, kept), fullText({ notes: st.dropped || [], items: [] })].filter(Boolean).join(" ");
   // back: what came back ("night": his night-shift note, which the older copy changed rather than removed).
   function lostText(back, kept) {
     const gone = back.filter((x) => x !== "night"), night = back.indexOf("night") >= 0;
@@ -4117,7 +4172,7 @@
         if (said) setTimeout(() => toast(said, 6000), 3500);
         if (replaced) setTimeout(() => toast("Changes you hadn't saved on the Oct 12-13 version of this site couldn't be brought back. Check the days you changed then.", 8000), said ? 10000 : 3500);
       }
-      if (back.length) setTimeout(() => toast(lostText(back), 8000), 600);
+      if (back.length) setTimeout(() => toast(lostSaid(st, back), 8000), 600);
       loadError = false;
       busy = false;
       persistDraft();
@@ -4231,7 +4286,8 @@
     if (!privAccess) { showSheet("#keySheet"); return false; }
     // Work from a snapshot, so edits made while saving stay as unsaved changes.
     const snapPub = clone(pub);
-    const payload = privatePayload(clone(priv), snapPub.weekStart, { notes: snapPub.notes, items: snapPub.uniform.items });
+    const top = Math.max(noteTop, ...snapPub.notes.map(noteNum), ...saved.pub.notes.map(noteNum));
+    const payload = privatePayload(clone(priv), snapPub.weekStart, { notes: snapPub.notes, items: snapPub.uniform.items, noteTop: top });
     if (!payload) { toast("Your calendar has too many days to save. Clear some far-off days and try again.", 6000); return false; }
     saving = true;
     renderOwnerBits();
@@ -4296,6 +4352,8 @@
       needsPublish = false;
       pruneOtherDrafts();
       forgetAutoCopies();
+      handed = null; // what this tab still had of them is saved now
+      noteTop = Math.max(noteTop, top);
       store.set(LS.lastWeekly, JSON.stringify(saved.priv.weekly));
       store.set(LS.savedSignal, rev); // other open tabs rebase on this save
       toast("Saved. Supervisors will see it within a minute or two.", 4200);
@@ -4339,7 +4397,7 @@
     persistDraft();
     render();
     // Said once it's saved (a failed save says so instead, and what came back stays as unsaved changes).
-    if ((await save(false)) && (back.length || full)) toast(["Saved.", back.length ? lostText(back, true) : "", full].filter(Boolean).join(" "), 9000);
+    if ((await save(false)) && (back.length || full)) toast(["Saved.", back.length ? lostSaid(st, back, true) : "", full].filter(Boolean).join(" "), 9000);
   }
 
   async function onConflict() {
@@ -4546,6 +4604,8 @@
     $("#signOut").addEventListener("click", () => {
       leaving = true;
       for (const k of [LS.token, ...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly, LS.uploads]) store.del(k);
+      // And My Uniform's code, if he opened it in his preview in this tab: the next person here is asked for it.
+      for (const k of [UNI_KEY, UNI_LINK]) session.del(k);
       nav.leave(() => location.reload());
     });
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));
@@ -4558,6 +4618,8 @@
     // Two tabs editing at once would overwrite each other's unsaved changes.
     window.addEventListener("storage", (e) => {
       if (owner && e.key === LS.savedSignal) rebase();
+      // A newer tab took this tab's unsaved changes over (see handed).
+      if (owner && saved && e.key === OWN_DRAFT && e.oldValue && !e.newValue) handed = diffOf();
       // Stop Editing (or Discard, in the connect window) in a tab of an older version of the page: it clears only its own
       // kind of unsaved changes, and always the every-week days' copy, which a key that stopped working leaves. This
       // version's unsaved changes go too, as its own Stop Editing clears them.
@@ -4565,7 +4627,7 @@
         for (const k of [...store.keys(LS.draftPrefix), LS.uploads]) store.del(k);
       }
       // Stop Editing in another tab: this one stops too (even mid-load), so it doesn't keep his hours on screen or write new drafts.
-      if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; nav.leave(() => location.reload()); }
+      if (e.key === LS.token && !e.newValue && token) { leaving = true; token = null; for (const k of [UNI_KEY, UNI_LINK]) session.del(k); nav.leave(() => location.reload()); }
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
@@ -4601,6 +4663,18 @@
     const uniEl = $("#uniform");
     Object.defineProperty(uniEl, "open", { configurable: true, get() { return !this.hidden; } });
     uniEl.querySelector(".u-below").append(mannequinSvg(false));
+    // Browsers with windows but without inert (Safari 15.4, Firefox 98-111) would let Tab out to the page underneath:
+    // there the focus comes back in, at the other end from where it left.
+    if (!("inert" in HTMLElement.prototype)) {
+      document.addEventListener("focusin", (e) => {
+        const t = e.target;
+        if (uniEl.hidden || !t || t === document.body || uniEl.contains(t) || (t.closest && t.closest("dialog[open]"))) return;
+        const all = Array.prototype.filter.call(uniEl.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])"), (x) => !x.disabled && x.getClientRects().length);
+        if (!all.length) return;
+        const to = e.relatedTarget === all[0] ? all[all.length - 1] : all[0];
+        to.focus();
+      });
+    }
     $("#uniformBtn").addEventListener("click", () => openUniform(unlocked() ? "pick" : "code"));
     // As in the day window, a tap right after the clothes or the mannequin appear is the second half of a double tap (on
     // the corner button, Open or See It On the Mannequin): it would pick clothes, or send the text.
@@ -4740,7 +4814,8 @@
     render();
     // A day window opened on that gray calendar shows the day as it was then ("Not set yet"): it closes now that the real
     // days are in (and a My Uniform link that waited opens with nothing over it).
-    if (late) for (const s of ["#callSheet", "#daySheet"]) if ($(s).open) $(s).close("");
+    // Its history entry goes now, not when its close event comes: by then the link's My Uniform has added its own.
+    if (late) for (const s of ["#callSheet", "#daySheet"]) if ($(s).open) { $(s).close(""); nav.closed($(s)); }
     clearTimeout(slow);
     reveal(true);
     restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });
