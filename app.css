@@ -59,7 +59,7 @@
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
     --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
     --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-    --u-ok: #3fbf7a; --u-bad: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
     color-scheme: dark;
   }
 }
@@ -72,7 +72,7 @@
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
   --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
   --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-  --u-ok: #3fbf7a; --u-bad: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
   color-scheme: dark;
 }
 
@@ -573,6 +573,9 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 dialog .toast { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); }
 body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+/* With the My Uniform button in the corner, above it. */
+body.u-fab:not(.owner) > .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
 
 @media (max-width: 360px) {
   .dow, .days { gap: 4px; }
@@ -620,7 +623,7 @@ body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   .lit .burst .glow { animation: b-glow 1.2s 3.3s ease-out backwards; }
   .lit .burst .star { animation: b-star 1.2s 3.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
   .lit .burst .star.s2 { animation: b-star2 1s 3.45s ease-out backwards; }
-  .lit .burst .ring { animation: b-ring 0.9s 3.35s ease-out backwards; }
+  .lit .burst .ring { animation: b-ring 0.9s 3.35s ease-out; } /* unseen until it starts (its first frame is lit) */
   .lit .hchip .ph { animation: icon-glitch 9s 4s steps(1, end) infinite; }
   .lit .hchip .idc { animation: icon-glitch 9s 4.35s steps(1, end) infinite; }
   /* The arrow by the how-to line pops in, then nudges with a soft pulse. */
@@ -808,15 +811,14 @@ dialog:not([open]) { display: none; }
 .item-frame.empty { cursor: default; }
 .item-frame:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; }
 .item-frame .u-other { opacity: 0.35; }
-.item-frame .fit-empty {
-  display: grid; place-items: center; margin: 0; padding: 0 24px; text-align: center;
-  color: #33415c; font: 600 13px/1.35 var(--font-body); /* on the light stage in both themes */
-}
+.item-frame .fit-empty { display: grid; place-items: center; margin: 0; padding: 0 12px; text-align: center; font: 600 13px/1.35 var(--font-body); }
+/* On a dark label over the mannequin, so it reads on the figure in both themes. */
+.item-frame .fit-empty span { padding: 7px 11px; border-radius: 9px; background: rgba(8, 24, 49, 0.88); color: #fff; box-shadow: 0 4px 12px -4px rgba(8, 24, 49, 0.5); }
 .fit-size { display: grid; grid-template-columns: auto minmax(0, 1fr) 46px auto; align-items: center; gap: 10px; width: 100%; max-width: 360px; }
 .fit-size input { width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
 .fit-size output { font: 600 13px/1 var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
 .item-fit > p { justify-self: stretch; }
-.btn.item-del { color: var(--busy); }
+.btn.item-del { color: var(--item-del, var(--busy)); }
 /* Save Item on a row of its own on a phone, Cancel and Delete Item under it; on a laptop all three in one row. */
 .item-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .item-btns .btn { flex: 1 1 140px; }
@@ -939,6 +941,12 @@ dialog:not([open]) { display: none; }
 }
 body.u-fab .page { padding-bottom: 84px; }
 body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
+/* Where it would sit on a day or a footer link (and take its tap), it steps aside until they scroll on (app.js). A
+   focused link or day is scrolled clear of it. */
+.ufab { transition: opacity 0.2s, visibility 0.2s; }
+.ufab.tuck { opacity: 0; visibility: hidden; }
+html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (prefers-reduced-motion: reduce) { .ufab { transition: none; } }
 
 /* Its screens: a view of their own over the whole window; the page underneath doesn't scroll while it's open. */
 .uni {
@@ -1026,7 +1034,8 @@ body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
 .u-item:focus-visible { outline-offset: 1px; }
 .u-item[aria-pressed="true"] { border-color: var(--open); background: var(--pick-bg); }
 .u-item[aria-pressed="true"]::after {
-  content: "✓"; position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%;
+  content: "✓"; content: "✓" / ""; /* seen, not read out: the card is already "pressed" */
+  position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%;
   background: var(--open); color: #fff; font: 700 11px/18px var(--font-body); text-align: center;
 }
 .u-item.none { align-content: center; min-height: 104px; background: var(--surface); border-style: dashed; color: var(--muted); }
@@ -1056,6 +1065,7 @@ body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
 .u-frame { position: relative; width: 150px; height: 300px; }
 .u-frame > * { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .u-layer { max-width: none; object-fit: contain; }
+.u-layer.gone { visibility: hidden; } /* a drawing that isn't there (yet): no broken-picture mark */
 .u-out { display: grid; gap: 12px; align-content: start; min-width: 0; }
 .u-text { padding: 9px 11px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
 .u-out .btn { width: 100%; }
@@ -1072,6 +1082,11 @@ body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
 @supports (width: clamp(1px, 2px, 3px)) {
   @media (min-width: 860px) and (min-height: 560px) {
     .u-see { --fh: clamp(300px, calc(100vh - 180px), 760px); } /* browsers without clamp() keep the phone's 300px */
+    .u-see .u-frame { height: var(--fh); width: calc(var(--fh) / 2); }
+  }
+  /* A tablet held upright: the phone's layout, with the mannequin as tall as the room under it allows. */
+  @media (min-width: 600px) and (max-width: 859px) and (min-height: 900px) {
+    .u-see { --fh: clamp(300px, calc(100vh - 430px), 640px); }
     .u-see .u-frame { height: var(--fh); width: calc(var(--fh) / 2); }
   }
 }
@@ -1249,9 +1264,10 @@ body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
        narrowest windows they move left just enough to leave the bottom right corner free (for the My Uniform button,
        about 170 x 56, 16px in: 194px from the window's right edge). */
     body:not(.owner) .page > .foot {
-      grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: var(--foot-gap); padding: var(--foot-pad) max(0px, 1048px - 100vw) 0 0;
+      grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: var(--foot-gap); padding: var(--foot-pad) 0 0;
       display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 14px;
     }
+    body.u-fab:not(.owner) .page > .foot { padding-right: max(0px, 1048px - 100vw); }
     body:not(.owner) .page > .foot .foot-row { display: contents; }
     body:not(.owner) .page > .foot .linkish { padding-block: var(--link-pad); }
     body:not(.owner) .page > .foot .foot-meta { flex-basis: 100%; grid-auto-flow: column; justify-content: center; column-gap: 18px; margin-top: var(--meta-gap); }

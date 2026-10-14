@@ -104,7 +104,7 @@
 
 <!-- Supervisors: My Uniform. The corner button, then a full-screen view over the page in three steps: the code from
      his text, the clothes to pick, and the mannequin wearing them with the text to send. -->
-<button type="button" class="ufab" id="uniformBtn" hidden><span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><b>My Uniform</b><span class="u-lock"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code</span></button>
+<button type="button" class="ufab" id="uniformBtn" aria-label="My Uniform" hidden><span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><b>My Uniform</b><span class="u-lock"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code</span></button>
 <section class="uni" id="uniform" aria-label="My Uniform" hidden>
   <div class="u-code" id="uCode" hidden>
     <div class="u-hero">
@@ -436,7 +436,7 @@ Thu 10/15 2300-0700</pre>
         <input type="text" id="setUniCode" maxlength="8" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-describedby="uniCodeHelp">
         <button type="button" class="btn ghost sm" id="uniNewCode">New Random Code</button>
       </div>
-      <p class="error small" id="uniCodeError" hidden>Use 4 to 8 letters or numbers. Until it's fixed, the code you had stays.</p>
+      <p class="error small" id="uniCodeError" role="alert" hidden>Use 4 to 8 letters or numbers. Until it's fixed, the code you had stays.</p>
       <p class="muted small" id="uniCodeHelp">4 to 8 letters or numbers. Text it to a supervisor once you've confirmed their shift. Change it any time; once you tap Save, the old code (and old links) stop working. Leave it empty to turn My Uniform off.</p>
       <p class="small uni-why" id="uniLocked" hidden>The code can't be changed yet: it's kept with your private settings, and your GitHub key can't save those. <button type="button" class="linkish" id="uniKeyHow">Show Me How</button></p>
       <p class="muted small" id="uniLost" hidden>Supervisors' page has a code this device couldn't read. Enter a new one to replace it.</p>
@@ -444,6 +444,7 @@ Thu 10/15 2300-0700</pre>
         <button type="button" class="btn primary sm" id="uniCopyLink">Copy Link With Code</button>
         <span class="uni-link" id="uniLink"></span>
       </div>
+      <p class="muted small" id="uniLinkWait" hidden>This code and its link work for supervisors once you tap Save.</p>
       <p class="label uni-sub" id="uniItemsLabel">My clothes <span class="opt" id="uniCount"></span></p>
       <div class="uni-items" id="uniItems" role="group" aria-labelledby="uniItemsLabel"></div>
       <p class="muted small">Tap an item to change its drawing, name or fit on the mannequin, or to delete it.</p>
@@ -547,11 +548,11 @@ Thu 10/15 2300-0700</pre>
           </div>
           <p class="muted small" id="itemFileHelp">Use a drawing with a transparent background (PNG or WebP).</p>
           <div class="stack" id="itemB">
-            <span class="label">Buttoned-up version (for a tie) <span class="opt">(optional)</span></span>
+            <span class="label" id="itemBLabel">Buttoned-up version (for a tie) <span class="opt">(optional)</span></span>
             <div class="uni-row">
-              <label class="btn ghost sm file-btn" id="itemPick2"><span id="itemPick2Text">Choose Drawing</span><input type="file" id="itemFile2" accept="image/*"></label>
+              <label class="btn ghost sm file-btn" id="itemPick2"><span id="itemPick2Text">Choose Drawing</span><input type="file" id="itemFile2" accept="image/*" aria-labelledby="itemPick2Text itemBLabel"></label>
               <span class="small uni-file" id="itemFile2Name"></span>
-              <button type="button" class="linkish" id="itemDrop2" hidden>Remove It</button>
+              <button type="button" class="linkish" id="itemDrop2" aria-labelledby="itemDrop2 itemBLabel" hidden>Remove It</button>
             </div>
           </div>
           <p class="error small" id="itemFileError" role="alert" hidden></p>
