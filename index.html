@@ -87,7 +87,7 @@
 
   <section class="cal" aria-label="Calendar">
     <div class="dow" id="dow" aria-hidden="true"></div>
-    <div id="weeks" class="weeks"><p class="loading">Loading calendar…<span class="load-late"> Couldn't load the latest calendar. Check your connection and refresh.</span></p></div>
+    <div id="weeks" class="weeks"><p class="loading">Loading calendar…<span class="load-late"> Still loading. If the calendar doesn't show soon, check your connection and refresh.</span><span class="load-fail"> Couldn't load the latest calendar. Check your connection and refresh.</span></p></div>
   </section>
 
   <footer class="foot">
@@ -445,7 +445,7 @@ Thu 10/15 2300-0700</pre>
       <p class="error small" id="uniCodeError" role="alert" hidden>Use 4 to 8 letters or numbers. Until it's fixed, the code you had stays.</p>
       <p class="muted small" id="uniCodeHelp">4 to 8 letters or numbers. Text it to a supervisor once you've confirmed their shift. Change it any time; once you tap Save, the old code (and old links) stop working. Leave it empty to turn My Uniform off.</p>
       <p class="small uni-why" id="uniLocked" hidden>The code can't be changed yet: it's kept with your private settings, and your GitHub key can't save those. <button type="button" class="linkish" id="uniKeyHow">Show Me How</button></p>
-      <p class="muted small" id="uniLost" hidden>Supervisors' page has a code this device couldn't read. Enter a new one to replace it.</p>
+      <p class="muted small" id="uniLost" hidden>Supervisors' page has a code this device couldn't read. Enter a new one to replace it, or <button type="button" class="linkish" id="uniTurnOff">turn My Uniform off</button>.</p>
       <div class="uni-row" id="uniLinkRow" hidden>
         <button type="button" class="btn primary sm" id="uniCopyLink">Copy Link With Code</button>
         <span class="uni-link" id="uniLink"></span>
@@ -455,6 +455,7 @@ Thu 10/15 2300-0700</pre>
       <div class="uni-items" id="uniItems" role="group" aria-labelledby="uniItemsLabel"></div>
       <p class="muted small">Tap an item to change its drawing, name or fit on the mannequin, or to delete it.</p>
       <p class="muted small" id="uniState"></p>
+      <p class="sr" id="uniSaid" role="status"></p>
     </div>
 
     <div class="group">
@@ -650,6 +651,6 @@ Thu 10/15 2300-0700</pre>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="parser.js?v=34"></script>
-<script src="app.js?v=34"></script>
+<script src="app.js?v=34" onerror="document.documentElement.classList.add('app-failed')"></script>
 </body>
 </html>
