@@ -11,12 +11,16 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0f264a" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#081428" media="(prefers-color-scheme: dark)">
+<!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion.
+     First in line, so it never waits for a stylesheet. -->
+<script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<!-- The fonts load without holding up the page: a slow or stuck font server never leaves it blank (it shows in the
+     fallback fonts until they're in). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
 <link rel="stylesheet" href="app.css?v=34">
-<!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion. -->
-<script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
 </head>
 <body>
 <main class="page">
@@ -83,7 +87,7 @@
 
   <section class="cal" aria-label="Calendar">
     <div class="dow" id="dow" aria-hidden="true"></div>
-    <div id="weeks" class="weeks"><p class="loading">Loading calendar…</p></div>
+    <div id="weeks" class="weeks"><p class="loading">Loading calendar…<span class="load-late"> Couldn't load the latest calendar. Check your connection and refresh.</span></p></div>
   </section>
 
   <footer class="foot">
@@ -132,7 +136,9 @@
     <div class="u-rows" id="uRows"></div>
     <p class="u-lbl" id="uPicksLabel">Your picks</p>
     <div class="u-picks" id="uPicks" role="group" aria-labelledby="uPicksLabel"></div>
+    <p class="u-need" id="uNeed" hidden></p>
     <button type="button" class="btn go wide" id="uSeeBtn" disabled>See It On the Mannequin</button>
+    <p class="sr" id="uSaid" role="status"></p>
   </div>
   <div class="u-sheet u-see" id="uSee" hidden>
     <button type="button" class="u-pill" id="uChange"><span aria-hidden="true">‹ </span>Change Outfit</button>
