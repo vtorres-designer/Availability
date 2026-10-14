@@ -59,7 +59,7 @@
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
     --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
     --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
     color-scheme: dark;
   }
 }
@@ -72,7 +72,7 @@
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
   --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
   --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
+  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
   color-scheme: dark;
 }
 
@@ -300,6 +300,9 @@ h2 { font-size: 28px; line-height: 1.05; }
 .week-head .hrs { font: 400 12px/1.2 var(--font-mono); }
 .week-head .hrs.over { color: var(--ink); font-weight: 700; }
 .loading { color: var(--muted); }
+/* If the page's own script never comes (the calendar then never replaces this line), it says so after 20 seconds. */
+.loading .load-late { display: block; margin-top: 6px; color: var(--busy); visibility: hidden; animation: load-late 0s 20s forwards; }
+@keyframes load-late { to { visibility: visible; } }
 
 .day {
   position: relative;
@@ -414,7 +417,7 @@ a.linkish { display: inline-block; }
 .btn.ghost { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 14px; border-radius: 10px; }
 .btn.wide { width: 100%; }
-.btn.go { background: var(--open); color: var(--open-ink); }
+.btn.go { background: var(--go, var(--open)); color: var(--open-ink); } /* --go: the dark theme's deeper green, so white text reads */
 .btn.go.ot { background: var(--ot); color: var(--ot-ink); }
 .row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .row-btns .btn { flex: 1 1 140px; }
@@ -596,7 +599,8 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
    while the calendar loads, and never for more than 4 seconds. "opening": one-time steps; "lit": from the same
    moment on, for good. People who turn off motion see none of this. */
 @media (prefers-reduced-motion: no-preference) {
-  .intro .page { opacity: 0; animation: intro-failsafe 0s linear 4s forwards; }
+  /* Hidden, it takes no taps either (a tap there would open a window over a blank screen). */
+  .intro .page { opacity: 0; visibility: hidden; animation: intro-failsafe 0s linear 4s forwards; }
   .page.inhale { animation: inhale 0.42s ease-out backwards; transform-origin: 50% 30%; }
   /* His name falls into place, letter by letter; then the days, top left to bottom right. */
   .opening #title .ch { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.1s + var(--c, 0) * 35ms); }
@@ -636,7 +640,7 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
     animation: breathe 3s var(--bd, 0s) ease-in-out infinite;
   }
 }
-@keyframes intro-failsafe { to { opacity: 1; } }
+@keyframes intro-failsafe { to { opacity: 1; visibility: visible; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
 /* Where the page reaches the window's edges (phones, edit mode on laptops up to about 1215px wide, and the header band
    that supervisors see on any laptop), any swell past full size would widen the page for a moment. */
@@ -745,7 +749,7 @@ dialog:not([open]) { display: none; }
 .switch-in:checked + .switch { background: var(--open); }
 .switch-in:checked + .switch::after { transform: translateX(18px); }
 .switch-in:focus-visible + .switch { outline: 3px solid var(--accent); outline-offset: 2px; }
-.btn.note-del { justify-self: start; color: var(--busy); }
+.btn.note-del { justify-self: start; color: var(--item-del, var(--busy)); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
 @media (forced-colors: active) {
   .switch { forced-color-adjust: none; background: Canvas; box-shadow: inset 0 0 0 1px CanvasText; }
@@ -955,7 +959,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
 }
 .uni-open, .uni-open body { overflow: hidden; }
 .uni p { margin: 0; }
-.uni h2:focus { outline: none; } /* focused only so screen readers start at the title */
+.uni h2:focus, #title:focus { outline: none; } /* focused only so screen readers start at the title (#title: the preview) */
 .uni .btn.go { font-size: 15px; }
 .u-kick { font: 700 11px/1.3 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .u-pill {
@@ -1060,6 +1064,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
   background: none; color: inherit; font: 700 14px/1 var(--font-body);
 }
 .u-empty { margin: 3px; padding: 0 4px; font-size: 13px; color: var(--muted); }
+.u-need { margin: -2px 0 -4px; font-size: 13px; line-height: 1.3; color: var(--muted); text-align: center; } /* what See It On the Mannequin still needs */
 /* The mannequin on a light stage (in both themes: the drawings are made for a light background). */
 .u-stage { display: grid; place-items: center; padding: 6px; border-radius: 14px; background: radial-gradient(90% 70% at 50% 40%, #e9eef7, #f6f8fb); }
 .u-frame { position: relative; width: 150px; height: 300px; }
@@ -1128,7 +1133,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
   body.owner .page > .cal {
     grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 20px;
     max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); /* above the toolbar */
-    overflow-y: auto; padding: 0 14px 12px; align-content: start;
+    overflow-y: auto; padding: 0 14px 12px; align-content: start; scroll-padding-top: 36px; /* below the weekday names */
   }
   body.owner .cal .dow { padding: 12px 0 4px; }
   body.owner .day { min-height: 74px; }
@@ -1252,6 +1257,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
     body:not(.owner) .page > .cal {
       grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
       overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
+      scroll-padding-top: calc(var(--dow-top) + 24px); /* a day reached with the keyboard comes into view below the weekday names */
     }
     body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
     body:not(.owner) .day {
