@@ -19,14 +19,10 @@
   --busy-ink: #ffffff;
   --none: #e2e6ee;
   --none-ink: #6d7689;
-  --none-small: #5e6576; /* small text on a Not Set Yet day (the month tag): 4.5:1 on --none */
   --hatch: rgba(255, 255, 255, 0.22);
   --note-bg: #e7edfa;
   --note-line: #c7dbf5;
   --card-shadow: 0 2px 10px rgba(16, 40, 77, 0.08);
-  /* Laptops: the cards float over the header band, on a slightly deeper page. */
-  --float-shadow: 0 28px 56px -18px rgba(8, 24, 49, 0.45), 0 6px 16px -6px rgba(8, 24, 49, 0.2);
-  --desk-bg: #eef1f6;
 
   /* The header keeps its navy in both themes. */
   --hero-a: #0f264a;
@@ -38,11 +34,6 @@
   --hero-label: #9fc0ea;
   --led: #3dffb0;
   --today: #3a8ee6;
-  /* My Uniform: a picked card and its bubble, labels, the code's green and its "wrong code" red. */
-  --pick-bg: #eef8f2; --pick-ink: #145f34; --u-label: #33415c; --u-card-ink: #2a3550; --u-pill: #eef2f8;
-  --u-ok: #1c7f46; --u-bad: #b3261e; --u-bad-bg: #fdf1f1; --u-field: #ccd5e3; --u-ghost: #173a6a; --u-ghost-alpha: 0.1;
-  --u-th-bg: transparent; /* dark theme: a light tile, since the drawings are made for a light background */
-  --u-tile: #ffffff; /* his clothes in Settings sit on white tiles (light ones in the dark theme) */
 
   --shadow: 0 10px 30px rgba(15, 25, 50, 0.18);
   --font-display: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
@@ -54,26 +45,20 @@
   :root:not([data-theme="light"]) {
     --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
     --accent: #8db0f2; --accent-ink: #0d1220;
-    --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
-    --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c; --none-small: #8993a6;
+    --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
+    --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
     --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
     --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
-    --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
-    --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-    --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --err: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a;
   --accent: #8db0f2; --accent-ink: #0d1220;
-  --open: #1d8449; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
-  --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c; --none-small: #8993a6;
+  --open: #23914f; --open-ink: #ffffff; --ot: #e8b31f; --ot-ink: #241a00;
+  --busy: #cc4545; --busy-ink: #ffffff; --none: #212a3d; --none-ink: #7c879c;
   --hatch: rgba(255, 255, 255, 0.18); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5); --note-bg: #1b2640;
   --note-line: #2a3c63; --card-shadow: 0 0 0 1px #232c40; --hero-a: #0c2142; --hero-b: #060f22; --today: #5fa2ec;
-  --float-shadow: 0 0 0 1px #232c40, 0 28px 56px -18px rgba(0, 0, 0, 0.6); --desk-bg: #0d1220;
-  --pick-bg: #15301f; --pick-ink: #8fe0b0; --u-label: #c3cbda; --u-card-ink: #d5dbe7; --u-pill: #1f2940;
-  --u-ok: #3fbf7a; --u-bad: #ff8a80; --item-del: #ff8a80; --err: #ff8a80; --go: #1c7f46; --u-bad-bg: #2a1518; --u-field: #3a4560; --u-ghost: #9fc0ea; --u-ghost-alpha: 0.08; --u-th-bg: #e9eef7; --u-tile: #e9eef7;
   color-scheme: dark;
 }
 
@@ -127,15 +112,14 @@ a { color: var(--accent); }
   mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
 }
 /* The strip under the header: its colors flow along it once it has turned on. They sit on a layer of their own, so
-   the strip can open from the middle without hiding the sparkle it opens from. (--sx: where it opens from, if not the
-   middle.) */
+   the strip can open from the middle without hiding the sparkle it opens from. */
 .stripe { position: relative; height: 3px; margin-top: -12px; border-radius: 0 0 4px 4px; }
 .stripe::before {
   content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit;
   background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5) 0 0 / 200% 100%;
 }
 .stripe .spark {
-  position: absolute; left: var(--sx, 50%); top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; pointer-events: none;
+  position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; pointer-events: none;
   background: #fff; -webkit-clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
   clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
   filter: drop-shadow(0 0 4px #bff9ff) drop-shadow(0 0 8px rgba(61, 255, 176, 0.8));
@@ -147,33 +131,17 @@ a { color: var(--accent); }
 }
 .badge-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .who { min-width: 0; display: grid; gap: 2px; }
-.badge { position: relative; flex: none; line-height: 0; }
-.shield { display: block; width: 46px; height: 52px; flex: none; overflow: visible; }
+.shield { width: 46px; height: 52px; flex: none; overflow: visible; }
 #shieldText { font: 700 16px var(--font-display); letter-spacing: 1px; fill: #fff; }
-/* The badge's sparkle, once every shine of the opening is done: a big star and a small one, a soft glow and a ring of
-   light, on the badge's top right corner (wherever the badge's size puts it). */
-.burst { position: absolute; left: 65%; top: 15%; width: 0; height: 0; pointer-events: none; z-index: 2; }
-.burst > * { position: absolute; opacity: 0; }
-.burst .star {
-  width: 40px; height: 40px; margin: -20px 0 0 -20px; background: #fff;
-  -webkit-clip-path: polygon(50% 0, 57% 43%, 100% 50%, 57% 57%, 50% 100%, 43% 57%, 0 50%, 43% 43%);
-  clip-path: polygon(50% 0, 57% 43%, 100% 50%, 57% 57%, 50% 100%, 43% 57%, 0 50%, 43% 43%);
-  filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #9fd2ff) drop-shadow(0 0 18px rgba(61, 255, 176, 0.8));
-}
-.burst .star.s2 { width: 18px; height: 18px; margin: -9px 0 0 -9px; transform: rotate(45deg); }
-.burst .glow { width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(159, 210, 255, 0.55) 30%, transparent 70%); }
-.burst .ring { width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2px solid rgba(200, 235, 255, 0.9); }
+.shield .sparkle { opacity: 0; transform-origin: 40px 6.5px; transform-box: view-box; }
 .hero .eyebrow { color: var(--hero-label); }
 .hero h1 { color: var(--hero-ink); font-size: 30px; line-height: 1.02; overflow-wrap: anywhere; }
 /* His name is built from letters (so it can fall into place); each word stays whole unless it's wider than the line. */
 #title .word { display: inline-block; max-width: 100%; }
 #title .ch { display: inline-block; }
-/* The status line: always lit while he takes any shift, a bright bulb with a wide green halo. */
-.accepting { margin: 0; display: flex; align-items: center; gap: 9px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
-.live-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--led);
-  box-shadow: 0 0 4px 1px #c9ffe9, 0 0 11px 3px rgba(61, 255, 176, 0.85), 0 0 24px 7px rgba(61, 255, 176, 0.4);
-}
+/* The status line: always lit while he takes any shift. */
+.accepting { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.3 var(--font-mono); color: #d4f7e8; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led); box-shadow: 0 0 6px var(--led), 0 0 12px rgba(61, 255, 176, 0.55); }
 .accepting.none { color: var(--hero-soft); }
 .accepting.none .live-dot { background: #6d7f99; box-shadow: none; animation: none; }
 .accepting .typed { min-width: 0; }
@@ -266,15 +234,12 @@ h2 { font-size: 28px; line-height: 1.05; }
 }
 .chip b { font-weight: 700; }
 .chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
-/* His notes: a tinted box under the header, and again in the day window. Several notes sit one under the other, each
-   with its own tag, split by a thin line. */
+/* His note: a tinted box under the header, and again in each day's window. */
 .note-box {
-  margin: 0; padding: 10px 12px; border-radius: 10px; display: grid; gap: 8px;
+  margin: 0; padding: 10px 12px; border-radius: 10px;
   background: var(--note-bg); border: 1px solid var(--note-line);
   font-size: 15px; line-height: 1.4; overflow-wrap: anywhere;
 }
-.note-box p { margin: 0; }
-.note-box p + p { padding-top: 8px; border-top: 1px solid var(--note-line); }
 .note-tag { font: 700 12px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-right: 4px; }
 .sheet .note-box { margin: 0; }
 
@@ -301,13 +266,6 @@ h2 { font-size: 28px; line-height: 1.05; }
 .week-head .hrs { font: 400 12px/1.2 var(--font-mono); }
 .week-head .hrs.over { color: var(--ink); font-weight: 700; }
 .loading { color: var(--muted); }
-/* If the page's own script is slow to come (the calendar then doesn't replace this line yet), a line says so after 20
-   seconds; if it fails (index.html's onerror), another says it couldn't load. Red text in the dark theme: --err. */
-.loading .load-late, .loading .load-fail { display: block; margin-top: 6px; color: var(--err, var(--busy)); }
-.loading .load-late { color: var(--muted); visibility: hidden; animation: load-late 0s 20s forwards; }
-@keyframes load-late { to { visibility: visible; } }
-.loading .load-fail, .app-failed .loading .load-late { display: none; }
-.app-failed .loading .load-fail { display: block; }
 
 .day {
   position: relative;
@@ -344,7 +302,6 @@ h2 { font-size: 28px; line-height: 1.05; }
 /* Owner only: striped red tells "busy" (blocked) apart from "working". Supervisors see plain red for both. */
 .day.hatch { background-image: repeating-linear-gradient(135deg, var(--hatch) 0 5px, transparent 5px 11px); }
 .day.unset { background: var(--none); color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); }
-.day.unset .mon, .day.unset .tag { color: var(--none-small); }
 .day.past { background: transparent; color: var(--none-ink); box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
 .day.past:active { transform: none; }
 /* Today: a thin glowing outline. */
@@ -419,11 +376,11 @@ a.linkish { display: inline-block; }
   text-decoration: none; text-align: center;
 }
 .btn.primary { background: var(--accent); color: var(--accent-ink); }
-.btn.primary:disabled, .btn.primary[aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.btn.primary:disabled { opacity: 0.55; cursor: default; }
 .btn.ghost { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 14px; border-radius: 10px; }
 .btn.wide { width: 100%; }
-.btn.go { background: var(--go, var(--open)); color: var(--open-ink); } /* --go: the dark theme's deeper green, so white text reads */
+.btn.go { background: var(--open); color: var(--open-ink); }
 .btn.go.ot { background: var(--ot); color: var(--ot-ink); }
 .row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .row-btns .btn { flex: 1 1 140px; }
@@ -510,7 +467,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 /* A field label with a small link at the other end (Undo My Edits). */
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .field-head .linkish { padding: 0; font-size: 13px; }
-.error { color: var(--err, var(--busy)); font-weight: 700; }
+.error { color: var(--busy); font-weight: 700; }
 .steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; }
 
 .seg { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -552,7 +509,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .preview { display: grid; gap: 8px; }
 .preview:empty { display: none; }
 .pv-sum { font-weight: 700; font-size: 14px; }
-.pv-sum.warn { color: var(--err, var(--busy)); }
+.pv-sum.warn { color: var(--busy); }
 .pv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
 .pv-item {
   display: flex; gap: 10px; align-items: flex-start;
@@ -561,7 +518,7 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .pv-item .dot { margin-top: 5px; }
 .pv-text { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
 .pv-warn { color: var(--muted); font-size: 13px; }
-.pv-warn.strong { color: var(--err, var(--busy)); font-weight: 700; }
+.pv-warn.strong { color: var(--busy); font-weight: 700; }
 .pv-err { box-shadow: inset 0 0 0 2px var(--busy); }
 .pv-x {
   flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 1px;
@@ -582,9 +539,6 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 dialog .toast { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); }
 body:not(.owner) .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-/* With the My Uniform button in the corner, above it. */
-body.u-fab:not(.owner) > .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
-body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
 
 @media (max-width: 360px) {
   .dow, .days { gap: 4px; }
@@ -605,14 +559,13 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
    while the calendar loads, and never for more than 4 seconds. "opening": one-time steps; "lit": from the same
    moment on, for good. People who turn off motion see none of this. */
 @media (prefers-reduced-motion: no-preference) {
-  /* Hidden, it takes no taps either (a tap there would open a window over a blank screen). */
-  .intro .page { opacity: 0; visibility: hidden; animation: intro-failsafe 0s linear 4s forwards; }
+  .intro .page { opacity: 0; animation: intro-failsafe 0s linear 4s forwards; }
   .page.inhale { animation: inhale 0.42s ease-out backwards; transform-origin: 50% 30%; }
   /* His name falls into place, letter by letter; then the days, top left to bottom right. */
   .opening #title .ch { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.1s + var(--c, 0) * 35ms); }
   .opening #weeks.drop .day { animation: drop 0.5s cubic-bezier(0.2, 1.35, 0.45, 1) backwards; animation-delay: calc(0.25s + var(--w, 0) * 45ms); }
   /* The status light switches on (its line then types itself out), then it and his name glow together. */
-  .lit .live-dot { animation: dot-on 0.25s 0.45s steps(2, end) backwards, light 2.2s 1.9s ease-in-out infinite; }
+  .lit .live-dot { animation: dot-on 0.25s 0.45s steps(2, end) backwards, pulse 2.2s 1.9s ease-in-out infinite; }
   .lit #title { animation: name-glow 2.2s 1.9s ease-in-out infinite; }
   .accepting.typing .type-cursor { display: inline-block; animation: blink 0.5s step-end infinite; }
   /* The strip: a sparkle in the middle, then it opens both ways, then its colors flow. */
@@ -626,14 +579,10 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
     animation: ripple 1.3s 2s ease-out, mask-drift 8s linear infinite;
   }
   .lit .shield .glint { animation: glint 0.9s 2.05s ease-in-out backwards; }
+  .lit .shield .sparkle { animation: sparkle 0.8s 2.3s ease-out backwards; }
   /* A shine crosses Call Me, then the license; their icons glitch now and then. */
   .lit .hchip::after { animation: chip-shine 0.7s 2.35s ease-in-out backwards; }
   .lit #heroLicBtn::after { animation-delay: 2.55s; }
-  /* Once all three shines are done, the badge's sparkle bursts. Under "lit", so it isn't cut off at 4 s. */
-  .lit .burst .glow { animation: b-glow 1.2s 3.3s ease-out backwards; }
-  .lit .burst .star { animation: b-star 1.2s 3.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
-  .lit .burst .star.s2 { animation: b-star2 1s 3.45s ease-out backwards; }
-  .lit .burst .ring { animation: b-ring 0.9s 3.35s ease-out; } /* unseen until it starts (its first frame is lit) */
   .lit .hchip .ph { animation: icon-glitch 9s 4s steps(1, end) infinite; }
   .lit .hchip .idc { animation: icon-glitch 9s 4.35s steps(1, end) infinite; }
   /* The arrow by the how-to line pops in, then nudges with a soft pulse. */
@@ -646,21 +595,17 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
     animation: breathe 3s var(--bd, 0s) ease-in-out infinite;
   }
 }
-@keyframes intro-failsafe { to { opacity: 1; visibility: visible; } }
+@keyframes intro-failsafe { to { opacity: 1; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
-/* Where the page reaches the window's edges (phones, and the laptop layout: the header band supervisors see, edit mode
-   up to about 1215px wide), any swell past full size would widen the page for a moment. Edit mode on a wider laptop
-   takes the same one, so the fade isn't started over when edit mode comes in during it. */
+/* Where the page reaches the window's edges (phones, and laptops up to about 1215px wide), any swell past full size
+   would widen the page for a moment. */
 @keyframes inhale-flat { 0% { opacity: 0; transform: scale(0.975); } 100% { opacity: 1; transform: none; } }
-@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) { .page.inhale { animation-name: inhale-flat; } }
+@media (max-width: 592px), (min-width: 960px) and (min-height: 560px) and (max-width: 1215px) { .page.inhale { animation-name: inhale-flat; } }
 @keyframes drop { 0% { opacity: 0; transform: translateY(-22px) scale(0.92); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
 @keyframes dot-on { from { background: #42566b; box-shadow: none; } to { background: var(--led); } }
 @keyframes name-glow { 0%, 100% { text-shadow: 0 0 14px rgba(120, 190, 255, 0.8); } 50% { text-shadow: 0 0 2px rgba(120, 190, 255, 0.15); } }
 @keyframes blink { 50% { opacity: 0; } }
-@keyframes strip-open {
-  from { -webkit-clip-path: inset(0 calc(100% - var(--sx, 50%)) 0 var(--sx, 50%)); clip-path: inset(0 calc(100% - var(--sx, 50%)) 0 var(--sx, 50%)); }
-  to { -webkit-clip-path: inset(0 0 0 0); clip-path: inset(0 0 0 0); }
-}
+@keyframes strip-open { from { -webkit-clip-path: inset(0 50% 0 50%); clip-path: inset(0 50% 0 50%); } to { -webkit-clip-path: inset(0 0 0 0); clip-path: inset(0 0 0 0); } }
 @keyframes flow { from { background-position: 0 0; } to { background-position: -200% 0; } }
 @keyframes spark { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 30% { opacity: 1; transform: scale(1.3) rotate(45deg); } 60% { opacity: 1; transform: scale(0.9) rotate(70deg); } 100% { opacity: 0; transform: scale(0.2) rotate(90deg); } }
 @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 18px 18px, 18px 18px; } }
@@ -674,15 +619,8 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
 /* Starts and ends at full glow, so a day the mouse leaves picks up where the others are without a jump. */
 @keyframes breathe { 0%, 100% { box-shadow: 0 0 14px 2px var(--glow); } 50% { box-shadow: 0 0 0 transparent; } }
 @keyframes glint { from { transform: translateX(0); } to { transform: translateX(78px); } }
-@keyframes b-star { 0% { opacity: 0; transform: scale(0.1) rotate(-30deg); } 30% { opacity: 1; transform: scale(1.25) rotate(20deg); } 55% { opacity: 1; transform: scale(1) rotate(35deg); } 100% { opacity: 0; transform: scale(0.3) rotate(60deg); } }
-@keyframes b-star2 { 0% { opacity: 0; transform: rotate(45deg) scale(0.2); } 40% { opacity: 1; transform: rotate(80deg) scale(1.3); } 100% { opacity: 0; transform: rotate(120deg) scale(0.4); } }
-@keyframes b-glow { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.4); } }
-@keyframes b-ring { 0% { opacity: 0.95; transform: scale(0.4); } 100% { opacity: 0; transform: scale(3.2); } }
-/* The status light dims between glows (the bulb darkens, its halo shrinks), then swells back, on his name's beat. */
-@keyframes light {
-  0%, 100% { opacity: 1; background: var(--led); box-shadow: 0 0 4px 1px #c9ffe9, 0 0 11px 3px rgba(61, 255, 176, 0.85), 0 0 24px 7px rgba(61, 255, 176, 0.4); }
-  50% { opacity: 0.55; background: #2a9e72; box-shadow: 0 0 2px 0 rgba(201, 255, 233, 0.4), 0 0 5px 1px rgba(61, 255, 176, 0.35), 0 0 0 0 rgba(61, 255, 176, 0); }
-}
+@keyframes sparkle { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(0.4) rotate(90deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* Browsers without <dialog> (Safari before 15.4, Firefox before 98) get the same sheets via a stand-in. */
 dialog:not([open]) { display: none; }
@@ -703,66 +641,24 @@ dialog:not([open]) { display: none; }
 .file-btn.disabled { opacity: 0.55; pointer-events: none; }
 .file-btn:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* Feedback: three quick choices, then the message. My Uniform's item categories are the same kind of chips. */
-.fb-kind, .chip-pick { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.fb-kind legend, .chip-pick legend { padding: 0 0 6px; }
-.fb-kind label, .chip-pick label { position: relative; }
-.fb-kind input, .chip-pick input { position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-.fb-kind span, .chip-pick span {
+/* Feedback: three quick choices, then the message. */
+.fb-kind { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-kind legend { padding: 0 0 6px; }
+.fb-kind label { position: relative; }
+.fb-kind input { position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.fb-kind span {
   display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 999px;
   font-weight: 700; font-size: 14px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line);
 }
-.fb-kind input:checked + span, .chip-pick input:checked + span { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
-.fb-kind input:focus-visible + span, .chip-pick input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.fb-kind input:checked + span { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+.fb-kind input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
 @media (forced-colors: active) {
-  .fb-kind span, .chip-pick span { border: 1px solid ButtonText; }
-  .fb-kind input:checked + span, .chip-pick input:checked + span { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+  .fb-kind span { border: 1px solid ButtonText; }
+  .fb-kind input:checked + span { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
 }
 /* Feedback: a field only bots fill in. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 #fbMsg { font: 16px/1.45 var(--font-body); min-height: 110px; }
-
-/* Settings: notes. One tab per note (its light is on while the note shows somewhere), then the open note's text,
-   date and switches for where it shows. */
-.note-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.note-tablist { display: flex; flex-wrap: wrap; gap: 6px; }
-.note-tab {
-  appearance: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; border-radius: 10px;
-  border: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 14px/1.2 var(--font-body); cursor: pointer;
-}
-.note-tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.note-tab.add { border-style: dashed; color: var(--accent); }
-.note-tab .pip { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--open); }
-.note-tab .pip.off { background: var(--muted); opacity: 0.5; }
-.note-auto { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--bg); color: var(--muted); font-size: 13px; }
-#setNoteText { min-height: 64px; font: 16px/1.4 var(--font-body); }
-.note-count { justify-self: end; font: 400 12px/1.2 var(--font-mono); color: var(--muted); }
-.label .opt { font-weight: 400; }
-.note-where { border: 0; margin: 0; padding: 0; min-width: 0; }
-.note-where legend { padding: 0 0 6px; }
-.where-box { display: grid; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; }
-.switch-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
-.switch-row + .switch-row { border-top: 1px solid var(--line); }
-.sw-text b { display: block; font-size: 15px; }
-.sw-text small { display: block; color: var(--muted); font-size: 13px; }
-/* A switch: the real checkbox, unseen, over a drawn track and knob. */
-.switch-in { position: absolute; right: 0; top: 50%; width: 46px; height: 28px; margin: -14px 0 0; opacity: 0; cursor: pointer; }
-.switch { position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--line); transition: background 0.15s; }
-.switch::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.15s;
-}
-.switch-in:checked + .switch { background: var(--open); }
-.switch-in:checked + .switch::after { transform: translateX(18px); }
-.switch-in:focus-visible + .switch { outline: 3px solid var(--accent); outline-offset: 2px; }
-.btn.note-del { justify-self: start; color: var(--item-del, var(--busy)); }
-@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
-@media (forced-colors: active) {
-  .switch { forced-color-adjust: none; background: Canvas; box-shadow: inset 0 0 0 1px CanvasText; }
-  .switch::after { background: CanvasText; box-shadow: none; }
-  .switch-in:checked + .switch { background: Highlight; }
-  .switch-in:checked + .switch::after { background: HighlightText; }
-}
 
 /* Settings: every-week days */
 .wk { display: grid; }
@@ -772,75 +668,6 @@ dialog:not([open]) { display: none; }
 .wk-work { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wk-work .field:last-child { grid-column: 1 / -1; }
 @media (min-width: 420px) { .wk-work { grid-template-columns: 1fr 1fr 0.8fr; } .wk-work .field:last-child { grid-column: auto; } }
-
-/* Settings: My Uniform. The code in capitals with a button for a random one, the link with the code in it, and his
-   clothes as a grid of cards (a white tile with the drawing, and its name), the last one Add Item. */
-.label.uni-sub { color: var(--ink); margin-top: 4px; }
-.uni-sub .opt { color: var(--muted); }
-.uni-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-#setUniCode {
-  width: 150px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
-  font: 600 18px/1.2 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase;
-}
-#setUniCode:disabled, #uniNewCode:disabled { opacity: 0.55; cursor: default; }
-/* The link sits beside its button when all of it fits there, else under it. */
-.uni-link {
-  flex: 0 1 auto; min-width: 0; padding: 6px 10px; border-radius: 8px; background: var(--bg); color: var(--muted);
-  font: 400 13px/1.4 var(--font-mono); overflow-wrap: anywhere;
-}
-.uni-why .linkish { padding: 0 2px; font-size: inherit; } /* a link in the line, not a button beside it */
-.uni-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
-.uni-item {
-  appearance: none; min-width: 0; margin: 0; padding: 6px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
-  display: grid; gap: 3px; align-content: start; background: var(--bg); color: var(--ink);
-  font: 400 11.5px/1.2 var(--font-body); text-align: center; overflow-wrap: anywhere;
-}
-.uni-item .u-th { padding-top: 70%; border-radius: 8px; background: var(--u-tile); } /* thumbnails drawn for 80 x 56 */
-.uni-item.add { align-content: center; min-height: 100px; border-style: dashed; color: var(--accent); font: 700 13px/1.2 var(--font-body); }
-.uni-full { grid-column: 1 / -1; }
-
-/* An item of My Uniform: its category, what it's worn with, the drawing and its prompts, its name, and the mannequin
-   to fit it on. On a laptop the mannequin sits beside the rest. */
-.item-grid, .item-col { display: grid; gap: 14px; align-content: start; min-width: 0; }
-.prompt-btns { display: grid; gap: 8px; }
-.prompt-btns .btn { font-size: 15px; }
-.btn.outline { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
-.ok-line { margin: 0; color: var(--u-ok); font-weight: 600; }
-.ok-line:empty { display: none; }
-.ok-line.todo { color: var(--ink); } /* not copied: what to do instead */
-.prompt-text {
-  margin: 0; max-height: 240px; overflow: auto; padding: 12px; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line);
-  white-space: pre-wrap; overflow-wrap: anywhere; font: 400 12.5px/1.5 var(--font-mono); user-select: text; -webkit-user-select: text;
-}
-.uni-file { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
-.item-fit { justify-items: center; gap: 10px; }
-.item-fit > .label { justify-self: start; }
-.u-stage.item-stage { padding: 10px 24px; }
-.u-frame.item-frame { width: 170px; height: 340px; touch-action: none; cursor: grab; border-radius: 4px; }
-.item-frame:active { cursor: grabbing; }
-.item-frame.empty { cursor: default; }
-.item-frame:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; }
-.item-frame .u-other { opacity: 0.35; }
-.item-frame .fit-empty { display: grid; place-items: center; margin: 0; padding: 0 12px; text-align: center; font: 600 13px/1.35 var(--font-body); }
-/* On a dark label over the mannequin, so it reads on the figure in both themes. */
-.item-frame .fit-empty span { padding: 7px 11px; border-radius: 9px; background: rgba(8, 24, 49, 0.88); color: #fff; box-shadow: 0 4px 12px -4px rgba(8, 24, 49, 0.5); }
-.fit-size { display: grid; grid-template-columns: auto minmax(0, 1fr) 46px auto; align-items: center; gap: 10px; width: 100%; max-width: 360px; }
-.fit-size input { width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
-.fit-size output { font: 600 13px/1 var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
-.item-fit > p { justify-self: stretch; }
-.btn.item-del { color: var(--item-del, var(--busy)); }
-/* Save Item on a row of its own on a phone, Cancel and Delete Item under it; on a laptop all three in one row. */
-.item-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-.item-btns .btn { flex: 1 1 140px; }
-.item-btns #itemSave { flex-basis: 100%; }
-@media (min-width: 900px) and (min-height: 600px) {
-  #itemSheet { max-width: 880px; }
-  .item-btns .btn, .item-btns #itemSave { flex: 1 1 0; }
-  .item-btns #itemSave { flex-grow: 2; }
-  .item-grid { grid-template-columns: minmax(0, 1fr) 280px; column-gap: 28px; }
-  .item-fit { position: sticky; top: 0; align-self: start; }
-  .u-frame.item-frame { width: 180px; height: 360px; }
-}
 
 /* Share this calendar */
 #shareUrl { font-size: 15px; }
@@ -865,18 +692,15 @@ dialog:not([open]) { display: none; }
 .shift-chosen .label { color: var(--ink); }
 .decline:focus { outline: none; }
 
-/* When the shift starts and ends: side by side, each time with a two-part AM/PM bar under it. On P-OT days, which
-   hours would be overtime. */
+/* P-OT days: when does the shift start and end, and which hours would be overtime. */
 .pot-intro { font-size: 15px; }
-.clocks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
-.ap-pick { display: grid; grid-template-columns: 1fr 1fr; border-radius: 10px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.clock { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.ap-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .ap {
-  appearance: none; border: 0; min-width: 0; min-height: 36px; padding: 0 4px; border-radius: 10px 0 0 10px; cursor: pointer;
-  background: transparent; color: var(--ink); font: 700 13px/1 var(--font-body); letter-spacing: 0.04em;
+  appearance: none; border: 0; min-width: 56px; min-height: 44px; border-radius: 10px; cursor: pointer;
+  background: var(--bg); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); font-weight: 700;
 }
-.ap + .ap { border-radius: 0 10px 10px 0; box-shadow: inset 1px 0 0 var(--line); }
 .ap[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
-@media (forced-colors: active) { .ap[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; } }
 /* One block per hour, eight to a row (six on the smallest phones). */
 .otbar { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
 @media (max-width: 359px) { .otbar { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
@@ -924,404 +748,63 @@ dialog:not([open]) { display: none; }
 /* The two example times fit inside the box on the smallest phones. */
 @media (max-width: 400px) { #txTime::placeholder { font-size: 14px; } }
 
-/* My Uniform. The corner button: the header's navy grid in a small floating card (a green shirt, "My Uniform", a green
-   lock and CODE) with a shine now and then. On a phone the page ends far enough under the links that it never covers
-   them; in his preview it sits above the preview's bar. Supervisors' view only, never while he edits. */
-.ufab {
-  position: fixed; right: 16px; bottom: 16px; z-index: 9;
-  right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  appearance: none; overflow: hidden; margin: 0; padding: 8px 14px 8px 9px; border-radius: 16px; cursor: pointer;
-  display: grid; grid-template-columns: auto auto; gap: 1px 8px; align-items: center; justify-items: start; color: #fff; text-align: left;
-  background:
-    linear-gradient(rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 12px 12px,
-    linear-gradient(90deg, rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 12px 12px,
-    linear-gradient(150deg, #1d4677, #0b1f3d);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 14px 26px -6px rgba(8, 24, 49, 0.5), 0 6px 10px -4px rgba(8, 24, 49, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-.ufab .u-ic { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--led); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
-.ufab .u-ic svg { width: 21px; height: 21px; }
-.ufab b { font: 700 16px/1 var(--font-display); }
-.ufab .u-lock { display: inline-flex; align-items: center; font: 600 9.5px/1.2 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--led); }
-.ufab .u-lock svg { width: 9px; height: 9px; margin-right: 3px; }
-/* A band of light that crosses the button (and the code screen's header) now and then. */
-.ufab::after, .u-hero::after {
-  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; pointer-events: none;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.25), transparent); transform: translateX(-120%) skewX(-20deg);
-}
-body.u-fab .page { padding-bottom: 84px; }
-body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
-/* Where it would sit on a day or a footer link (and take its tap), it steps aside until they scroll on (app.js). A
-   focused link or day is scrolled clear of it. */
-.ufab { transition: opacity 0.2s, visibility 0.2s; }
-.ufab.tuck { opacity: 0; visibility: hidden; }
-html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
-@media (prefers-reduced-motion: reduce) { .ufab { transition: none; } }
-
-/* Its screens: a view of their own over the whole window; the page underneath doesn't scroll while it's open. */
-.uni {
-  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
-  background: var(--surface); color: var(--ink);
-}
-.uni-open, .uni-open body { overflow: hidden; }
-.uni p { margin: 0; }
-.uni h2:focus, #title:focus { outline: none; } /* focused only so screen readers start at the title (#title: the preview) */
-.uni .btn.go { font-size: 15px; }
-.u-kick { font: 700 11px/1.3 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.u-pill {
-  appearance: none; justify-self: start; align-self: flex-start; margin: 0; padding: 5px 11px; border: 0; border-radius: 999px; cursor: pointer;
-  font: 600 14px/1.3 var(--font-body); color: var(--accent); background: var(--u-pill);
-}
-
-/* Step 1, the code: his header's look across the top of the screen (about half of it), the code on a card over its
-   edge, and a faint mannequin under that: a hint of what's next. On a wide screen, the same in a 420px column. */
-.u-code { min-height: 100%; display: flex; flex-direction: column; background: var(--bg); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-.u-hero {
-  position: relative; overflow: hidden; flex: none; min-height: 46vh; display: flex; flex-direction: column; color: #fff;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 54px;
-  padding-left: max(16px, calc(50% - 210px)); padding-right: max(16px, calc(50% - 210px));
-  background:
-    linear-gradient(rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 18px 18px,
-    linear-gradient(90deg, rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 18px 18px,
-    radial-gradient(120% 90% at 100% 0%, rgba(58, 142, 230, 0.28), transparent 60%),
-    linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
-}
-@supports (height: 100dvh) { .u-hero { min-height: 46dvh; } }
-/* The header is tall, so its band starts and ends further out (its slant would show at the corners). */
-.u-hero::after { left: -60%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.14), transparent); transform: translateX(-100%) skewX(-20deg); }
-.u-hero .u-pill { color: #dbe7f7; background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
-.u-hero .u-pill:focus-visible { outline-color: var(--hero-label); }
-.u-mid { flex: 1; display: grid; align-content: end; gap: 14px; padding-top: 14px; }
-.u-row1 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
-.u-hero .u-ic {
-  width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; color: var(--led); background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(61, 255, 176, 0.35); box-shadow: 0 0 18px rgba(61, 255, 176, 0.18), inset 0 0 12px rgba(61, 255, 176, 0.08);
-}
-.u-hero .u-ic svg { width: 32px; height: 32px; }
-.u-hero .u-kick { color: var(--hero-label); }
-.u-hero h2 { margin-top: 2px; font-size: 30px; line-height: 1; color: #fff; overflow-wrap: anywhere; }
-.u-lead { color: #c3d4ec; font-size: 15px; line-height: 1.35; max-width: 30ch; }
-.u-stripe { flex: none; height: 3px; background: linear-gradient(90deg, #0f5fb5, #3a8ee6, #3dffb0, #3a8ee6, #0f5fb5); }
-.u-codecard {
-  position: relative; z-index: 1; flex: none; display: grid; gap: 10px; justify-items: center; padding: 16px; border-radius: 16px; background: var(--surface);
-  margin: -40px 16px 0; margin-left: max(16px, calc(50% - 210px)); margin-right: max(16px, calc(50% - 210px));
-  box-shadow: 0 16px 30px -10px rgba(8, 24, 49, 0.4), 0 4px 10px -4px rgba(8, 24, 49, 0.2);
-}
-.u-codecard .u-lock { display: inline-flex; align-items: center; font: 600 11px/1.2 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--u-ok); }
-.u-codecard .u-lock svg { width: 12px; height: 12px; margin-right: 5px; }
-.u-codein {
-  width: 100%; min-width: 0; margin: 0; padding: 12px 8px 12px calc(8px + 0.35em); border-radius: 12px; border: 2px solid var(--u-field); background: var(--bg);
-  color: var(--ink); font: 600 26px/1 var(--font-mono); letter-spacing: 0.35em; text-align: center; text-transform: uppercase;
-}
-.u-codein::placeholder { color: #8a93a5; opacity: 1; }
-.u-codein.bad { border-color: var(--busy); background: var(--u-bad-bg); }
-.u-err { font-size: 13.5px; line-height: 1.4; color: var(--u-bad); text-align: center; }
-.u-err:empty { display: none; }
-.u-below { position: relative; flex: 1 1 0; min-height: 40px; overflow: hidden; }
-.u-below svg { position: absolute; top: 50%; left: 0; width: 100%; height: 82%; max-height: 260px; transform: translateY(-50%); fill: var(--u-ghost); opacity: var(--u-ghost-alpha); }
-@media (max-height: 500px) { .u-below svg { display: none; } } /* a phone on its side: no room for more than a stub of it */
-
-/* Steps 2 and 3: a plain screen with the clothes, then the mannequin and the text. */
-.u-sheet {
-  min-height: 100%; max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
-}
-.u-sheet h2 { font-size: 25px; line-height: 1.05; overflow-wrap: anywhere; }
-.u-rows, .u-row { display: grid; gap: 12px; }
-.u-lbl { font: 700 13px/1.3 var(--font-body); color: var(--u-label); }
-.u-lbl span { font-weight: 400; color: var(--muted); }
-/* One row per kind of clothes, scrolling sideways on a phone (all of them in view on a wider screen). */
-.u-strip {
-  display: grid; grid-auto-flow: column; grid-auto-columns: 92px; gap: 8px; margin: -3px; padding: 5px 5px 9px; overflow-x: auto;
-  scroll-snap-type: x mandatory; scroll-padding: 0 5px; -webkit-overflow-scrolling: touch;
-}
-.u-item {
-  appearance: none; position: relative; min-width: 0; margin: 0; padding: 6px 6px 7px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer;
-  display: grid; gap: 4px; align-content: start; justify-items: center; scroll-snap-align: start;
-  background: var(--bg); color: var(--u-card-ink); font: 600 11.5px/1.2 var(--font-body); text-align: center; overflow-wrap: anywhere;
-}
-@media (max-width: 340px) { .u-strip { grid-auto-columns: 84px; } } /* the next card still peeks in, so the row reads as scrollable */
-.u-item:focus-visible { outline-offset: 1px; }
-.u-item[aria-pressed="true"] { border-color: var(--open); background: var(--pick-bg); }
-.u-item[aria-pressed="true"]::after {
-  content: "✓"; content: "✓" / ""; /* seen, not read out: the card is already "pressed" */
-  position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--open); color: #fff; font: 700 11px/18px var(--font-body); text-align: center;
-}
-.u-item.none { align-content: center; min-height: 104px; background: var(--surface); border-style: dashed; color: var(--muted); }
-.u-item:disabled { cursor: not-allowed; }
-.u-item.off { opacity: 0.4; }
-.uni .u-hint { margin-top: -6px; font-size: 12px; color: var(--muted); }
-/* A drawing's thumbnail: just its visible part (placed by app.js once the image is in, for a space of this shape:
-   76 x 66 on a card, so wider cards keep it). */
-.u-th { position: relative; display: block; width: 100%; height: 0; padding-top: 86.84%; overflow: hidden; }
-.u-item .u-th { border-radius: 8px; background: var(--u-th-bg); }
-.u-th img { position: absolute; top: 0; left: 0; max-width: none; opacity: 0; }
-.u-th img.in { opacity: 1; }
-.u-picks { display: flex; flex-wrap: wrap; align-items: center; min-height: 36px; padding: 5px; border-radius: 12px; background: var(--bg); }
-.u-bubble {
-  display: inline-flex; align-items: center; max-width: 100%; margin: 3px; padding: 4px 3px 4px 4px; border-radius: 999px;
-  background: var(--pick-bg); border: 1.5px solid var(--open); color: var(--pick-ink); font: 600 12.5px/1.2 var(--font-body);
-}
-.u-bubble .u-th { flex: none; width: 24px; height: 24px; padding: 0; margin-right: 6px; border-radius: 50%; background: #fff; }
-.u-bubble .u-name { min-width: 0; overflow-wrap: anywhere; }
-.u-off {
-  appearance: none; flex: none; min-width: 22px; min-height: 22px; margin: 0 0 0 3px; padding: 0 2px; border: 0; border-radius: 50%; cursor: pointer;
-  background: none; color: inherit; font: 700 14px/1 var(--font-body);
-}
-.u-empty { margin: 3px; padding: 0 4px; font-size: 13px; color: var(--muted); }
-.u-need { margin: -2px 0 -4px; font-size: 13px; line-height: 1.3; color: var(--muted); text-align: center; } /* what See It On the Mannequin still needs */
-/* The mannequin on a light stage (in both themes: the drawings are made for a light background). */
-.u-stage { display: grid; place-items: center; padding: 6px; border-radius: 14px; background: radial-gradient(90% 70% at 50% 40%, #e9eef7, #f6f8fb); }
-.u-frame { position: relative; width: 150px; height: 300px; }
-.u-frame > * { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-.u-layer { max-width: none; object-fit: contain; }
-.u-layer.gone { visibility: hidden; } /* a drawing that isn't there (yet): no broken-picture mark */
-.u-out { display: grid; gap: 12px; align-content: start; min-width: 0; }
-.u-text { padding: 9px 11px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
-.u-out .btn { width: 100%; }
-/* Wider screens: all the clothes in view, and the mannequin beside the text, as tall as the window allows. */
-@media (min-width: 720px) {
-  .u-pick { max-width: 760px; padding-top: calc(28px + env(safe-area-inset-top, 0px)); }
-  .u-strip { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); overflow-x: visible; }
-}
-@media (min-width: 860px) and (min-height: 560px) {
-  .u-see { max-width: 900px; grid-template-columns: auto minmax(0, 1fr); column-gap: 36px; padding-top: 28px; }
-  .u-see > .u-pill, .u-see > .u-head { grid-column: 1 / -1; }
-  .u-see .u-stage { align-self: start; padding: 16px 48px; }
-}
-@supports (width: clamp(1px, 2px, 3px)) {
-  @media (min-width: 860px) and (min-height: 560px) {
-    .u-see { --fh: clamp(300px, calc(100vh - 180px), 760px); } /* browsers without clamp() keep the phone's 300px */
-    .u-see .u-frame { height: var(--fh); width: calc(var(--fh) / 2); }
-  }
-  /* A tablet held upright: the phone's layout, with the mannequin as tall as the room under it allows. */
-  @media (min-width: 600px) and (max-width: 859px) and (min-height: 900px) {
-    .u-see { --fh: clamp(300px, calc(100vh - 430px), 640px); }
-    .u-see .u-frame { height: var(--fh); width: calc(var(--fh) / 2); }
-  }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .lit .ufab::after { animation: u-shine 7s 1s ease-in-out infinite; }
-  .lit .u-hero::after { animation: u-shine-tall 7s 1s ease-in-out infinite; }
-  .opening .ufab { animation: u-in 0.5s 1.2s ease-out backwards; }
-}
-@keyframes u-shine { 0%, 80% { transform: translateX(-120%) skewX(-20deg); } 92%, 100% { transform: translateX(380%) skewX(-20deg); } }
-@keyframes u-shine-tall { 0%, 80% { transform: translateX(-100%) skewX(-20deg); } 92%, 100% { transform: translateX(800%) skewX(-20deg); } }
-@keyframes u-in { from { opacity: 0; transform: translateY(10px); } }
-
-/* Laptops and wide tablets (960 x 560 and up); phones keep the single column. In both layouts below the calendar
-   scrolls by itself when it has more weeks than fit, its weekday names staying in view while the weeks scroll under
-   them. */
+/* Laptops and wide tablets: the name, note, key and links on the left; the calendar on the right, in its own
+   scroll area, so the page itself fits the screen. Phones keep the single column. */
 @media (min-width: 960px) and (min-height: 560px) {
-  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); }
-  .day .tag { font-size: 11px; }
-}
-
-/* Edit mode: the name, the edit-mode box, the key and the links on the left; the calendar on the right, in its own
-   scroll area, which stays in view even when the left side is long enough to scroll the page. */
-@media (min-width: 960px) and (min-height: 560px) {
-  body.owner .page {
-    max-width: 1200px; min-height: calc(100vh - 132px); min-height: calc(100dvh - 132px - env(safe-area-inset-bottom, 0px));
+  .page {
+    max-width: 1200px; min-height: 100vh; min-height: 100dvh;
     grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
     grid-template-rows: auto auto auto auto 1fr;
     column-gap: 48px; row-gap: 0; align-items: start; padding-block: 20px 8px;
   }
-  body.owner .page > .top, body.owner .page > .owner-banner, body.owner .page > .key, body.owner .page > .foot { grid-column: 1; margin-bottom: 18px; }
-  body.owner .page > .top { grid-row: 1; }
-  body.owner .page > .owner-banner { grid-row: 2; }
-  body.owner .page > .key { grid-row: 3; }
-  body.owner .page > .foot { grid-row: 4; justify-items: start; margin-bottom: 0; }
-  body.owner .page > .foot .foot-row { justify-content: flex-start; }
-  body.owner .page > .foot .foot-row > *:first-child { margin-left: 0; }
-  body.owner .page > .foot .foot-meta { justify-items: start; }
-  body.owner .page > .foot .empid { text-align: left; }
-  body.owner .page > .cal {
+  .page > .top, .page > .owner-banner, .page > .key, .page > .foot { grid-column: 1; margin-bottom: 18px; }
+  .page > .top { grid-row: 1; }
+  .page > .owner-banner { grid-row: 2; }
+  .page > .key { grid-row: 3; }
+  .page > .foot { grid-row: 4; justify-items: start; margin-bottom: 0; }
+  .page > .foot .foot-row { justify-content: flex-start; }
+  .page > .foot .foot-row > *:first-child { margin-left: 0; }
+  .page > .foot .foot-meta { justify-items: start; }
+  .page > .foot .empid { text-align: left; }
+  /* The calendar stays in view (and scrolls by itself) even when the left side is long enough to scroll the page. */
+  .page > .cal {
     grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 20px;
-    max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); /* above the toolbar */
-    overflow-y: auto; padding: 0 14px 12px; align-content: start; scroll-padding-top: 36px; /* below the weekday names */
+    max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+    overflow-y: auto; padding: 0 14px 12px; align-content: start;
   }
-  body.owner .cal .dow { padding: 12px 0 4px; }
-  body.owner .day { min-height: 74px; }
-  body.owner .day .num { font-size: 28px; }
-  /* The supervisors' how-to line isn't needed here, which keeps the left side on one screen. */
-  body.owner .lede { display: none; }
+  /* The weekday names stay in view while the weeks scroll under them. */
+  .cal .dow { position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 12px 0 4px; }
+  .day { min-height: 74px; }
+  .day .num { font-size: 28px; }
+  .day .tag { font-size: 11px; }
+  /* Edit mode: the supervisors' how-to line isn't needed, which keeps the left side on one screen. */
+  body.owner:not(.previewing) .lede { display: none; }
+  /* Edit mode and the preview have a bar along the bottom. */
+  body.owner .page { min-height: calc(100vh - 132px); min-height: calc(100dvh - 132px - env(safe-area-inset-bottom, 0px)); }
+  body.owner .page > .cal { max-height: calc(100vh - 172px); max-height: calc(100dvh - 172px - env(safe-area-inset-bottom, 0px)); }
+  body.previewing .page { min-height: calc(100vh - 76px); min-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px)); }
+  body.previewing .page > .cal { max-height: calc(100vh - 116px); max-height: calc(100dvh - 116px - env(safe-area-inset-bottom, 0px)); }
 }
-/* Edit mode in shorter laptop windows: a smaller header and tighter spacing keep the left side on one screen. Call Me,
-   the license and the notes are for supervisors; See What Supervisors See shows them. */
+/* Shorter laptop windows: a smaller title and tighter spacing keep the left side on one screen. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) {
-  body.owner .hero { padding: 14px 16px; gap: 8px; --rx: 36px; --ry: 37px; }
-  body.owner .top { gap: 10px; }
-  body.owner .stripe { margin-top: -10px; }
-  body.owner .shield { width: 40px; height: 45px; }
-  body.owner .page > .top, body.owner .page > .owner-banner, body.owner .page > .key, body.owner .page > .foot { margin-bottom: 12px; }
-  body.owner .foot-meta { margin-top: 6px; }
-  body.owner .owner-banner { font-size: 13px; }
-  body.owner .hchips, body.owner .hero-box, body.owner #noteBox { display: none; }
-  body.owner .page > .foot .linkish { padding-block: 3px; }
+  .hero { padding: 14px 16px; gap: 8px; --rx: 36px; --ry: 37px; }
+  .top { gap: 10px; }
+  .stripe { margin-top: -10px; }
+  .hchip { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+  .shield { width: 40px; height: 45px; }
+  .lede { font-size: 16px; }
+  .page > .top, .page > .owner-banner, .page > .key, .page > .foot { margin-bottom: 12px; }
+  .foot-meta { margin-top: 6px; }
+  body.owner:not(.previewing) .owner-banner { font-size: 13px; }
+  /* Edit mode: Call Me, the license and the note are for supervisors; See What Supervisors See shows them. */
+  body.owner:not(.previewing) .hchips, body.owner:not(.previewing) .hero-box, body.owner:not(.previewing) #noteBox { display: none; }
+  .page > .foot .linkish { padding-block: 3px; }
 }
+/* The shortest laptop windows: tighter still. */
 @media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
-  body.owner .hero { padding: 12px 14px; gap: 6px; --rx: 34px; --ry: 34px; }
-  body.owner .top { gap: 8px; }
-  body.owner .stripe { margin-top: -8px; }
-}
-
-/* What supervisors see on a laptop (and his preview of it): a navy band across the whole window with his badge and
-   name, the status light under the name and the two buttons on the right; under it, a white panel on the left (notes,
-   the how-to line, the color key) and the calendar on the right, both floating over the band's lower edge; the links
-   in one line along the bottom. The page is exactly the window's height (less the preview's bar). Browsers without
-   clamp() (Safari before 13.1) keep the single column. */
-@supports (width: clamp(1px, 2px, 3px)) {
-  @media (min-width: 960px) and (min-height: 560px) {
-    body:not(.owner) {
-      background: var(--desk-bg); overflow-x: hidden; /* the band is 100vw wide, and 100vw counts a scrollbar */
-      --vh: 100vh; /* the window's height (100dvh where the browser has it, below) */
-      --below: env(safe-area-inset-bottom, 0px); /* the window's bottom that isn't the page's: a home bar, or the preview's bar */
-      --wh: calc(var(--vh) - var(--below) - env(safe-area-inset-top, 0px)); /* the height the page's content gets */
-      --pw: clamp(1180px, 76vw, 1480px); /* the page's width, in a window wide enough for it */
-      --bleed: max(16px, 50vw - var(--pw) / 2 + 16px); /* from the window's left edge to the page's first column */
-      /* Sizes that step down in shorter windows (below). */
-      --pad: clamp(40px, calc(var(--wh) * 0.06), 64px); /* as much room above his name as between the buttons and the cards */
-      --badge: clamp(64px, min(5.4vw, calc(var(--wh) * 0.114)), 92px); --badge-gap: clamp(16px, 1.6vw, 26px); /* (a wide but short window: smaller) */
-      --name: clamp(44px, min(4.1vw, calc(var(--wh) * 0.087)), 70px); --kicker: clamp(13px, 1.05vw, 17px); --head-gap: 12px;
-      --chip-h: 42px; --chip-pad: 10px 16px; --chip-font: clamp(14px, 1.05vw, 16px);
-      --edge: 18px; --note-pad: 10px 12px; --note-font: 15px; --lede: 17px; --dow-top: 16px;
-      --foot-gap: 18px; --foot-pad: 8px; --link-pad: 6px; --meta-gap: 4px;
-      --call-w: 460px; --call-cols: minmax(0, 1fr); --pick-at: auto; --pick-top: 4px; /* Call Me's box: Pick a Day under its text */
-      /* The height really left for three weeks of days once the header (taller in a wide window: a bigger badge), the
-         calendar's labels and the links have theirs (197px: the parts that never change size); the days never grow past
-         it. */
-      --room: calc(var(--wh) - 2 * var(--pad) - 1.13 * var(--badge) - var(--head-gap) - var(--chip-h) - var(--dow-top)
-        - var(--foot-gap) - var(--foot-pad) - 2 * var(--link-pad) - var(--meta-gap) - 197px);
-      /* The smallest a day gets before the calendar scrolls instead (a little smaller where that keeps three weeks whole). */
-      --tile-min: clamp(64px, calc(var(--room) / 3), 70px);
-    }
-    @supports (height: 100dvh) {
-      body:not(.owner) { --vh: 100dvh; }
-    }
-    /* The preview's bar is one line here. */
-    body.previewing { --below: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: var(--below); }
-    body:not(.owner) .page {
-      --tiles: calc(var(--wh) - 480px); /* the height the day tiles share, before the weeks' own labels and gaps */
-      max-width: var(--pw); height: calc(var(--vh) - var(--below)); padding-block: 0 14px;
-      grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
-      grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
-      column-gap: 24px; row-gap: 0; align-items: start;
-    }
-    body:not(.owner) .page > .top { display: contents; }
-
-    /* The band is the header itself, stretched to the window's edges and on under the cards' top 56px (its grid and
-       ring of light with it); what's in it keeps to the page's width. */
-    body:not(.owner) .hero {
-      grid-column: 1 / -1; grid-row: 1; z-index: 0; overflow: visible;
-      margin: 0 calc(50% - 50vw) -56px; border-radius: 0;
-      padding: calc(var(--pad) + env(safe-area-inset-top, 0px)) calc(50vw - 50%) calc(var(--pad) + 5px + 56px);
-      grid-template-columns: auto minmax(min-content, 1fr) auto; gap: var(--head-gap) 0; align-items: center;
-      background: radial-gradient(60% 120% at 85% 0%, rgba(58, 142, 230, 0.3), transparent 60%), linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
-      --rx: calc(var(--bleed) + var(--badge) / 2); --ry: calc(var(--pad) + env(safe-area-inset-top, 0px) + var(--badge) * 0.565);
-    }
-    /* His badge, then the eyebrow and his name (one line, unless the name is very long); the status light lines up
-       with his name. With no name (so no badge) both start at the left. */
-    body:not(.owner) .hero .badge-row { display: contents; }
-    body:not(.owner) .hero .badge, body:not(.owner) .hero .who { position: relative; z-index: 1; } /* above the grid, as their row was */
-    body:not(.owner) .hero .badge { grid-column: 1; grid-row: 1; margin-right: var(--badge-gap); }
-    body:not(.owner) .hero .shield { width: var(--badge); height: auto; }
-    body:not(.owner) .hero .who { grid-column: 2 / -1; grid-row: 1; }
-    body:not(.owner) .hero .eyebrow { font-size: var(--kicker); letter-spacing: 0.16em; }
-    body:not(.owner) .hero h1 { font-size: var(--name); line-height: 1; }
-    body:not(.owner) .hero .accepting { grid-column: 2; grid-row: 2; margin-top: -4px; font-size: clamp(14px, 1.1vw, 17px); gap: 11px; white-space: nowrap; }
-    /* Call Me and the license in one line at the right (a very long license name wraps inside its button, never the
-       status line); the box they open goes under them. */
-    body:not(.owner) .hero .hchips { grid-column: 3; grid-row: 2; justify-self: end; justify-content: flex-end; flex-wrap: nowrap; align-items: center; gap: 10px; margin-left: 24px; }
-    body:not(.owner) .hero #heroCallBtn { flex: none; }
-    body:not(.owner) .hero .hchip { font-size: var(--chip-font); padding: var(--chip-pad); min-height: var(--chip-h); }
-    body:not(.owner) .hero .hchip svg { width: 18px; height: 18px; }
-    body:not(.owner) .hero .hero-box { grid-column: 2 / -1; grid-row: 3; justify-self: end; max-width: 460px; }
-    body:not(.owner) .hero #heroCall { max-width: var(--call-w); grid-template-columns: var(--call-cols); column-gap: 16px; align-items: center; }
-    body:not(.owner) .hero #pickDay { grid-area: var(--pick-at); margin-top: var(--pick-top); }
-    /* The strip runs along the band's bottom edge, behind the cards; it opens from the gap between them. */
-    body:not(.owner) .page > .top > .stripe {
-      grid-column: 1 / -1; grid-row: 1; align-self: end; margin: 0 calc(50% - 50vw) -56px; border-radius: 0;
-      --sx: calc(var(--bleed) + 382px);
-    }
-
-    /* The left panel: a card like the calendar's, under the load error, the notes, the how-to line and the color key. */
-    body:not(.owner) .page::after {
-      content: ""; grid-column: 1; grid-row: 2 / 6; align-self: stretch; z-index: 1;
-      background: var(--surface); border-radius: 16px; box-shadow: var(--float-shadow);
-    }
-    body:not(.owner) .page > .top > .error { grid-column: 1; grid-row: 2; z-index: 2; margin: var(--edge) 18px 0; }
-    body:not(.owner) .page > .top > .note-box { grid-column: 1; grid-row: 3; z-index: 2; margin: var(--edge) 18px 0; }
-    body:not(.owner) .page > .top > .lede { grid-column: 1; grid-row: 4; z-index: 2; margin: 14px 18px 0; }
-    body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: var(--edge); }
-    body:not(.owner) .page > .key { grid-column: 1; grid-row: 5; z-index: 2; margin: 16px 18px var(--edge); }
-    body:not(.owner) .note-box { padding: var(--note-pad); font-size: var(--note-font); } /* the day window's too */
-    body:not(.owner) .lede { font-size: var(--lede); }
-
-    /* The calendar: as tall as its weeks, up to the room above the links (then it scrolls by itself). Its day tiles
-       grow with the window, sharing the height between the weeks shown (--weeks, set with the calendar). */
-    body:not(.owner) .page > .cal {
-      grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
-      overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
-      scroll-padding-top: calc(var(--dow-top) + 24px); /* a day reached with the keyboard comes into view below the weekday names */
-      scroll-padding-bottom: 8px; /* with its focus ring (3px, 2px out) */
-    }
-    body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
-    body:not(.owner) .day {
-      min-height: clamp(var(--tile-min), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)),
-        calc((var(--room) - (var(--weeks, 3) - 3) * 35px) / var(--weeks, 3)), 8.4vw), 176px);
-    }
-    body:not(.owner) .day .num { font-size: clamp(26px, calc(var(--wh) * 0.038), 42px); }
-
-    /* The four links in one line along the bottom; the employee ID and the last update in one line under them. In the
-       narrowest windows they move left just enough to leave the bottom right corner free (for the My Uniform button,
-       about 170 x 56, 16px in: 194px from the window's right edge). */
-    body:not(.owner) .page > .foot {
-      grid-column: 1 / -1; grid-row: 7; align-self: end; margin-top: var(--foot-gap); padding: var(--foot-pad) 0 0;
-      display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 14px;
-    }
-    body.u-fab:not(.owner) .page > .foot { padding-right: max(0px, 1048px - 100vw); }
-    body:not(.owner) .page > .foot .foot-row { display: contents; }
-    body:not(.owner) .page > .foot .linkish { padding-block: var(--link-pad); }
-    body:not(.owner) .page > .foot .foot-meta { flex-basis: 100%; grid-auto-flow: column; justify-content: center; column-gap: 18px; margin-top: var(--meta-gap); }
-  }
-  /* Shorter windows step down in three tiers: first the how-to line and the links, then the header's spacing, then the
-     header itself and the panel, so the days keep their room. The preview's bar takes 56px of the window, so the preview
-     steps down 56px sooner, and looks just like the page in a window that much shorter. */
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 820px) { body:not(.owner) { --lede: 16px; --link-pad: 3px; } }
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 876px) { body.previewing { --lede: 16px; --link-pad: 3px; } }
-  /* Below about 720px the days are as small as they get, so the header and the links take less room instead (the
-     calendar still ends 8px above the corner button's top). */
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 720px) {
-    body:not(.owner) { --pad: 32px; --foot-gap: 16px; --foot-pad: 0px; --call-w: 580px; --call-cols: minmax(0, 1fr) auto; --pick-at: 1 / 2 / 3 / 3; --pick-top: 0px; }
-  }
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 776px) {
-    body.previewing { --pad: 32px; --foot-gap: 16px; --foot-pad: 0px; --call-w: 580px; --call-cols: minmax(0, 1fr) auto; --pick-at: 1 / 2 / 3 / 3; --pick-top: 0px; }
-  }
-  /* The shortest windows: a smaller header and tighter spacing keep the whole calendar in view. */
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
-    body:not(.owner) {
-      --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
-      --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
-    }
-  }
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 696px) {
-    body.previewing {
-      --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
-      --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
-    }
-  }
-  /* Under about 616px the bar leaves the preview less room than supervisors ever have (their page goes to one column
-     there): a smaller header and days, so his preview still shows the whole calendar, as theirs does. */
-  @media (min-width: 960px) and (min-height: 560px) and (max-height: 615px) {
-    body.previewing { --pad: 6px; --badge: 44px; --name: 34px; --tile-min: clamp(44px, calc(var(--room) / 3 - 6px), 64px); }
-    body.previewing .day { padding: 4px 2px 5px; }
-    body.previewing .day .num { font-size: 24px; }
-  }
-  /* A window taller than it is wide (a big tablet held upright, a screen turned on its side): the days reach their
-     widest long before the height runs out, so the page ends under its content instead of keeping the links at the
-     window's bottom. It still never gets taller than the window (then the calendar scrolls by itself). */
-  @media (min-width: 960px) and (min-height: 560px) and (orientation: portrait) {
-    body:not(.owner) .page { height: auto; max-height: calc(var(--vh) - var(--below)); }
-  }
+  .hero { padding: 12px 14px; gap: 6px; --rx: 34px; --ry: 34px; }
+  .top { gap: 8px; }
+  .stripe { margin-top: -8px; }
+  .note-box { padding: 7px 10px; font-size: 14px; }
+  .lede { font-size: 15px; }
 }
