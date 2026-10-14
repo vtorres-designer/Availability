@@ -840,6 +840,10 @@
     if (!dp || typeof dp !== "object" || dp.notes || !(dp.note || dp.noteUntil || dp.nightAuto)) return dp;
     const user = pub.notes.filter((n) => !n.auto)[0], night = pub.notes.filter((n) => n.auto)[0];
     const now = { note: [user ? user.text : "", night.text].filter(Boolean).join(" "), noteUntil: user ? user.until : "", nightAuto: true };
+    // A change from before the line was moved into his note (no nightAuto in it, and a note without the line) was made
+    // while the page added the line by itself: read both sides that way, or it never matches the notes it was made on.
+    const was = dp.note && typeof dp.note === "object" ? dp.note.from : null;
+    if (!dp.nightAuto && night.text === NIGHT_LINE && typeof was === "string" && was.indexOf(NIGHT_LINE) < 0) now.nightAuto = false;
     const side = (k) => { const r = Object.assign({}, now); for (const f of Object.keys(now)) if (dp[f] && typeof dp[f] === "object" && k in dp[f]) r[f] = dp[f][k]; return notesFromOld(r); };
     const out = Object.assign({}, dp, { notes: { to: side("to"), from: side("from") } });
     delete out.note; delete out.noteUntil; delete out.nightAuto;
@@ -1126,6 +1130,20 @@
       if (glow && glow.startTime != null) for (const a of dot.getAnimations()) if (a.startTime !== glow.startTime) a.startTime = glow.startTime;
     } catch (e) { /* an older browser: they just run on their own */ }
   }
+  // The days breathe on the page clock's 3 s beat (--bd). The browser starts their glow when it next draws, which after
+  // a busy first frame can be a fifth of a second after the calendar was built: on that frame each glow is pinned to the
+  // beat, so a redraw (the tab shown again) picks it up exactly where it was.
+  function syncBreath() {
+    const weeks = $("#weeks");
+    if (!weeks.getAnimations || !window.requestAnimationFrame) return;
+    requestAnimationFrame(() => {
+      if (!revealed || !document.documentElement.classList.contains("lit")) return;
+      try {
+        const bd = -parseFloat(weeks.style.getPropertyValue("--bd")) || 0, now = document.timeline ? document.timeline.currentTime : performance.now();
+        for (const a of weeks.getAnimations({ subtree: true })) if (a.animationName === "breathe") a.startTime = now - ((((now - bd) % 3000) + 3000) % 3000);
+      } catch (e) { /* an older browser: --bd alone keeps them close */ }
+    });
+  }
   function renderHero() {
     const ready = dataIn && (owner || !loadError);
     renderTitle();
@@ -1284,6 +1302,7 @@
     $("#toolbar").hidden = !asOwner;
     $("#ownerBanner").hidden = !asOwner;
     $("#previewBar").hidden = !(owner && preview);
+    if (!asOwner) syncBreath();
     renderUniform();
     renderFoot();
     if (asOwner) renderOwnerBits();
@@ -3017,11 +3036,18 @@
     noteBits(n);
   }
   // A tab's light is on while its note shows somewhere: it has text and a place, and its date hasn't passed.
+  // The tabs are only redrawn when one of them changed: leaving the text box after typing redraws them, and a tab
+  // redrawn under a finger or mouse that's pressing it would lose that tap.
+  let noteTabsKey = "";
   function renderNoteTabs(list) {
     const tabs = $("#noteTabs"), focused = tabs.contains(document.activeElement);
+    const lit = (x) => PLACES.some((p) => x[p]) && noteLive(x);
+    const key = JSON.stringify(list.map((x) => [x.id, noteTitle(x), x.id === noteSel, lit(x)]));
+    if (key === noteTabsKey && tabs.children.length === list.length) return;
+    noteTabsKey = key;
     tabs.replaceChildren(...list.map((x) => h("button", { type: "button", role: "tab", class: "note-tab", id: `noteTab-${x.id}`, "data-id": x.id,
       "aria-selected": String(x.id === noteSel), "aria-controls": "noteEdit", tabindex: x.id === noteSel ? "0" : "-1" },
-    h("span", { class: PLACES.some((p) => x[p]) && noteLive(x) ? "pip" : "pip off", "aria-hidden": "true" }), noteTitle(x))));
+    h("span", { class: lit(x) ? "pip" : "pip off", "aria-hidden": "true" }), noteTitle(x))));
     if (focused && noteSel) $(`#noteTab-${noteSel}`).focus();
   }
   // The counter, and a line when the show-until date has passed (supervisors don't see the note then).
@@ -4235,6 +4261,7 @@
     root.classList.remove("intro");
     try { if (window.CSS && CSS.registerProperty) { CSS.registerProperty({ name: "--r", syntax: "<length>", inherits: false, initialValue: "0px" }); root.classList.add("ripple-ok"); } } catch (e) { /* already registered */ }
     root.classList.add("lit");
+    syncBreath();
     if (!animate) return;
     root.classList.add("opening");
     weeks.classList.add("drop");
