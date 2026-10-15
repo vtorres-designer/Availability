@@ -2616,11 +2616,29 @@
         corner.style.left = `${parseFloat(card.style.left) + (narrow ? 12 : 14)}px`;
         corner.style.top = `${parseFloat(card.style.top) + (row ? 12 : narrow ? 20 : 18)}px`;
       };
-      const center = () => { card.style.top = `${Math.max(12, (seen() - card.offsetHeight) / 2)}px`; placeCorner(); };
+      // Centered in what can be seen. When a phone's keyboard opens, what can be seen gets shorter and can also start
+      // lower down (offsetTop), so the card moves with it rather than staying where the keyboard pushed the view away.
+      const center = () => {
+        const off = window.visualViewport ? window.visualViewport.offsetTop : 0;
+        card.style.top = `${off + Math.max(12, (seen() - card.offsetHeight) / 2)}px`;
+        placeCorner();
+      };
       // A phone browser's toolbars slide in and out as the page scrolls: the card follows what can be seen.
       if (window.visualViewport) {
-        const follow = () => { if (!card.isConnected) { window.visualViewport.removeEventListener("resize", follow); return; } card.style.maxHeight = `${seen() - 24}px`; center(); };
+        const follow = () => {
+          if (!card.isConnected) { window.visualViewport.removeEventListener("resize", follow); window.visualViewport.removeEventListener("scroll", follow); return; }
+          card.style.maxHeight = `${seen() - 24}px`;
+          center();
+          // The box being typed in stays in sight, above the keyboard.
+          const a = document.activeElement;
+          if (a && card.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName)) {
+            const c = card.getBoundingClientRect(), r = a.getBoundingClientRect();
+            if (r.bottom > c.bottom - 8) card.scrollTop += r.bottom - c.bottom + 16;
+            else if (r.top < c.top + 8) card.scrollTop -= c.top - r.top + 16;
+          }
+        };
         window.visualViewport.addEventListener("resize", follow);
+        window.visualViewport.addEventListener("scroll", follow);
       }
       fitCorner(); // Back's first place: beside the date, or above it
       center();
