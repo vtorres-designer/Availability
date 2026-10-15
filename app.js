@@ -734,12 +734,16 @@
     for (const k of Object.keys(days)) out[weekStartOf(k, p.weekStart)] = true;
     return Object.keys(out).sort();
   }
-  // Hours left before overtime in each of those weeks: shown over each week ("12 hrs until overtime"), and used to count
-  // the overtime in whatever shift time a supervisor types. He's fine with supervisors seeing his weekly totals (Oct 15).
+  // For each of those weeks: the hours scheduled, shown over the week as in edit mode ("39 hrs scheduled"), and the
+  // hours left before overtime, used to count the overtime in whatever shift time a supervisor types. He's fine with
+  // supervisors seeing his weekly totals (Oct 15).
   function derivePublicOt(p, v, days) {
-    const left = {};
-    for (const w of pubWeeks(p, days)) left[w] = Math.max(0, round2(privLeft(v)(w)));
-    return { shift: v.pickup, left };
+    const left = {}, hrs = {};
+    for (const w of pubWeeks(p, days)) {
+      hrs[w] = hoursInWeek(w, v);
+      left[w] = Math.max(0, round2(privLeft(v)(w)));
+    }
+    return { shift: v.pickup, left, hrs, after: v.otAfter };
   }
   function cleanOt(raw) {
     if (!raw || typeof raw !== "object" || !raw.left || typeof raw.left !== "object") return null;
@@ -747,7 +751,10 @@
     if (!(shift > 0 && shift <= 24)) return null;
     const left = {};
     for (const [w, n] of Object.entries(raw.left)) if (isKey(w) && typeof n === "number" && n >= 0) left[w] = n;
-    return { shift, left };
+    const hrs = {}; // weeks' scheduled hours (a file saved before Oct 15 doesn't have them)
+    if (raw.hrs && typeof raw.hrs === "object") for (const [w, n] of Object.entries(raw.hrs)) if (isKey(w) && typeof n === "number" && n >= 0) hrs[w] = n;
+    const after = Number(raw.after) > 0 ? Number(raw.after) : 0; // his overtime line (40)
+    return { shift, left, hrs, after };
   }
 
   // ---------- state ----------
@@ -1442,11 +1449,12 @@
       const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
       if (asOwner) {
         const hrs = weekHours(ws, priv, pub.weekStart);
-        if (hrs > 0) head.append(h("span", { class: hrs >= priv.otAfter ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${hrs >= priv.otAfter ? " · overtime" : ""}` }));
+        if (hrs > 0) head.append(h("span", { class: hrs > priv.otAfter ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${hrs > priv.otAfter ? " · overtime" : ""}` }));
       } else {
-        // Supervisors: how many hours the week has before overtime (an older calendar file may not say).
-        const left = pubOt && ws in pubOt.left ? pubOt.left[ws] : null;
-        if (left != null) head.append(h("span", { class: left <= 0 ? "hrs over" : "hrs", text: left <= 0 ? "Overtime" : `${num(left)} ${left === 1 ? "hr" : "hrs"} until overtime` }));
+        // Supervisors: the week's scheduled hours, the same line he sees in edit mode (an older calendar file may not have them).
+        // Overtime only past his limit (40 hours is not overtime; 40.5 is).
+        const hrs = pubOt && pubOt.hrs && ws in pubOt.hrs ? pubOt.hrs[ws] : null, over = hrs != null && pubOt.after > 0 && hrs > pubOt.after;
+        if (hrs > 0) head.append(h("span", { class: over ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${over ? " · overtime" : ""}` }));
       }
       frag.append(h("div", { class: "week" }, head, days));
     });
@@ -3277,7 +3285,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Supervisors' texts say how many hours would be overtime. To count them, the public calendar file has how many hours you have left before overtime in weeks within one ${num(priv.pickup)}-hour shift of it. It never has your times: in that count, a shift that runs past midnight is taken to end at 7 AM, whatever its real times.`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Hours past ${num(priv.otAfter)} are overtime, not ${num(priv.otAfter)} itself. Supervisors see each week's scheduled hours, and their texts say how many hours would be overtime. Those numbers are exact, so an overnight on a pay week's last day can show when it starts.`;
   }
 
   // ---------- owner: every-week days ----------
@@ -4128,7 +4136,7 @@
     const p = file.pub, today = todayKey();
     const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
     const derived = derivePublic(p, v), weeks = pubWeeks(p, derived);
-    const nearOt = (o) => (o ? JSON.stringify([o.shift, weeks.map((w) => (w in o.left ? o.left[w] : null))]) : "");
+    const nearOt = (o) => (o ? JSON.stringify([o.shift, weeks.map((w) => [w in o.left ? o.left[w] : null, o.hrs && w in o.hrs ? o.hrs[w] : null])]) : "");
     const otBehind = read && nearOt(file.ot) !== nearOt(derivePublicOt(p, v, derived));
     return !!file.migrated || upcoming(file.days) !== upcoming(derived) || !same(file.weekly, weeklyPublic(v)) || otBehind;
   }
