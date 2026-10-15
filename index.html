@@ -11,12 +11,19 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0f264a" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#081428" media="(prefers-color-scheme: dark)">
+<!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion.
+     First in line, so it never waits for a stylesheet. -->
+<script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
+<!-- A My Uniform link's code leaves the address bar at once (before anything else loads, and even if app.js never
+     does): it waits in this tab's session for app.js (see takeUniformLink there). -->
+<script>try { if (/^#uniform(?![A-Za-z0-9])/i.test(location.hash)) { sessionStorage.setItem("sa.uniformLink", location.hash); history.replaceState(history.state, "", location.pathname + location.search); } } catch (e) { /* app.js takes it */ }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="app.css?v=33">
-<!-- The opening: the page stays out of sight until the calendar is in, then breathes in. Skipped for reduced motion. -->
-<script>try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: no-preference)").matches) document.documentElement.classList.add("intro"); } catch (e) { /* show at once */ }</script>
+<!-- The fonts load without holding up the page: a slow or stuck font server never leaves it blank (it shows in the
+     fallback fonts until they're in). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
+<link rel="stylesheet" href="app.css?v=35">
 </head>
 <body>
 <main class="page">
@@ -25,19 +32,21 @@
       <div class="fx grid" aria-hidden="true"></div>
       <div class="fx ripple" aria-hidden="true"></div>
       <div class="badge-row">
-        <svg class="shield" id="shield" viewBox="0 0 46 52" aria-hidden="true" hidden>
-          <defs>
-            <clipPath id="shieldClip"><path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z"/></clipPath>
-            <linearGradient id="glintFill" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-          </defs>
-          <path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z" fill="#1d4f8f" stroke="#9fc0ea" stroke-width="2"/>
-          <path d="M23 7 38 12.5V24c0 10-6.3 16.8-15 20.6C14.3 40.8 8 34 8 24V12.5z" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
-          <text id="shieldText" x="23" y="31" text-anchor="middle"></text>
-          <g clip-path="url(#shieldClip)"><rect class="glint" x="-24" y="-6" width="16" height="64" fill="url(#glintFill)"/></g>
-          <path class="sparkle" d="M40 2l1.3 3.2L44.5 6.5l-3.2 1.3L40 11l-1.3-3.2L35.5 6.5l3.2-1.3z" fill="#fff"/>
-        </svg>
+        <span class="badge" id="badge" hidden>
+          <svg class="shield" id="shield" viewBox="0 0 46 52" aria-hidden="true" hidden>
+            <defs>
+              <clipPath id="shieldClip"><path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z"/></clipPath>
+              <linearGradient id="glintFill" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            </defs>
+            <path d="M23 2 43 9v15c0 13-8.5 21.5-20 26C11.5 45.5 3 37 3 24V9z" fill="#1d4f8f" stroke="#9fc0ea" stroke-width="2"/>
+            <path d="M23 7 38 12.5V24c0 10-6.3 16.8-15 20.6C14.3 40.8 8 34 8 24V12.5z" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+            <text id="shieldText" x="23" y="31" text-anchor="middle"></text>
+            <g clip-path="url(#shieldClip)"><rect class="glint" x="-24" y="-6" width="16" height="64" fill="url(#glintFill)"/></g>
+          </svg>
+          <span class="burst" aria-hidden="true"><span class="glow"></span><span class="ring"></span><span class="star"></span><span class="star s2"></span></span>
+        </span>
         <div class="who">
-          <p class="eyebrow">Security Officer</p>
+          <p class="eyebrow">Security Professional</p>
           <h1 id="title">Shift Availability</h1>
         </div>
       </div>
@@ -57,7 +66,7 @@
       </div>
     </div>
     <div class="stripe" aria-hidden="true"><span class="spark"></span></div>
-    <aside class="note-box" id="noteBox" hidden><b class="note-tag">Note</b> <span id="noteText"></span></aside>
+    <aside class="note-box" id="noteBox" hidden></aside>
     <p class="lede"><span class="nudge" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8h9M8.5 4 12.5 8l-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Tap a green or yellow day to text me about covering it.</span></p>
     <p class="error" id="loadErr" hidden>Couldn't load the latest calendar. Check your connection and refresh.</p>
   </header>
@@ -81,7 +90,7 @@
 
   <section class="cal" aria-label="Calendar">
     <div class="dow" id="dow" aria-hidden="true"></div>
-    <div id="weeks" class="weeks"><p class="loading">Loading calendar…</p></div>
+    <div id="weeks" class="weeks"><p class="loading">Loading calendar…<span class="load-late"> Still loading. If the calendar doesn't show soon, check your connection and refresh.</span><span class="load-fail"> Couldn't load the latest calendar. Check your connection and refresh.</span></p></div>
   </section>
 
   <footer class="foot">
@@ -99,6 +108,52 @@
     </div>
   </footer>
 </main>
+
+<!-- Supervisors: My Uniform. The corner button, then a full-screen view over the page in three steps: the code from
+     his text, the clothes to pick, and the mannequin wearing them with the text to send. -->
+<button type="button" class="ufab" id="uniformBtn" aria-label="My Uniform" hidden><span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><b>My Uniform</b><span class="u-lock"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code</span></button>
+<section class="uni" id="uniform" aria-label="My Uniform" hidden>
+  <div class="u-code" id="uCode" hidden>
+    <div class="u-hero">
+      <button type="button" class="u-pill u-cal"><span aria-hidden="true">‹ </span><span class="sr">Back to the </span>Calendar</button>
+      <div class="u-mid">
+        <div class="u-row1">
+          <span class="u-ic" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 5 6 7.5 3 14l4 2 2-3V27h14V13l2 3 4-2-3-6.5L21 5c-1 2-3 3-5 3s-4-1-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+          <div><p class="u-kick u-who"></p><h2 tabindex="-1">My Uniform</h2></div>
+        </div>
+        <p class="u-lead">Booked a shift with me? Pick what you'd like me to wear.</p>
+      </div>
+    </div>
+    <div class="u-stripe" aria-hidden="true"></div>
+    <form class="u-codecard" id="uCodeForm" novalidate autocomplete="off">
+      <label class="u-lock" for="uCodeIn"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Code from my text</label>
+      <input type="text" class="u-codein" id="uCodeIn" maxlength="8" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="····" aria-describedby="uCodeErr">
+      <p class="u-err" id="uCodeErr" role="alert"></p>
+      <button type="submit" class="btn go wide" id="uOpen">Open</button>
+    </form>
+    <div class="u-below" aria-hidden="true"></div>
+  </div>
+  <div class="u-sheet u-pick" id="uPick" hidden>
+    <button type="button" class="u-pill u-cal"><span aria-hidden="true">‹ </span><span class="sr">Back to the </span>Calendar</button>
+    <div class="u-head"><p class="u-kick u-who"></p><h2 tabindex="-1">My Uniform</h2></div>
+    <div class="u-rows" id="uRows"></div>
+    <p class="u-lbl" id="uPicksLabel">Your picks</p>
+    <div class="u-picks" id="uPicks" role="group" aria-labelledby="uPicksLabel"></div>
+    <p class="u-need" id="uNeed" hidden></p>
+    <button type="button" class="btn go wide" id="uSeeBtn" disabled>See It On the Mannequin</button>
+    <p class="sr" id="uSaid" role="status"></p>
+  </div>
+  <div class="u-sheet u-see" id="uSee" hidden>
+    <button type="button" class="u-pill" id="uChange"><span aria-hidden="true">‹ </span>Change Outfit</button>
+    <div class="u-head"><p class="u-kick">My Uniform</p><h2 tabindex="-1">Your Pick</h2></div>
+    <div class="u-stage"><div class="u-frame" id="uFrame" role="img"></div></div>
+    <div class="u-out">
+      <p class="u-lbl">Your text</p>
+      <p class="u-text" id="uText"></p>
+      <div id="uSend"></div>
+    </div>
+  </div>
+</section>
 
 <!-- Owner toolbar -->
 <nav class="toolbar" id="toolbar" hidden aria-label="Editing tools">
@@ -316,7 +371,6 @@ Thu 10/15 2300-0700</pre>
     <div class="group">
       <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
       <div class="checks" id="setWilling"></div>
-      <p class="error small" id="noteFull" role="alert" hidden>The night-shift line didn't fit in your note (140 characters). Shorten the note below to make room, then check Overnight again.</p>
     </div>
 
     <div class="group">
@@ -326,12 +380,35 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group">
-      <label class="field"><span class="label">Note to supervisors (optional, shown in a box at the top of the page and in each day's window)</span>
-        <input type="text" id="setNote" maxlength="140" placeholder="e.g. Looking for extra hours this week"></label>
-      <p class="muted small">Checking Overnight above adds "A night shift is listed under the day it starts. Tue means Tue night into Wed morning." to the note; edit or delete it here like the rest. Unchecking Overnight takes it out.</p>
-      <label class="field"><span class="label">Show the note until (optional; it hides itself after this date)</span>
-        <input type="date" id="setNoteUntil"></label>
-      <p class="muted small" id="noteExpired" hidden>This date has passed, so supervisors don't see the note. Change or clear the date to show it again.</p>
+      <span class="label" id="notesLabel">Notes to supervisors (optional)</span>
+      <div class="note-tabs">
+        <div class="note-tablist" role="tablist" id="noteTabs" aria-labelledby="notesLabel"></div>
+        <button type="button" class="note-tab add" id="noteAdd">+ Add Note</button>
+      </div>
+      <p class="muted small" id="noteNone" hidden>No notes. Tap + Add Note to write one.</p>
+      <div class="stack note-edit" id="noteEdit" role="tabpanel">
+        <p class="note-auto" id="noteAuto" hidden>Added because Overnight is checked under the shifts you pick up. Uncheck Overnight and this note goes away; check it again and it comes back.</p>
+        <div class="field">
+          <label class="label" for="setNoteText" id="noteTextLabel">Note 1 text</label>
+          <textarea id="setNoteText" rows="2" maxlength="140" aria-describedby="noteCount"></textarea>
+          <span class="note-count" id="noteCount"></span>
+        </div>
+        <label class="field"><span class="label">Show until <span class="opt">(optional; it hides itself after this date)</span></span>
+          <input type="date" id="setNoteUntil"></label>
+        <p class="muted small" id="noteExpired" hidden>This date has passed, so supervisors don't see the note. Change or clear the date to show it again.</p>
+        <fieldset class="note-where">
+          <legend class="label">Show this note on</legend>
+          <div class="where-box">
+            <label class="switch-row" for="noteFront"><span class="sw-text"><b id="noteFrontL">Front page</b><small id="noteFrontD">In the Note box under the header</small></span>
+              <input type="checkbox" class="switch-in" id="noteFront" data-place="front" role="switch" aria-labelledby="noteFrontL" aria-describedby="noteFrontD"><span class="switch" aria-hidden="true"></span></label>
+            <label class="switch-row" for="noteDay"><span class="sw-text"><b id="noteDayL">Day window</b><small id="noteDayD">At the top of the window that opens when a day is tapped</small></span>
+              <input type="checkbox" class="switch-in" id="noteDay" data-place="day" role="switch" aria-labelledby="noteDayL" aria-describedby="noteDayD"><span class="switch" aria-hidden="true"></span></label>
+            <label class="switch-row" for="noteForm"><span class="sw-text"><b id="noteFormL">Customize Text form</b><small id="noteFormD">At the top of the Customize Text First form</small></span>
+              <input type="checkbox" class="switch-in" id="noteForm" data-place="form" role="switch" aria-labelledby="noteFormL" aria-describedby="noteFormD"><span class="switch" aria-hidden="true"></span></label>
+          </div>
+        </fieldset>
+        <button type="button" class="btn ghost sm note-del" id="noteDelete">Delete Note 1</button>
+      </div>
     </div>
 
     <div class="group">
@@ -359,6 +436,29 @@ Thu 10/15 2300-0700</pre>
           <input type="date" id="setLicExpires"></label>
       </div>
       <p class="muted small">The button says Active until the end of the expiration date, then Expired. When you renew, enter the new dates here and tap Save.</p>
+    </div>
+
+    <div class="group" id="uniGroup">
+      <span class="label">My Uniform (a button in the corner of the page: supervisors who booked a shift pick what you wear)</span>
+      <label class="label uni-sub" for="setUniCode">Code for My Uniform</label>
+      <div class="uni-row">
+        <input type="text" id="setUniCode" maxlength="8" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-describedby="uniCodeHelp">
+        <button type="button" class="btn ghost sm" id="uniNewCode">New Random Code</button>
+      </div>
+      <p class="error small" id="uniCodeError" role="alert" hidden>Use 4 to 8 letters or numbers. Until it's fixed, the code you had stays.</p>
+      <p class="muted small" id="uniCodeHelp">4 to 8 letters or numbers. Text it to a supervisor once you've confirmed their shift. Change it any time; once you tap Save, the old code (and old links) stop working. Leave it empty to turn My Uniform off.</p>
+      <p class="small uni-why" id="uniLocked" hidden>The code can't be changed yet: it's kept with your private settings, and your GitHub key can't save those. <button type="button" class="linkish" id="uniKeyHow">Show Me How</button></p>
+      <p class="muted small" id="uniLost" hidden>Supervisors' page has a code this device couldn't read. Enter a new one to replace it, or <button type="button" class="linkish" id="uniTurnOff">turn My Uniform off</button>.</p>
+      <div class="uni-row" id="uniLinkRow" hidden>
+        <button type="button" class="btn primary sm" id="uniCopyLink">Copy Link With Code</button>
+        <span class="uni-link" id="uniLink"></span>
+      </div>
+      <p class="muted small" id="uniLinkWait" hidden>This code and its link work for supervisors once you tap Save.</p>
+      <p class="label uni-sub" id="uniItemsLabel">My clothes <span class="opt" id="uniCount"></span></p>
+      <div class="uni-items" id="uniItems" role="group" aria-labelledby="uniItemsLabel"></div>
+      <p class="muted small">Tap an item to change its drawing, name or fit on the mannequin, or to delete it.</p>
+      <p class="muted small" id="uniState"></p>
+      <p class="sr" id="uniSaid" role="status"></p>
     </div>
 
     <div class="group">
@@ -413,6 +513,85 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <button class="btn primary wide" value="done">Done</button>
+  </form>
+</dialog>
+
+<!-- Owner: one item of My Uniform. Its category, what it's worn with, the drawing (made with the prompts), its name,
+     and where it sits on the mannequin. -->
+<dialog class="sheet" id="itemSheet" aria-labelledby="itemTitle">
+  <form method="dialog" class="sheet-in" id="itemForm" novalidate autocomplete="off">
+    <div class="sheet-head">
+      <div>
+        <p class="eyebrow">My Uniform</p>
+        <h2 id="itemTitle">Add Item</h2>
+      </div>
+      <button class="x" value="close" aria-label="Close">×</button>
+    </div>
+    <div class="item-grid">
+      <div class="item-col">
+        <fieldset class="chip-pick" id="itemCat">
+          <legend class="label">Category</legend>
+          <label><input type="radio" name="itemCat" value="top"><span>Top</span></label>
+          <label><input type="radio" name="itemCat" value="pants"><span>Pants</span></label>
+          <label><input type="radio" name="itemCat" value="tie"><span>Tie</span></label>
+          <label><input type="radio" name="itemCat" value="blazer"><span>Blazer</span></label>
+        </fieldset>
+        <div class="where-box" id="itemWith">
+          <label class="switch-row" for="itemTie"><span class="sw-text"><b id="itemTieL">Can be worn with a tie</b><small id="itemTieD">Off for polos and anything without a collar</small></span>
+            <input type="checkbox" class="switch-in" id="itemTie" role="switch" aria-labelledby="itemTieL" aria-describedby="itemTieD"><span class="switch" aria-hidden="true"></span></label>
+          <label class="switch-row" for="itemBlazer"><span class="sw-text"><b id="itemBlazerL">Can be worn with a blazer</b><small id="itemBlazerD">Usually long-sleeve dress shirts only</small></span>
+            <input type="checkbox" class="switch-in" id="itemBlazer" role="switch" aria-labelledby="itemBlazerL" aria-describedby="itemBlazerD"><span class="switch" aria-hidden="true"></span></label>
+        </div>
+        <div class="stack">
+          <span class="label">Drawing</span>
+          <p class="muted small">Copy the prompt and paste it into a drawing AI with a photo of the item. Then pick the drawing it makes.</p>
+          <div class="prompt-btns">
+            <button type="button" class="btn primary" id="itemPrompt">Copy Drawing Prompt</button>
+            <button type="button" class="btn outline" id="itemPrompt2">Copy Buttoned-Up Prompt</button>
+          </div>
+          <p class="muted small" id="itemPrompt2Hint">Paste the buttoned-up prompt in the same chat, right after the AI draws the shirt, so it changes only the collar.</p>
+          <p class="ok-line small" id="itemCopied" role="status"></p>
+          <pre class="prompt-text" id="itemPromptText" tabindex="-1" hidden></pre>
+          <div class="uni-row">
+            <label class="btn ghost sm file-btn" id="itemPick"><span id="itemPickText">Choose Drawing</span><input type="file" id="itemFile" accept="image/*" aria-describedby="itemFileHelp"></label>
+            <span class="small uni-file" id="itemFileName"></span>
+          </div>
+          <p class="muted small" id="itemFileHelp">Use a drawing with a transparent background (PNG or WebP).</p>
+          <div class="stack" id="itemB">
+            <span class="label" id="itemBLabel">Buttoned-up version (for a tie) <span class="opt">(optional)</span></span>
+            <div class="uni-row">
+              <label class="btn ghost sm file-btn" id="itemPick2"><span id="itemPick2Text">Choose Drawing</span><input type="file" id="itemFile2" accept="image/*" aria-labelledby="itemPick2Text itemBLabel"></label>
+              <span class="small uni-file" id="itemFile2Name"></span>
+              <button type="button" class="linkish" id="itemDrop2" aria-labelledby="itemDrop2 itemBLabel" hidden>Remove It</button>
+            </div>
+          </div>
+          <p class="error small" id="itemFileError" role="alert" hidden></p>
+          <p class="muted small" id="itemOpaque" hidden>This drawing has no transparent background, so it covers the mannequin. It still works; a drawing with a transparent background (PNG or WebP) looks best.</p>
+        </div>
+        <label class="field"><span class="label">Name (supervisors see it, and it's in the text they send you)</span>
+          <input type="text" id="itemName" maxlength="60" autocomplete="off"></label>
+      </div>
+      <div class="item-col item-fit">
+        <span class="label" id="itemFitL">Fit on the mannequin</span>
+        <div class="u-stage item-stage">
+          <div class="u-frame item-frame" id="itemFrame" tabindex="0" role="application" aria-labelledby="itemFitL" aria-describedby="itemFitHelp itemFitOut"></div>
+        </div>
+        <div class="fit-size">
+          <label class="label" for="itemSize">Size</label>
+          <input type="range" id="itemSize" min="20" max="300" step="1" aria-describedby="itemSizeOut">
+          <output id="itemSizeOut" for="itemSize">100%</output>
+          <button type="button" class="btn ghost sm" id="itemReset">Reset</button>
+        </div>
+        <p class="muted small" id="itemFitOut" aria-live="polite"></p>
+        <p class="muted small" id="itemFitHelp">If the drawing sits a little off, drag it into place and resize it, once per item. With a keyboard: the arrow keys move it (with Shift, further).</p>
+      </div>
+    </div>
+    <p class="error" id="itemError" role="alert" hidden></p>
+    <div class="item-btns">
+      <button type="button" class="btn primary" id="itemSave">Save Item</button>
+      <button type="button" class="btn ghost" id="itemCancel">Cancel</button>
+      <button type="button" class="btn ghost item-del" id="itemDelete">Delete Item</button>
+    </div>
   </form>
 </dialog>
 
@@ -474,7 +653,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=33"></script>
-<script src="app.js?v=33"></script>
+<script src="parser.js?v=35"></script>
+<script src="app.js?v=35" onerror="document.documentElement.classList.add('app-failed')"></script>
 </body>
 </html>
