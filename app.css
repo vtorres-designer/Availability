@@ -1160,7 +1160,6 @@ dialog:not([open]) { display: none; }
 /* Customize Text First inside the card: the same look. Boxes set into the card, the message as an editable blue bubble,
    the send buttons raised like the shift buttons (copy buttons sunken, like Customize Text First). */
 .pf-status { justify-content: center; align-items: center; text-align: center; font-weight: 600; font-size: min(16px, 4.2vw); white-space: nowrap; } /* one line, on the narrowest phones too */
-.pf-form .shift-chosen { display: none; } /* the shift chip above says which shift */
 .pf-card.pf-form .pf-chip { justify-self: center; }
 /* The overtime note under the time boxes: soft see-through yellow when the hours run into overtime, grey when not. */
 .pf-otnote { margin: -2px 2px 2px; font: 600 14px/1.3 var(--font-body); color: var(--muted); }

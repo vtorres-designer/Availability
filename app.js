@@ -2525,8 +2525,7 @@
       fillNotes(notes, "day");
       const dayHead = () => h("div", { class: "pf-card-head" },
         h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })));
-      const chip = h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
-        h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null));
+      // No shift chip or overtime clock here (Oct 15): the shift picker just showed both, and the text names the shift.
       const thread = h("div", { class: "pf-thread" }, h("p", { class: "pf-to", text: `To ${firstName() || "me"}` }), h("p", { class: "pf-bubble", text }));
       const sendSlot = h("div", { class: "pf-slot takes bob" }, h("span", { class: "pf-shadow", "aria-hidden": "true" }), send);
       const hint = h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." });
@@ -2543,7 +2542,7 @@
           h("div", { class: "pf-msgs-top" }, h("span", { class: "pf-avatar", "aria-hidden": "true", text: initials || "?" }),
             h("span", { class: "pf-msgs-who" }, h("b", { text: pub.name || "Me" }), h("small", { text: prettyPhone() }))),
           h("div", { class: "pf-msgs-thread" },
-            h("p", { class: "pf-stamp" }, h("span", { text: `${SHIFT_LABEL[t]} shift` }), yellow ? weekClock(k, t) : null),
+            h("p", { class: "pf-stamp" }, h("span", { text: `${SHIFT_LABEL[t]} shift` })),
             extra && !extra.hidden ? extra : null,
             h("p", { class: "pf-bubble", text: body })),
           compose);
@@ -2571,7 +2570,6 @@
         if (!waits) { qr.show(true); requestAnimationFrame(() => qr.draw(text, () => center())); }
       } else card = h("div", { class: "pf-card", role: "group", "aria-label": label },
         dayHead(),
-        chip,
         notes.hidden ? null : notes,
         thread,
         sendSlot,
@@ -2688,9 +2686,9 @@
           const fnotes = h("aside", { class: "note-box pf-notes" });
           fillNotes(fnotes, "form");
           card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
-          // The shift as the card shows it (its letter box, name, and clock lines on a yellow day), then the line saying
-          // whether it would be overtime.
-          formView = [dayHead(), chip, fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+          // The form's own "Shift:" line names the shift (no chip or clocks, Oct 15: the picker already showed them); the
+          // line under the times says whether it would be overtime.
+          formView = [dayHead(), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
           const clocks = form.nodes[0].querySelector(".clocks");
           if (clocks) clocks.after(otNote);
         } else { form.recall(); form.refresh(); }
