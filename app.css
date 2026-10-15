@@ -1005,7 +1005,9 @@ dialog:not([open]) { display: none; }
 }
 .pf-quiet:active { background: rgba(255, 255, 255, 0.08); }
 .pf-hint { text-align: center; font-size: 13px; color: var(--muted); margin-top: -4px !important; }
-.pf-card .other-app { text-align: center; margin: -4px 0 0; }
+.pf-card .other-app { text-align: center; margin: 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.pf-card .other-app { display: grid; justify-items: center; gap: 6px; }
+.pf-other-links { display: flex; justify-content: center; gap: 24px; }
 .pf-card .qr-send { justify-self: center; }
 
 /* Customize Text First inside the card: the same look. Boxes set into the card, the message as an editable blue bubble,

@@ -2492,10 +2492,16 @@
         notes.hidden ? null : notes,
         h("div", { class: "pf-thread" }, h("p", { class: "pf-to", text: `To ${firstName() || "me"}` }), h("p", { class: "pf-bubble", text })),
         h("div", { class: "pf-slot takes bob" }, h("span", { class: "pf-shadow", "aria-hidden": "true" }), send),
-        phone ? copyLinks(() => text, (go) => gate(go)) : null,
         qr ? qr.el : null,
         custom,
-        h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." }));
+        h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." }),
+        // Another texting app (copy the message and number): a backup, so it comes last. The question on one line, the two
+        // links side by side under it.
+        phone ? (() => {
+          const oa = copyLinks(() => text, (go) => gate(go));
+          oa.replaceChildren(h("span", { text: "Use a different app, like TextNow?" }), h("span", { class: "pf-other-links" }, ...oa.querySelectorAll("button")));
+          return oa;
+        })() : null);
       const sendView = [...card.childNodes];
       // The card's width: narrow for the text, wide on a laptop for the form (its boxes beside the message).
       const size = (wide) => {
