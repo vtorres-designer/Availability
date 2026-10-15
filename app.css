@@ -1702,3 +1702,20 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
 #editSheet .seg { margin: 0; min-width: 0; }
 #editSheet .seg > legend { float: left; grid-column: 1 / -1; padding: 0 0 2px; } /* inside the panel, not on its border */
 #settingsSheet .group + .group { margin-top: 4px; }
+
+/* Supervisors: a day with nothing on it yet is an empty spot (Oct 15), see-through with a dotted edge, not a tile. */
+body:not(.owner) .day.unset:not(.past) {
+  background: rgba(255, 255, 255, 0.02); box-shadow: none; border: 1.5px dashed rgba(160, 175, 200, 0.35);
+  color: rgba(160, 175, 200, 0.45); cursor: default; animation: none;
+}
+body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); }
+
+/* Edit Day (Oct 15): each shift worked, with its hours and a Delete link under it; then one row per shift type with
+   Available and Unavailable boxes. */
+.shift-row { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.shift-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.shift-del { padding: 0; font-size: 13px; color: var(--busy); }
+.pick-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.pick-name { display: grid; gap: 1px; min-width: 0; }
+.pick-name small { font-size: 12px; }
+.pick-box { min-height: 44px; padding: 0 12px; }

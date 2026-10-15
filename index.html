@@ -274,36 +274,17 @@
       </div>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
-    <fieldset class="seg" id="editStatus">
-      <legend class="label">This day is</legend>
-      <label><input type="radio" name="st" value="unset" id="stUnset"><span><i class="dot none" id="stUnsetDot"></i><b class="nb" id="stUnsetText">Not Set</b></span></label>
-      <label><input type="radio" name="st" value="open" id="stOpen"><span><i class="dot open"></i>Available</span></label>
-      <label><input type="radio" name="st" value="work" id="stWork"><span><i class="dot busy"></i>Working</span></label>
-      <label><input type="radio" name="st" value="busy" id="stBusy"><span><i class="dot busy hatch"></i>Busy</span></label>
-    </fieldset>
-    <div id="editWork" class="stack" hidden>
-      <div class="two">
-        <label class="field"><span class="label">Starts (optional)</span>
-          <input type="time" id="workStart"></label>
-        <label class="field"><span class="label">Ends (optional)</span>
-          <input type="time" id="workEnd"></label>
-      </div>
-      <label class="field"><span class="label">Paid hours</span>
-        <input type="number" id="workHours" min="0.25" max="24" step="any" inputmode="decimal"></label>
-      <label class="field"><span class="label">Note, like the site (only you see it)</span>
-        <input type="text" id="workNote" maxlength="100"></label>
-    </div>
-    <div id="editBusy" class="stack" hidden>
-      <p class="muted">Shows red to supervisors, the same as a day you're working.</p>
+    <div id="editShifts" class="stack">
+      <span class="label">Shifts I'm working</span>
+      <div id="shiftRows" class="stack"></div>
+      <button type="button" class="btn ghost wide" id="addShift">+ Add Shift</button>
       <label class="field"><span class="label">Note (only you see it)</span>
-        <input type="text" id="busyNote" maxlength="100"></label>
+        <input type="text" id="workNote" maxlength="100" placeholder="e.g. the site name"></label>
     </div>
-    <div id="editOpen" class="stack" hidden>
-      <span class="label">Shifts I'll pick up this day</span>
-      <div class="checks" id="editWilling"></div>
-    </div>
-    <div id="editUnset" class="stack" hidden>
-      <p class="muted" id="editUnsetText">Shows gray to supervisors.</p>
+    <div id="editPicks" class="stack">
+      <span class="label">Shifts supervisors can request</span>
+      <p class="muted small">Leave a shift unchecked to follow your schedule.</p>
+      <div id="pickRows" class="stack"></div>
     </div>
     <p class="muted small" id="editRuleNote" hidden></p>
     <p class="muted small" id="editWeek"></p>
@@ -346,11 +327,7 @@ Thu 10/15 2300-0700</pre>
     <label class="field"><span class="label">Your schedule</span>
       <textarea id="importText" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Fri 10/9 2300-0700&#10;Sat 10/10 no shift&#10;Sun 10/11 2300-0700"></textarea></label>
     <div id="importPreview" class="preview" aria-live="polite"></div>
-    <fieldset class="gapfill" id="gapBox" hidden>
-      <legend class="label" id="gapLegend"></legend>
-      <label class="check" for="gapGray"><input type="radio" name="gap" id="gapGray" value="gray" checked><span>Leave Them Gray</span></label>
-      <label class="check" for="gapOpen"><input type="radio" name="gap" id="gapOpen" value="open"><span>Mark Them Available</span></label>
-    </fieldset>
+    <div id="gapBox" hidden></div>
     <button type="button" class="btn primary wide" id="importApply" disabled>Add to Calendar</button>
   </form>
 </dialog>

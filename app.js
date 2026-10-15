@@ -455,26 +455,56 @@
     return d;
   }
 
+  // One shift he works: start and end ("23:00", "07:00") and its paid hours. Hours alone (no times) count on the day.
+  function cleanShift(x, pickup) {
+    if (!x || typeof x !== "object") return null;
+    const out = {};
+    if (isTime(x.start) && isTime(x.end) && x.start !== x.end) { out.start = x.start; out.end = x.end; }
+    const hrs = Number(x.hours);
+    out.hours = hrs > 0 && hrs <= 24 ? hrs : out.start ? spanHours(out.start, out.end) : pickup;
+    return out;
+  }
+  // His per-shift choices in Edit Day (Oct 15): 1 = supervisors can request that shift that day, 0 = they can't.
+  // A shift without one follows what Add Schedule put on the day.
+  function cleanPicks(o) {
+    if (!o || typeof o !== "object") return null;
+    const out = {};
+    for (const t of SHIFT_KEYS) if (o[t] === 1 || o[t] === 0) out[t] = o[t];
+    return Object.keys(out).length ? out : null;
+  }
+  // A day: work (one or more shifts: the first at the top, the rest in "more"), busy, open, or "none" (nothing from a
+  // schedule, only his per-shift choices). Any of them can carry those choices in "o".
   function cleanPrivRec(rec, pickup) {
     if (!rec || typeof rec !== "object") return null;
+    let out = null;
     if (rec.s === "work") {
-      const out = { s: "work" };
-      if (isTime(rec.start) && isTime(rec.end) && rec.start !== rec.end) { out.start = rec.start; out.end = rec.end; }
-      const hrs = Number(rec.hours);
-      out.hours = hrs > 0 && hrs <= 24 ? hrs : out.start ? spanHours(out.start, out.end) : pickup;
+      out = Object.assign({ s: "work" }, cleanShift(rec, pickup));
+      const more = Array.isArray(rec.more) ? rec.more.map((x) => cleanShift(x, pickup)).filter(Boolean).slice(0, 4) : [];
+      if (more.length) out.more = more;
       const note = cleanNote(rec.note);
       if (note) out.note = note;
-      return out;
-    }
-    if (rec.s === "busy") {
+    } else if (rec.s === "busy") {
       const note = cleanNote(rec.note);
-      return note ? { s: "busy", note } : { s: "busy" };
-    }
-    if (rec.s === "open") {
+      out = note ? { s: "busy", note } : { s: "busy" };
+    } else if (rec.s === "open") {
       const w = cleanWilling(rec.w);
-      return w ? { s: "open", w } : { s: "open" };
-    }
-    return null;
+      out = w ? { s: "open", w } : { s: "open" };
+    } else if (rec.s === "none") out = { s: "none" };
+    if (!out) return null;
+    const o = cleanPicks(rec.o);
+    if (o) out.o = o;
+    else if (out.s === "none") return null;
+    return out;
+  }
+  // The shifts he works on a day (none unless it's a work day).
+  const workShifts = (rec) => (rec && rec.s === "work" ? [{ start: rec.start, end: rec.end, hours: rec.hours }].concat(rec.more || []) : []);
+  // The shifts supervisors can request on a day: Add Schedule's answer (a day off offers his usual shifts, a work or
+  // busy day none), then his per-shift choices on top. null for a day with nothing on it.
+  function offerOf(rec, p) {
+    if (!rec) return null;
+    const base = rec.s === "open" ? rec.w || p.willing : [];
+    const o = rec.o || {};
+    return SHIFT_KEYS.filter((t) => o[t] === 1 || (o[t] !== 0 && base.includes(t)));
   }
 
   // "Every week" days: a shift he works (or a day he keeps busy) on the same weekday every week, until he turns it off.
@@ -627,18 +657,18 @@
     let total = 0;
     for (let i = -1; i < 7; i++) {
       const k = addDays(weekStartKey, i);
-      const rec = dayRec(k, v);
-      if (!rec || rec.s !== "work") continue;
-      const paid = Number(rec.hours) || 0;
-      if (paid <= 0) continue;
-      if (rec.start && rec.end) {
-        const start = dayNumber(k) * 1440 + minutesOf(rec.start);
-        let len = minutesOf(rec.end) - minutesOf(rec.start);
-        if (len <= 0) len += 1440;
-        const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
-        total += (paid * inside) / len;
-      } else if (i >= 0) {
-        total += paid;
+      for (const sh of workShifts(dayRec(k, v))) {
+        const paid = Number(sh.hours) || 0;
+        if (paid <= 0) continue;
+        if (sh.start && sh.end) {
+          const start = dayNumber(k) * 1440 + minutesOf(sh.start);
+          let len = minutesOf(sh.end) - minutesOf(sh.start);
+          if (len <= 0) len += 1440;
+          const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
+          total += (paid * inside) / len;
+        } else if (i >= 0) {
+          total += paid;
+        }
       }
     }
     return Math.round(total * 100) / 100;
@@ -695,9 +725,8 @@
   }
   // Hours left before overtime in a pay week. His colors and supervisors' numbers use the same count.
   const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
-  const typesOf = (rec, p) => (rec && rec.w ? rec.w : p.willing);
   // Which of the day's shifts would have any overtime.
-  const otShifts = (k, v, p, rec) => typesOf(rec, p).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
+  const otShifts = (k, v, p, types) => types.filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
 
   // What supervisors may see: open / ot / busy per day from today on. No times, hours, notes,
   // and no difference between working and busy.
@@ -706,11 +735,10 @@
     const today = todayKey();
     for (const k of Object.keys(v.days).sort()) {
       if (k < today) continue;
-      const rec = v.days[k];
-      if (rec.s === "work" || rec.s === "busy") { out[k] = { s: "busy" }; continue; }
-      if (rec.w && rec.w.length === 0) { out[k] = { s: "busy" }; continue; }
-      const types = typesOf(rec, p), ots = otShifts(k, v, p, rec);
-      out[k] = rec.w ? { s: ots.length ? "ot" : "open", w: rec.w } : { s: ots.length ? "ot" : "open" };
+      const types = offerOf(v.days[k], p);
+      if (!types.length) { out[k] = { s: "busy" }; continue; }
+      const ots = otShifts(k, v, p, types);
+      out[k] = sameSet(types, p.willing) ? { s: ots.length ? "ot" : "open" } : { s: ots.length ? "ot" : "open", w: types };
       // Older copies of this page read "ot" as yellow and x as the shifts that would be overtime.
       if (ots.length && ots.length < types.length) out[k].x = ots;
     }
@@ -1143,6 +1171,11 @@
     if (rec) priv.days[k] = rec;
     else delete priv.days[k];
   }
+  // A new schedule entry for a day keeps his per-shift choices from Edit Day: they override whatever the schedule says.
+  function setDayKeep(k, rec) {
+    const o = priv.days[k] && priv.days[k].o;
+    setDay(k, o ? cleanPrivRec(Object.assign({}, rec || { s: "none" }, { o }), priv.pickup) : rec);
+  }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
   function applyBrush(k) {
@@ -1153,9 +1186,9 @@
       toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to Edit.`, 5000);
       return;
     }
-    if (brush === "work") setDay(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
-    else if (brush === "busy") setDay(k, cur && cur.s === "busy" ? null : { s: "busy" });
-    else if (brush === "open") setDay(k, cur && cur.s === "open" ? null : { s: "open" });
+    if (brush === "work") setDayKeep(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
+    else if (brush === "busy") setDayKeep(k, cur && cur.s === "busy" ? null : { s: "busy" });
+    else if (brush === "open") setDayKeep(k, cur && cur.s === "open" ? null : { s: "open" });
     afterChange();
   }
 
@@ -1165,9 +1198,9 @@
     const booked = weekHours(k, priv, pub.weekStart);
     const base = { past: k < todayKey(), booked, rec, weekly: !!(rec && rec.weekly) };
     if (!rec) return Object.assign(base, { kind: "unset" });
-    if (rec.s === "work" || rec.s === "busy") return Object.assign(base, { kind: rec.s });
-    if (rec.w && rec.w.length === 0) return Object.assign(base, { kind: "busy" });
-    return Object.assign(base, { kind: otKind(k, typesOf(rec, pub), priv.pickup, pub.weekStart, privLeft(priv)) });
+    const types = offerOf(rec, pub);
+    if (!types.length) return Object.assign(base, { kind: rec.s === "work" ? "work" : "busy" });
+    return Object.assign(base, { kind: otKind(k, types, priv.pickup, pub.weekStart, privLeft(priv)) });
   }
 
   // A week the file doesn't list has room for at least one usual shift, if it's a week the file covers.
@@ -1432,7 +1465,7 @@
           if (weekly) label += `, every ${DOW_LONG[d.getDay()]}`;
         } else {
           const info = publicInfo(k);
-          disabled = info.past;
+          disabled = info.past || info.kind === "unset";
           cls = ["day", info.past ? "past" : info.kind];
           tag = info.past ? "" : PUBLIC_TAG[info.kind];
           label = info.past ? "past" : publicStatusText(info.kind);
@@ -3400,7 +3433,7 @@
   function openEdit(k) {
     editKey = k;
     $("#editTitle").textContent = shortDay(k);
-    fillEdit(true);
+    fillEdit();
     $("#editSheet").openerKey = k;
     showSheet("#editSheet");
   }
@@ -3420,56 +3453,105 @@
     return `${r.s === "work" ? "Working" : "Busy"} every ${DOW_LONG[r.d]}${when}`;
   }
 
-  function fillEdit(fillInputs) {
-    const k = editKey;
-    const rec = priv.days[k];
-    const rule = ruleOn(k, priv);
-    const st = rec ? rec.s : "unset";
-    $(`#st${st[0].toUpperCase()}${st.slice(1)}`).checked = true;
-    for (const [id, s] of [["#editWork", "work"], ["#editBusy", "busy"], ["#editOpen", "open"], ["#editUnset", "unset"]]) $(id).hidden = st !== s;
-    // On an every-week day, "Not set" means "follow the weekly setting".
-    $("#stUnsetText").textContent = rule ? "Every Week" : "Not Set";
-    $("#stUnsetDot").className = rule ? `dot busy${rule.s === "busy" ? " hatch" : ""}` : "dot none";
-    $("#editUnsetText").textContent = rule
-      ? `${ruleText(rule)} (from Settings). Supervisors see red. Pick another option to change only this date.`
-      : "Shows gray to supervisors.";
-    $("#editRuleNote").hidden = !(rule && rec);
-    $("#editRuleNote").textContent = rule ? `Changed for this date only. Pick Every Week to go back to: ${ruleText(rule)}.` : "";
-    if (fillInputs) {
-      const src = rec && rec.s === "work" ? rec : !rec && rule && rule.s === "work" ? rule : null;
-      $("#workStart").value = src && src.start ? src.start : "";
-      $("#workEnd").value = src && src.end ? src.end : "";
-      $("#workHours").value = src ? num(src.hours) : num(priv.pickup);
-      $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
-      $("#busyNote").value = rec && rec.s === "busy" && rec.note ? rec.note : "";
-    }
-    const willing = rec && rec.s === "open" && rec.w ? rec.w : pub.willing;
-    $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
+  // ---------- Edit Day (Oct 15) ----------
+  // The shifts he works that day (filled in from Add Schedule; each can be changed or deleted, and more added), one
+  // note for the day, and for each shift type two boxes that override the schedule for supervisors: Available (they can
+  // request it that day) or Unavailable (they can't). Neither box: the schedule decides.
+  let editRows = [], editWas = null, editSeq = 0;
+  const hhmmOf = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  const clockState = (t) => {
+    if (!t) return { v: "", ap: null };
+    const [hh, mm] = t.split(":").map(Number);
+    return { v: `${hh % 12 || 12}${mm ? `:${pad(mm)}` : ""}`, ap: hh < 12 ? "am" : "pm" };
+  };
+  function shiftRow(orig) {
+    const row = { orig };
+    const n = ++editSeq;
+    const changed = () => { showHrs(); onEditChange({ target: row.el }); };
+    row.start = clockField(`es${n}`, "Start", changed, null);
+    row.end = clockField(`ee${n}`, "End", changed, null);
+    if (orig) { row.start.restore(clockState(orig.start)); row.end.restore(clockState(orig.end)); }
+    // The shift as typed, or what it was while a time is half typed (an hours-only shift keeps its hours).
+    row.read = () => {
+      const a = row.start.mins(), b = row.end.mins();
+      if (a != null && b != null && a !== b) {
+        const start = hhmmOf(a), end = hhmmOf(b);
+        const same = orig && orig.start === start && orig.end === end;
+        return { start, end, hours: same ? orig.hours : spanHours(start, end) };
+      }
+      return orig || null;
+    };
+    const hrs = h("span", { class: "muted small shift-hrs" });
+    const showHrs = () => { const r = row.read(); hrs.textContent = r ? `${num(r.hours)} hrs` : "Enter start and end"; };
+    const del = h("button", { type: "button", class: "linkish shift-del", text: "Delete Shift" });
+    del.addEventListener("click", () => {
+      editRows = editRows.filter((x) => x !== row);
+      row.el.remove();
+      onEditChange({ target: del });
+    });
+    row.el = h("div", { class: "shift-row" }, h("div", { class: "clocks" }, row.start.el, row.end.el), h("div", { class: "shift-foot" }, hrs, del));
+    showHrs();
+    return row;
+  }
+  const pickBoxes = (t) => ({ yes: $(`#pk1-${t}`), no: $(`#pk0-${t}`) });
+  function pickRow(t, v) {
+    const box = (val, text) => {
+      const input = h("input", { type: "checkbox", id: `pk${val}-${t}` });
+      input.checked = v === val;
+      input.addEventListener("change", () => { if (input.checked) $(`#pk${1 - val}-${t}`).checked = false; });
+      return h("label", { class: `check pick-box ${val ? "yes" : "no"}`, for: `pk${val}-${t}` }, input, h("span", { text }));
+    };
+    return h("div", { class: "pick-row" },
+      h("span", { class: "pick-name" }, h("b", { text: SHIFT_LABEL[t] }), h("small", { class: "muted", id: `pka-${t}` })),
+      box(1, "Available"), box(0, "Unavailable"));
+  }
+  // The day as Edit Day now shows it.
+  function editRecord() {
+    const k = editKey, rule = ruleOn(k, priv);
+    const shifts = editRows.map((r) => r.read()).filter(Boolean);
+    const o = {};
+    for (const t of SHIFT_KEYS) { const b = pickBoxes(t); if (b.yes.checked) o[t] = 1; else if (b.no.checked) o[t] = 0; }
+    let rec;
+    if (shifts.length) rec = Object.assign({ s: "work" }, shifts[0], { more: shifts.slice(1), note: $("#workNote").value });
+    else if (editWas && (editWas.s === "busy" || editWas.s === "open")) rec = Object.assign({}, editWas);
+    else if ((editWas && editWas.s === "work") || (!editWas && rule && rule.s === "work")) rec = { s: "open" }; // its shift was cancelled: a day off
+    else if (!editWas && rule) rec = { s: "busy" };
+    else rec = { s: "none" };
+    const out = cleanPrivRec(Object.assign(rec, { o }), priv.pickup);
+    // An every-week day left as Settings has it keeps following Settings.
+    if (!editWas && rule && out && JSON.stringify(out) === JSON.stringify(cleanPrivRec({ s: rule.s, start: rule.start, end: rule.end, hours: rule.hours }, priv.pickup))) return null;
+    return out;
+  }
+  function refreshEdit() {
+    const k = editKey, rule = ruleOn(k, priv), rec = dayRec(k, priv);
+    // What the schedule alone says for each shift, beside its boxes.
+    const plain = rec ? offerOf(Object.assign({}, rec, { o: null }), pub) : [];
+    for (const t of SHIFT_KEYS) $(`#pka-${t}`).textContent = plain.includes(t) ? "Schedule: can request" : "Schedule: can't request";
+    $("#editRuleNote").hidden = !rule;
+    $("#editRuleNote").textContent = rule ? `${ruleText(rule)} (from Settings).${priv.days[k] ? " Changed for this date only." : ""}` : "";
     $("#editWeek").textContent = weekLine(k);
   }
-
-  function onEditChange(e) {
-    const k = editKey;
-    if (!k) return;
-    const t = e.target;
-    const st = document.querySelector('input[name="st"]:checked').value;
-    if (st === "unset") setDay(k, null);
-    else if (st === "busy") setDay(k, cleanPrivRec({ s: "busy", note: $("#busyNote").value }, priv.pickup));
-    else if (st === "open") {
-      const cur = priv.days[k];
-      const fromBoxes = t.closest && t.closest("#editWilling");
-      let w = fromBoxes ? [...document.querySelectorAll("#editWilling input:checked")].map((i) => i.value) : cur && cur.s === "open" ? cur.w : null;
-      if (w && sameSet(w, pub.willing)) w = null;
-      setDay(k, cleanPrivRec({ s: "open", w }, priv.pickup));
-    } else {
-      const start = $("#workStart").value, end = $("#workEnd").value;
-      if ((t.id === "workStart" || t.id === "workEnd") && isTime(start) && isTime(end) && start !== end) {
-        $("#workHours").value = num(spanHours(start, end));
-      }
-      setDay(k, workRec(start, end, $("#workHours").value, $("#workNote").value));
-    }
-    fillEdit(t.name === "st");
+  function fillEdit() {
+    const k = editKey, rec = dayRec(k, priv);
+    editWas = priv.days[k] ? clone(priv.days[k]) : null;
+    editRows = workShifts(rec).map((x) => shiftRow(x));
+    $("#shiftRows").replaceChildren(...editRows.map((r) => r.el));
+    $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
+    const o = (rec && rec.o) || {};
+    $("#pickRows").replaceChildren(...SHIFT_KEYS.map((t) => pickRow(t, o[t])));
+    refreshEdit();
+  }
+  function onEditChange() {
+    if (!editKey) return;
+    setDay(editKey, editRecord());
+    refreshEdit();
     afterChange();
+  }
+  function addShiftRow() {
+    const row = shiftRow(null);
+    editRows.push(row);
+    $("#shiftRows").append(row.el);
+    try { row.el.querySelector("input").focus(); } catch (e) { /* ignore */ }
   }
 
   // ---------- owner: import ----------
@@ -3558,16 +3640,16 @@
     box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
     // Filling gaps waits until every line reads cleanly, so a skipped line's days are never turned green.
-    const gapBox = $("#gapBox");
-    gapBox.hidden = !plan.gaps.length || errors.length > 0;
-    if (plan.gaps.length && errors.length) box.append(h("p", { class: "muted small", text: "Fix the skipped lines to fill in the gray days between your dates." }));
+    // Days between his dates that the list skips are days off, so they turn available (Oct 15). That waits until every
+    // line reads cleanly, so a skipped line's days are never turned green.
+    $("#gapBox").hidden = true;
+    const gapOpen = plan.gaps.length > 0 && !errors.length;
     if (plan.gaps.length) {
       const one = plan.gaps.length === 1;
-      $("#gapLegend").textContent = `${plan.gaps.length} gray day${one ? "" : "s"} between ${shortDay(plan.final.size ? [...plan.final.keys()].sort()[0] : plan.gaps[0])} and ${shortDay([...plan.final.keys()].sort().pop())} ${one ? "isn't" : "aren't"} in your list.`;
-      $("#gapGray + span").textContent = one ? "Leave It Gray" : "Leave Them Gray";
-      $("#gapOpen + span").textContent = one ? "Mark It Available" : "Mark Them Available";
+      box.append(h("p", { class: "muted small", text: errors.length
+        ? "Fix the skipped lines to fill in the days between your dates."
+        : `${plan.gaps.length} day${one ? "" : "s"} between your dates ${one ? "isn't" : "aren't"} in your list, so ${one ? "it" : "they"}'ll show as available.` }));
     }
-    const gapOpen = !gapBox.hidden && $("#gapOpen").checked;
     const total = n + (gapOpen ? plan.gaps.length : 0);
     $("#importApply").disabled = total === 0;
     $("#importApply").textContent = total ? `Add ${total} Day${total === 1 ? "" : "s"} to Calendar` : "Add to Calendar";
@@ -3577,11 +3659,11 @@
     if (!importResult) return;
     const plan = planImport(importResult);
     for (const [k, rec] of plan.final) {
-      if (rec.s === "clear") setDay(k, null);
-      else setDay(k, cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup));
+      if (rec.s === "clear") setDayKeep(k, null);
+      else setDayKeep(k, cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup));
     }
-    const gapOpen = !$("#gapBox").hidden && $("#gapOpen").checked;
-    if (gapOpen) for (const k of plan.gaps) setDay(k, { s: "open" });
+    const gapOpen = plan.gaps.length > 0 && !importResult.errors.length;
+    if (gapOpen) for (const k of plan.gaps) setDayKeep(k, { s: "open" });
     const total = plan.final.size + (gapOpen ? plan.gaps.length : 0);
     // Lines that couldn't be read stay in the box so they can be fixed.
     const lines = $("#importText").value.split(/\r\n|\r|\n/);
@@ -3595,7 +3677,6 @@
 
   function openImport() {
     $("#importText").value = store.get(LS.importText) || "";
-    $("#gapGray").checked = true;
     renderImport();
     showSheet("#importSheet");
   }
@@ -4982,8 +5063,9 @@
     $("#credRemove").addEventListener("click", removeCred);
     $("#fbTest").addEventListener("click", onFeedbackTest);
     $("#unlockForm").addEventListener("submit", onUnlock);
-    $("#editForm").addEventListener("change", onEditChange);
-    for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
+    $("#editForm").addEventListener("change", (e) => { if (!e.target.closest(".field.clock")) onEditChange(); });
+    $("#workNote").addEventListener("input", onEditChange);
+    $("#addShift").addEventListener("click", addShiftRow);
     // Enter on a checkbox or switch would press Done (the form's default button) and close Settings, losing his place in
     // the notes: it does nothing there, as in an item's window. Enter in a text box is still Done.
     $("#settingsForm").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("input[type=checkbox], input[type=radio]")) e.preventDefault(); });
@@ -5065,7 +5147,6 @@
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
-    $("#gapBox").addEventListener("change", renderImport);
     $("#importApply").addEventListener("click", applyImport);
     $("#saveBtn").addEventListener("click", () => (busy ? null : save(false)));
     $("#conflictSheet").addEventListener("close", onConflict);
