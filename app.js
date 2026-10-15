@@ -80,7 +80,7 @@
   }
 
   const SHIFT_KEYS = ["overnight", "swing", "morning"];
-  const SHIFT_LABEL = { overnight: "Overnight", swing: "Swing", morning: "Morning" };
+  const SHIFT_LABEL = { overnight: "Graveyard", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d4.", draftPrefix3: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", uploads: "sa.uploads" };
@@ -1594,7 +1594,9 @@
     copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
     check: '<polyline points="20 6 9 17 4 12"/>',
+    chev: '<polyline points="9 18 15 12 9 6"/>',
   };
+  const icon = (name) => { const s = h("span"); s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`; return s.firstChild; };
   function iconLabel(el, icon, text) {
     el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[icon]}</svg><span></span>`;
     el.lastChild.textContent = text;
@@ -1996,7 +1998,7 @@
     const steps = [
       type
         ? h("div", { class: "field-head shift-chosen" }, h("span", { class: "label", text: `Shift: ${SHIFT_LABEL[type]}` }),
-          h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: tr.back }))
+          h("button", { type: "button", class: "linkish", text: "Change Shift", onclick: () => (tr.change ? tr.change() : tr.back()) }))
         : null,
       msgBlock,
       noText,
@@ -2176,7 +2178,7 @@
     };
   }
 
-  function openDay(k) {
+  function openDay(k, pre) {
     const info = publicInfo(k);
     $("#dayKicker").textContent = fmt(k, { weekday: "long" });
     $("#dayTitle").textContent = fmt(k, { month: "long", day: "numeric" });
@@ -2244,7 +2246,7 @@
       sendWindow(k, info, null, area, dayStatus, shiftStatus, tr);
     } else if (info.kind === "open" || info.kind === "ot") {
       if (!smsNumber()) wrap.append(h("p", { class: "muted", text: "Texting isn't set up yet. Reach me the usual way." }));
-      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus, tr); }
+      else { const area = h("div", { class: "stack" }); wrap.append(area); shiftChoice(k, info, area, dayStatus, shiftStatus, tr, pre); }
     }
     $("#dayBody").replaceChildren(wrap);
     $("#daySheet").openedAt = Date.now();
@@ -2271,10 +2273,20 @@
   }
 
   // First the supervisor picks the shift. One he doesn't take gets a short no; one he takes opens the message.
+  // pre: a shift already picked from the floating buttons; Change Shift brings the buttons back.
   const SHIFT_ORDER = ["morning", "swing", "overnight"];
-  function shiftChoice(k, info, area, dayStatus, shiftStatus, tr) {
+  function shiftChoice(k, info, area, dayStatus, shiftStatus, tr, pre) {
     const accepts = info.w || pub.willing;
     const show = showIn(area);
+    if (pre) {
+      tr.change = () => {
+        $("#daySheet").close("");
+        const t = document.querySelector(`#weeks .day[data-key="${k}"]`);
+        if (t) floatPick(k, t); else openDay(k);
+      };
+      sendWindow(k, info, pre, area, dayStatus, shiftStatus, tr);
+      return;
+    }
     const choose = (focusFirst) => {
       dayStatus();
       show([
@@ -2297,6 +2309,114 @@
       tr.forward(() => choose(true));
     };
     choose(false);
+  }
+
+  // A green or yellow day tapped: it floats up off the calendar and splits into the three shifts. The ones he takes
+  // are raised, bold and bob slowly (green, yellow or both, as that shift's overtime is); the ones he doesn't are
+  // pressed in, see-through and still. Picking one opens the day window at that shift's text. A tap outside, Escape or
+  // Back puts the day back.
+  let pickEl = null;
+  const stillMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function floatPick(k, tile) {
+    if (!pickEl) {
+      pickEl = h("dialog", { class: "pick-float", id: "shiftPick" });
+      document.body.append(pickEl);
+      pickEl.addEventListener("click", (e) => { if (e.target === pickEl && pickEl.leave) pickEl.leave(); });
+      pickEl.addEventListener("cancel", (e) => { if (pickEl.leave) { e.preventDefault(); pickEl.leave(); } });
+      pickEl.addEventListener("close", () => {
+        nav.closed(pickEl);
+        pickEl.leave = null;
+        pickEl.replaceChildren();
+        const t = pickEl.tile;
+        if (pickEl.returnValue !== "picked" && t && t.isConnected) try { t.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+      });
+    }
+    if (pickEl.open) return;
+    const info = publicInfo(k), accepts = info.w || pub.willing, still = stillMotion();
+    const r = tile.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+    // The day itself, lifted off the page where it was.
+    const ghost = tile.cloneNode(true);
+    ghost.removeAttribute("id");
+    ghost.className = `${tile.className} pf-ghost`;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.tabIndex = -1;
+    Object.assign(ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    for (const part of [".num", ".tag", ".mon"]) {
+      const from = tile.querySelector(part), to = ghost.querySelector(part);
+      if (from && to) to.style.fontSize = getComputedStyle(from).fontSize;
+    }
+    // Which day this is, over the three shifts, all in a column in the middle of the window.
+    const W = Math.min(340, vw - 40);
+    const col = h("div", { class: "pf-col", role: "group", "aria-labelledby": "pfDay" });
+    Object.assign(col.style, { left: `${(vw - W) / 2}px`, width: `${W}px` });
+    const answer = info.kind === "ot" ? mixedOt(k, info) || "I'm available, but it would be overtime" : "I'm available";
+    const head = h("div", { class: "pf-head", id: "pfDay" },
+      h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }),
+      h("p", { class: "pf-date", text: fmt(k, { month: "long", day: "numeric" }) }),
+      h("p", { class: "pf-answer" }, h("span", { class: `sw ${info.kind}`, "aria-hidden": "true" }), h("span", { text: answer })),
+      h("p", { class: "pf-ask", text: "Which shift do you need covered?" }));
+    const slots = SHIFT_ORDER.map((t, i) => {
+      const takes = accepts.indexOf(t) >= 0;
+      const raw = shiftOt(k, t, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0) ? true : null);
+      const st = takes ? otState(untimed(raw)) : "no";
+      const tag = st === "ot" ? "Overtime" : st === "pot" ? "Part overtime" : "";
+      // A box with the shift's first letter on the left, the name in the middle, an arrow on the right (taken shifts only).
+      const btn = h("button", { type: "button", class: `pf-btn ${st}`, "data-type": t },
+        h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
+        h("span", { class: "pf-mid" }, h("span", { class: "pf-name", text: SHIFT_LABEL[t] }), tag ? h("span", { class: "pf-tag", text: tag }) : null),
+        h("span", { class: "pf-arrow", "aria-hidden": "true" }, takes ? icon("chev") : null));
+      // Its shadow on the page below, under the edge (which stays put while the top presses down and back up).
+      const shadow = h("span", { class: "pf-shadow", "aria-hidden": "true" });
+      if (takes) {
+        btn.style.animationDelay = shadow.style.animationDelay = `${-i * 0.45}s`;
+        btn.addEventListener("click", () => { pickEl.close("picked"); openDay(k, t); });
+      } else {
+        btn.disabled = true;
+        btn.setAttribute("aria-label", `${SHIFT_LABEL[t]}: not available`);
+      }
+      return h("div", { class: `pf-slot${takes ? " takes" : ""}` }, shadow, btn);
+    });
+    col.append(head, ...slots);
+    pickEl.tile = tile;
+    pickEl.replaceChildren(ghost, col);
+    pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
+    showSheet("#shiftPick");
+    col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
+    const first = col.querySelector(".pf-btn:not(:disabled)");
+    if (first) try { first.focus({ preventScroll: true }); } catch (x) { first.focus(); }
+    // From the day's middle to each button's: where a button starts, and goes back to.
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const fromTile = (slot) => {
+      const b = slot.getBoundingClientRect();
+      return `translate(${cx - (b.left + b.width / 2)}px, ${cy - (b.top + b.height / 2)}px) scale(${Math.max(0.15, r.width / b.width)}, ${Math.max(0.15, r.height / b.height)})`;
+    };
+    const anim = (el, frames, o) => (el.animate ? el.animate(frames, o) : null);
+    let closing = false;
+    pickEl.leave = () => {
+      if (closing) return;
+      closing = true;
+      if (still || !ghost.animate) { pickEl.close(""); return; }
+      slots.forEach((s) => s.classList.remove("bob"));
+      anim(head, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
+      slots.forEach((s) => anim(s, [{ transform: "none", opacity: 1 }, { transform: fromTile(s), opacity: 0 }], { duration: 220, easing: "ease-in", fill: "forwards" }));
+      const back = anim(ghost, [{ transform: "translateY(-12px) scale(1.18)", opacity: 0 }, { transform: "translateY(-12px) scale(1.18)", opacity: 1, offset: 0.5 }, { transform: "none", opacity: 1 }],
+        { duration: 380, delay: 120, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
+      if (back) back.onfinish = () => pickEl.close(""); else pickEl.close("");
+    };
+    if (still || !ghost.animate) {
+      ghost.style.opacity = "0";
+      return;
+    }
+    // Up off the page; then it opens into the three, each flying out of it, a beat apart; then the raised ones bob.
+    anim(ghost, [{ transform: "none" }, { transform: "translateY(-12px) scale(1.18)" }], { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+    anim(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 360, fill: "forwards" });
+    anim(head, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 300, easing: "ease-out", fill: "backwards" });
+    slots.forEach((s, i) => {
+      const a = anim(s, [{ transform: fromTile(s), opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: "none", opacity: 1 }],
+        { duration: 520, delay: 300 + i * 80, easing: "cubic-bezier(.2,1.25,.35,1)", fill: "backwards" });
+      const done = () => s.classList.add("bob");
+      if (a) a.onfinish = done; else done();
+    });
   }
 
   // ---------- My Uniform: what supervisors see ----------
@@ -4479,7 +4599,10 @@
       const b = e.target.closest(".day");
       if (!b || b.disabled) return;
       const k = b.dataset.key;
-      if (!ownerView()) return openDay(k);
+      if (!ownerView()) {
+        const kind = publicInfo(k).kind;
+        return (kind === "open" || kind === "ot") && smsNumber() ? floatPick(k, b) : openDay(k);
+      }
       if (busy) return toast("One moment, loading your calendar…");
       if (standIn) return showSheet("#keySheet");
       if (brush === "edit") openEdit(k);

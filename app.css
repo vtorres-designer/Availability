@@ -865,6 +865,76 @@ dialog:not([open]) { display: none; }
 .shift-chosen .label { color: var(--ink); }
 .decline:focus { outline: none; }
 
+/* A day tapped: it floats up off the calendar and splits into the three shifts, in the middle of the window over a
+   dark, well-blurred page. Each button: a box with the shift's letter on the left, the name in the middle, an arrow on
+   the right. Raised (the shifts he takes): a lit face standing on a thick darker edge, bold, its top pressing
+   lightly down onto the edge and back up, over a shadow on the page. Pressed in (the ones he doesn't): sunk into the
+   page, see-through, struck through, regular weight, still. */
+.pick-float {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0;
+  border: 0; background: transparent; overflow: hidden; color: #e8ecf4;
+}
+.pick-float::backdrop { background: rgba(5, 8, 16, 0.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.pf-ghost { position: fixed; margin: 0; pointer-events: none; box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55); animation: none !important; }
+.pf-col { position: fixed; display: grid; gap: 22px; }
+.pf-slot { position: relative; min-width: 0; }
+/* Which day: the weekday, the date, the day's answer with its color, and the question, over the buttons. */
+.pf-head { display: grid; justify-items: center; gap: 4px; text-align: center; margin-bottom: 2px; }
+.pf-head p { margin: 0; }
+.pf-kicker { font: 700 13px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(232, 236, 244, 0.7); }
+.pf-date { font: 700 36px/1.05 var(--font-display); color: #fff; }
+.pf-answer { display: inline-flex; align-items: center; gap: 8px; font: 600 17px/1.25 var(--font-body); margin-top: 4px !important; }
+.pf-answer .sw { flex: none; width: 18px; height: 18px; border-radius: 5px; }
+.pf-ask { font: 600 14px/1.3 var(--font-body); color: rgba(232, 236, 244, 0.7); margin-top: 6px !important; }
+.pf-btn {
+  appearance: none; -webkit-appearance: none; border: 0; width: 100%; min-height: 66px; padding: 10px 14px; border-radius: 18px;
+  display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: center; gap: 10px; cursor: pointer;
+  position: relative; z-index: 1; font: 700 30px/1.05 var(--font-display); letter-spacing: 0.02em; text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  --edge: rgba(0, 0, 0, 0.6); --depth: 10px;
+  /* Lit from above: bright along the top, darker toward the bottom, a thin shine on the top edge. */
+  --lit: linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.1) 40%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.28) 100%);
+  box-shadow: 0 var(--depth) 0 var(--edge), inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.pf-btn.open { background: var(--lit), var(--open); color: var(--open-ink); --edge: #052e16; }
+.pf-btn.ot { background: var(--lit), var(--ot); color: var(--ot-ink); --edge: #5a3f02; }
+.pf-btn.pot { background: var(--lit), linear-gradient(to top right, var(--ot) calc(50% - 0.5px), var(--open) calc(50% + 0.5px)); color: var(--ot-ink); --edge: #2f370b; }
+.pf-btn:not(:disabled):active { transform: translateY(8px); --depth: 2px; }
+.pf-btn:focus-visible { outline: 3px solid #8fc2ff; outline-offset: 5px; }
+.pf-mid { display: grid; justify-items: center; gap: 3px; min-width: 0; }
+.pf-letter {
+  width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center;
+  font: 700 24px/1 var(--font-display); background: rgba(255, 255, 255, 0.2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.pf-btn.ot .pf-letter, .pf-btn.pot .pf-letter { background: rgba(255, 255, 255, 0.35); }
+.pf-arrow { display: grid; place-items: center; }
+.pf-arrow svg { width: 28px; height: 28px; }
+.pf-tag { font: 700 12px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+/* The shadow under a raised button, on the page: soft, a little wider than tall, below the edge. */
+.pf-shadow {
+  position: absolute; left: 6%; right: 6%; bottom: -18px; height: 22px; border-radius: 50%; z-index: 0; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+}
+.pf-slot:not(.takes) .pf-shadow { display: none; }
+.pf-btn:disabled {
+  background: rgba(255, 255, 255, 0.035); color: rgba(232, 236, 244, 0.6); cursor: default; font-weight: 400;
+  box-shadow: inset 0 5px 12px rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+/* Regular weight in the body font: the display font only comes in bold weights here. */
+.pf-btn:disabled .pf-name { text-decoration: line-through; text-decoration-thickness: 2px; font: 400 28px/1.05 var(--font-body); }
+.pf-btn:disabled .pf-letter { background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); font: 400 22px/1 var(--font-body); }
+/* The light top presses down onto its dark edge and rises again: the edge's bottom never moves. */
+@keyframes pf-press {
+  from { transform: translateY(0); box-shadow: 0 10px 0 var(--edge), inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+  to { transform: translateY(6px); box-shadow: 0 4px 0 var(--edge), inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pf-slot.bob.takes .pf-btn { animation: pf-press 1.1s ease-in-out infinite alternate; }
+  .pf-slot.bob.takes .pf-btn:active { animation: none; }
+}
+@media (forced-colors: active) { .pf-btn { border: 2px solid ButtonText; } .pf-btn:disabled { border-style: dashed; } }
+
 /* When the shift starts and ends (Customize Text First): side by side, each time box with a two-part AM/PM bar beside
    it, its name in grey inside it. On P-OT days, which hours would be overtime. */
 .clocks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 16px; }
