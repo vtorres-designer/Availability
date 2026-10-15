@@ -427,7 +427,10 @@
     if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
     d.notes = Array.isArray(r.notes) ? cleanNotes(r.notes) : notesFromOld(r);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
+    // The status line is only his own words now (Oct 15). Saved data from before then had none, so it keeps the sentence
+    // it showed. An empty line hides it.
     if (typeof r.status === "string") d.status = r.status.trim().slice(0, 60);
+    else d.status = acceptingText(d.willing);
     if (["green", "yellow", "red"].includes(r.led)) d.led = r.led;
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
@@ -1223,7 +1226,7 @@
     return `Accepting ${w.length < 3 ? w.join(" & ") : `${w.slice(0, -1).join(", ")} & ${w[w.length - 1]}`} requests`;
   }
   // The status line by the green light: his own words from Settings, or the sentence built from his shifts.
-  const statusLine = () => pub.status || acceptingText(pub.willing);
+  const statusLine = () => pub.status;
   // The badge's letters: first and last initials ("VT").
   const initials = (name) => { const p = name.trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : ""; };
   const dateText = (k) => fmt(k, { month: "short", day: "numeric", year: "numeric" });
@@ -1314,8 +1317,7 @@
     $("#shield").toggleAttribute("hidden", !letters); // an <svg> has no hidden property, only the attribute
     $("#badge").hidden = !letters; // and the frame it sits in, with its sparkle
     $("#shieldText").textContent = letters;
-    $("#accepting").hidden = !ready;
-    $("#accepting").classList.toggle("none", !pub.willing.length);
+    $("#accepting").hidden = !ready || !pub.status;
     for (const c of ["yellow", "red"]) $("#accepting").classList.toggle(`led-${c}`, pub.led === c);
     $("#acceptingText").textContent = statusLine();
     if (!typer) { $("#acceptingTyped").textContent = statusLine(); $("#acceptingRest").textContent = ""; }
@@ -4363,7 +4365,6 @@
     put("#setName", pub.name);
     put("#setStatus", pub.status);
     put("#setLed", pub.led);
-    $("#setStatus").placeholder = acceptingText(pub.willing);
     put("#setEmpId", pub.empId);
     put("#setPhone", pub.phone);
     put("#setLicName", pub.licName);
@@ -4443,7 +4444,6 @@
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) {
       pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
-      $("#setStatus").placeholder = acceptingText(pub.willing);
       renderNotes(); // the night-shift note (and its tab) goes and comes back with Overnight, just as it was
     }
     else return;
