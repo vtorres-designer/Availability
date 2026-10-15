@@ -1007,7 +1007,7 @@ dialog:not([open]) { display: none; }
   .pf-corner .pf-word { animation: pf-rainbow 4.5s ease-in-out 1.2s infinite; }
   .pf-ch { animation: pf-ride 4.5s cubic-bezier(.35, 0, .3, 1) calc(1.2s + var(--i) * 0.11s) infinite; }
 }
-.pf-corner svg { width: 28px; height: 28px; margin-right: -2px; transform: scaleX(-1); color: rgba(240, 246, 255, 0.2); stroke-width: 3.2; }
+.pf-corner svg { width: 1.08em; height: 1.08em; margin-right: -2px; transform: scaleX(-1); color: rgba(240, 246, 255, 0.2); stroke-width: 3.2; }
 .pf-corner:active { transform: translateY(1px); }
 @media (forced-colors: active) { .pf-ch { color: ButtonText; -webkit-text-stroke: 0; background: none; } }
 .pf-card-head { display: grid; justify-items: center; }
@@ -1047,6 +1047,67 @@ dialog:not([open]) { display: none; }
 .pf-card .other-app { display: grid; justify-items: center; gap: 6px; }
 .pf-other-links { display: flex; justify-content: center; gap: 24px; }
 .pf-card .qr-send { justify-self: center; }
+/* A computer: the text on the left, the QR code and its steps on the right. */
+.pf-desk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+.pf-desk-col { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.pf-desk .pf-chip { justify-self: stretch; padding-right: 16px; } /* as wide as the bubble and button under it */
+.pf-desk .pf-thread { padding-top: 0; }
+.pf-desk .pf-bubble { max-width: 100%; }
+.pf-desk .pf-hint { text-align: left; }
+.pf-desk-send .qr-send { justify-self: stretch; margin: 0; }
+.pf-desk-send { grid-auto-rows: 1fr; } /* its one panel (the code, or the wait) fills the column */
+.pf-desk .qr-or { display: none; } /* the number is in the texting app's header beside it */
+/* On a computer, Back sits in the card's own top left corner. */
+.pf-corner.in-card { position: absolute; top: 12px; left: 10px; }
+.pf-desk-grid { align-items: stretch; }
+/* The text side on a computer: a small texting app, as tall as the code's panel beside it. */
+.pf-msgs {
+  display: flex; flex-direction: column; min-width: 0; border-radius: 16px; overflow: hidden;
+  background: #0a0e18; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.pf-msgs-top {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04); border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.pf-avatar {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+  font: 700 15px/1 var(--font-display); letter-spacing: 0.03em; background: linear-gradient(180deg, #7a88a6, #48546e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.pf-msgs-who { display: grid; gap: 2px; min-width: 0; }
+.pf-msgs-who b { font: 700 16px/1.15 var(--font-body); }
+.pf-msgs-who small { font-size: 13px; color: var(--muted); }
+/* The conversation: the newest message at the bottom, like a real thread. */
+.pf-msgs-thread { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; padding: 18px 14px 14px; }
+.pf-stamp { align-self: center; display: grid; justify-items: center; gap: 4px; text-align: center; font: 600 12px/1.2 var(--font-body); color: var(--muted); letter-spacing: 0.03em; }
+.pf-stamp .pf-tag { font-size: 12px; color: var(--muted); }
+.pf-msgs .pf-bubble { align-self: flex-end; max-width: 88%; }
+.pf-msgs .pf-notes { align-self: stretch; }
+/* The message box along the bottom: tapping it opens Customize Text First. */
+.pf-compose {
+  appearance: none; border: 0; margin: 0 12px 12px; display: flex; align-items: center; gap: 9px; padding: 12px 16px;
+  border-radius: 999px; cursor: pointer; text-align: left; color: var(--muted); font: 500 15px/1.2 var(--font-body);
+  background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); transition: color 0.15s ease, background 0.15s ease;
+}
+.pf-compose svg { flex: none; width: 18px; height: 18px; }
+.pf-compose:hover { color: var(--ink); background: rgba(255, 255, 255, 0.09); }
+/* Before the code (a shift that may start soon): a panel the size of the code's, with a faint outline of a code, why
+   it waits, and the button. */
+.pf-qr-wait {
+  display: grid; justify-items: center; align-content: center; gap: 16px; padding: 22px 20px; box-sizing: border-box;
+  border-radius: 12px; background: var(--bg); text-align: center;
+}
+.pf-qr-ghost {
+  width: 120px; height: 120px; border-radius: 14px; opacity: 0.35;
+  background:
+    linear-gradient(currentColor, currentColor) 10px 10px / 30px 30px no-repeat,
+    linear-gradient(currentColor, currentColor) 80px 10px / 30px 30px no-repeat,
+    linear-gradient(currentColor, currentColor) 10px 80px / 30px 30px no-repeat,
+    repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 14px) 50px 50px / 60px 60px no-repeat;
+  box-shadow: inset 0 0 0 2px currentColor; color: var(--muted);
+}
+.pf-qr-why { font-size: 15px; line-height: 1.4; color: var(--muted); max-width: 340px; }
+.pf-qr-wait .pf-slot { justify-self: stretch; }
 /* The steps under a QR code: numbered, short, easy to follow. */
 .qr-steps { margin: 2px 0 4px; padding-left: 22px; text-align: left; display: grid; gap: 4px; font-size: 15px; line-height: 1.35; max-width: 320px; }
 .qr-steps li::marker { font-weight: 700; color: var(--accent); }

@@ -1601,6 +1601,7 @@
     phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
     check: '<polyline points="20 6 9 17 4 12"/>',
     chev: '<polyline points="9 18 15 12 9 6"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
   };
   // A small clock whose minute hand turns around the center (the hand stops for people who ask for less motion).
   const clockIcon = () => { const s = h("span", { class: "clock-ic", "aria-hidden": "true" }); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" focusable="false"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="12" x2="15.5" y2="12"/><line class="clock-hand" x1="12" y1="12" x2="12" y2="5.5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>'; return s; };
@@ -1845,7 +1846,7 @@
         h("li", { text: "Open your phone's camera app." }),
         h("li", { text: "Point it at this square code and hold still." }),
         h("li", { text: "Tap the link that pops up. Your texting app opens with the message filled in. Tap Send." })),
-      h("p", { class: "muted small", text: `Or text ${prettyPhone()} from your phone.` }),
+      h("p", { class: "muted small qr-or", text: `Or text ${prettyPhone()} from your phone.` }),
       mac);
     let timer = 0, last = null, fresh = false;
     const draw = (text, done) => {
@@ -2107,6 +2108,15 @@
       sendBox = h("div", { class: "send" }, h("span", { class: "label", text: `Send to ${prettyPhone()}` }),
         h("div", { class: "send-opts" }, send, copyMsg, copyNum),
         h("p", { class: "muted small other-app", text: "Use a different app, like TextNow? Copy the message and number, then paste them there." }));
+    } else if (opts && opts.onSend) {
+      // The floating card on a computer: Send Text Now opens a screen of its own with the code (after the short-notice
+      // check), so the form never has to squeeze the code in beside the message.
+      showQr = iconLabel(h("button", { type: "button", class: "btn go" }), "message", "Send Text Now");
+      showQr.addEventListener("click", () => {
+        if (blocked) return;
+        if (needsCheck()) { const key = cur.key; warnCall(k, cur.span, () => { ctx.ack = key; opts.onSend(msg.value); }); } else opts.onSend(msg.value);
+      });
+      sendBox = h("div", { class: "send" }, showQr);
     } else {
       qr = qrPanel();
       // A shift starting soon shows the code only after the short-notice check.
@@ -2142,6 +2152,7 @@
         copyMsg.disabled = blocked;
         return;
       }
+      if (!qr) { showQr.disabled = blocked; showQr.classList.toggle("off", blocked); return; }
       const gate = !blocked && needsCheck();
       showQr.hidden = !gate;
       qr.show(!blocked && !gate);
@@ -2395,6 +2406,9 @@
     }
     // Which day this is, over the three shifts, all in a column in the middle of the window.
     const W = Math.min(340, vw - 24);
+    // On a computer's big screen the whole group (the day and its three shifts) is drawn bigger, to fill most of the
+    // window's height (measured once it's on screen, below). Phones keep it as it is.
+    let Z = 1;
     const col = h("div", { class: "pf-col", role: "group", "aria-labelledby": "pfDay" });
     Object.assign(col.style, { left: `${(vw - W) / 2}px`, width: `${W}px` });
     const answer = info.kind === "ot" ? mixedOt(k, info) || "I'm available, but it would be overtime" : "I'm available";
@@ -2451,6 +2465,13 @@
       for (let fs = 15; tg.scrollWidth > room && fs > 9; fs -= 0.5) tg.style.fontSize = `${fs - 0.5}px`;
     }
     col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
+    if (!isPhone() && vw >= 900) {
+      // As tall as the window allows (with room above and below), no wider than about half the window, at most twice
+      // its size; from its middle, so it stays centered. Back grows with it (its own size again in a card).
+      Z = Math.max(1, Math.min((vh - 90) / col.offsetHeight, (vw * 0.45) / W, 2));
+      col.style.transform = `scale(${Z})`;
+      corner.style.fontSize = `${Math.round(Math.min(34 * Z, 64))}px`; // as big as the date it sits beside, roughly
+    }
     // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
     // itself, so no focus ring shows on a button nobody has touched.
     const first = byKeys && col.querySelector(".pf-btn:not(:disabled)");
@@ -2460,7 +2481,8 @@
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const fromTile = (slot) => {
       const b = slot.getBoundingClientRect();
-      return `translate(${cx - (b.left + b.width / 2)}px, ${cy - (b.top + b.height / 2)}px) scale(${Math.max(0.15, r.width / b.width)}, ${Math.max(0.15, r.height / b.height)})`;
+      // (Inside the bigger column a step counts Z times over, so the distance is divided by it.)
+      return `translate(${(cx - (b.left + b.width / 2)) / Z}px, ${(cy - (b.top + b.height / 2)) / Z}px) scale(${Math.max(0.15, r.width / b.width)}, ${Math.max(0.15, r.height / b.height)})`;
     };
     const anim = (el, frames, o) => (el.animate ? el.animate(frames, o) : null);
     let closing = false, card = null;
@@ -2489,7 +2511,7 @@
           qr.show(true);
           qr.draw(text, () => {
             center(); // the code made the card taller
-            try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (x) { /* old browser */ }
+            if (!card.classList.contains("pf-desk")) try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (x) { /* old browser */ }
           });
         });
       });
@@ -2502,16 +2524,59 @@
       fillNotes(notes, "day");
       const dayHead = () => h("div", { class: "pf-card-head" },
         h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })));
-      card = h("div", { class: "pf-card", role: "group", "aria-label": `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}, ${SHIFT_LABEL[t]}: text me` },
+      const chip = h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
+        h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null));
+      const thread = h("div", { class: "pf-thread" }, h("p", { class: "pf-to", text: `To ${firstName() || "me"}` }), h("p", { class: "pf-bubble", text }));
+      const sendSlot = h("div", { class: "pf-slot takes bob" }, h("span", { class: "pf-shadow", "aria-hidden": "true" }), send);
+      const hint = h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." });
+      // A computer with room for it (like the calendar's laptop page): side by side, the text on the left and the QR code,
+      // already showing with its steps, on the right. A shift starting soon first asks for a call (its button says so).
+      const desk = !phone && window.innerWidth >= 900;
+      // A small texting app (computers): who it goes to along the top, the shift like a timestamp, the text as a sent
+      // bubble, and a message box along the bottom (what it opens: onCompose).
+      const msgsWin = (body, composeText, onCompose, extra) => {
+        const initials = (pub.name || "").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+        const compose = h("button", { type: "button", class: "pf-compose" }, icon("edit"), h("span", { text: composeText }));
+        compose.addEventListener("click", onCompose);
+        return h("div", { class: "pf-msgs" },
+          h("div", { class: "pf-msgs-top" }, h("span", { class: "pf-avatar", "aria-hidden": "true", text: initials || "?" }),
+            h("span", { class: "pf-msgs-who" }, h("b", { text: pub.name || "Me" }), h("small", { text: prettyPhone() }))),
+          h("div", { class: "pf-msgs-thread" },
+            h("p", { class: "pf-stamp" }, h("span", { text: `${SHIFT_LABEL[t]} shift` }), yellow ? weekClock(k, t) : null),
+            extra && !extra.hidden ? extra : null,
+            h("p", { class: "pf-bubble", text: body })),
+          compose);
+      };
+      const label = `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}, ${SHIFT_LABEL[t]}: text me`;
+      if (desk) {
+        const waits = shortNotice(k, null);
+        // A shift that may start soon: where the code will be, a panel says why it isn't there yet, with the button.
+        let wait = null;
+        if (waits) {
+          iconLabel(send, "message", "Show QR Code");
+          wait = h("div", { class: "pf-qr-wait" },
+            h("span", { class: "pf-qr-ghost", "aria-hidden": "true" }),
+            h("p", { class: "pf-qr-why", text: `This shift may start in less than ${hoursText(pub.callHours)}, so I may be asleep. You'll see how to call me first, then the QR code to text me.` }),
+            sendSlot);
+          send.addEventListener("click", () => { if (acked) wait.hidden = true; });
+          new MutationObserver(() => { if (sendSlot.hidden) wait.hidden = true; }).observe(sendSlot, { attributes: true, attributeFilter: ["hidden"] });
+        } else sendSlot.hidden = true;
+        // The text, shown as a texting app would: who it goes to along the top, the shift like a timestamp, the message as a
+        // sent bubble, and a message box at the bottom that opens Customize Text First.
+        const msgs = msgsWin(text, "Customize this text: add your name, times, site or pay", () => showForm(), notes);
+        card = h("div", { class: "pf-card pf-desk", role: "group", "aria-label": label },
+          dayHead(),
+          h("div", { class: "pf-desk-grid" }, msgs, h("div", { class: "pf-desk-col pf-desk-send" }, wait, qr.el)));
+        if (!waits) { qr.show(true); requestAnimationFrame(() => qr.draw(text, () => center())); }
+      } else card = h("div", { class: "pf-card", role: "group", "aria-label": label },
         dayHead(),
-        h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
-          h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null)),
+        chip,
         notes.hidden ? null : notes,
-        h("div", { class: "pf-thread" }, h("p", { class: "pf-to", text: `To ${firstName() || "me"}` }), h("p", { class: "pf-bubble", text })),
-        h("div", { class: "pf-slot takes bob" }, h("span", { class: "pf-shadow", "aria-hidden": "true" }), send),
+        thread,
+        sendSlot,
         qr ? qr.el : null,
         custom,
-        h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." }),
+        hint,
         // Another texting app (copy the message and number): a backup, so it comes last. The question on one line, the two
         // links side by side under it.
         phone ? (() => {
@@ -2520,13 +2585,16 @@
           return oa;
         })() : null);
       const sendView = [...card.childNodes];
-      // The card's width: narrow for the text, wide on a laptop for the form (its boxes beside the message).
+      // The card's width: narrow on a phone; wide on a computer with room (the text beside the code, the form's boxes
+      // beside the message).
       const size = (wide) => {
         const w = window.innerWidth, cw = wide && w >= 900 ? Math.min(900, w - 48) : Math.min(400, w - 24);
         Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - 24}px` });
       };
-      size(false);
+      size(desk);
       pickEl.append(card);
+      // On a computer the window is big, so Back moves from the window's corner into the card's, where it's seen.
+      if (desk) { corner.classList.add("in-card"); corner.style.fontSize = ""; card.append(corner); }
       // Full height: the glass Back floats over whatever is under it.
       const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
       center();
@@ -2555,16 +2623,17 @@
       };
       const swap = (nodes, wide) => {
         card.replaceChildren(...nodes);
-        card.classList.toggle("pf-form", wide);
+        if (desk) card.append(corner); // Back stays in the card's corner
+        card.classList.toggle("pf-form", nodes === formView);
         size(wide);
         card.scrollTop = 0;
         center();
         if (!still && card.animate) for (const c of card.children) anim(c, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 220, fill: "backwards" });
       };
-      const showSend = () => { swap(sendView, false); goBack = toShifts; };
+      const showSend = () => { swap(sendView, desk); goBack = toShifts; };
       function showForm() {
         if (!form) {
-          form = textForm(k, info, t, () => {}, setStatus, { ctx: { ack: acked ? "none" : "" } });
+          form = textForm(k, info, t, () => {}, setStatus, { ctx: { ack: acked ? "none" : "" }, onSend: desk ? sendCustom : null });
           const fnotes = h("aside", { class: "note-box pf-notes" });
           fillNotes(fnotes, "form");
           card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
@@ -2574,6 +2643,17 @@
         fitBubble();
         nav.step(pickEl, showSend);
         goBack = () => nav.back(pickEl, showSend);
+      }
+      // Back from the code to the form (Edit this text, Back, or the back gesture).
+      const backToForm = () => { swap(formView, true); fitBubble(); goBack = () => nav.back(pickEl, showSend); };
+      // Send Text Now on the form (a computer): the customized text in the texting app on the left, the code on the right.
+      function sendCustom(txt) {
+        const q = qrPanel();
+        swap([dayHead(), h("div", { class: "pf-desk-grid" }, msgsWin(txt, "Edit this text", () => nav.back(pickEl, backToForm)), h("div", { class: "pf-desk-col pf-desk-send" }, q.el))], true);
+        q.show(true);
+        requestAnimationFrame(() => q.draw(txt, () => center()));
+        nav.step(pickEl, backToForm);
+        goBack = () => nav.back(pickEl, backToForm);
       }
       try { pickEl.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
       const done = () => col.remove();
