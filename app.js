@@ -2616,6 +2616,15 @@
         corner.style.left = `${parseFloat(card.style.left) + (narrow ? 12 : 14)}px`;
         corner.style.top = `${parseFloat(card.style.top) + (row ? 12 : narrow ? 20 : 18)}px`;
       };
+      // The box being typed in stays in sight above a phone's keyboard; for a start or end time, its overtime note too.
+      function inSight() {
+        const a = document.activeElement;
+        if (!a || !card.contains(a) || !/^(INPUT|TEXTAREA)$/.test(a.tagName)) return;
+        const note = a.closest(".field.clock") && card.querySelector(".pf-otnote:not([hidden])");
+        const c = card.getBoundingClientRect(), r = a.getBoundingClientRect(), bottom = note ? note.getBoundingClientRect().bottom : r.bottom;
+        if (bottom > c.bottom - 8) card.scrollTop += Math.min(bottom - c.bottom + 16, r.top - c.top - 8);
+        else if (r.top < c.top + 8) card.scrollTop -= c.top - r.top + 16;
+      }
       // Centered in what can be seen. When a phone's keyboard opens, what can be seen gets shorter and can also start
       // lower down (offsetTop), so the card moves with it rather than staying where the keyboard pushed the view away.
       const center = () => {
@@ -2629,16 +2638,11 @@
           if (!card.isConnected) { window.visualViewport.removeEventListener("resize", follow); window.visualViewport.removeEventListener("scroll", follow); return; }
           card.style.maxHeight = `${seen() - 24}px`;
           center();
-          // The box being typed in stays in sight, above the keyboard.
-          const a = document.activeElement;
-          if (a && card.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName)) {
-            const c = card.getBoundingClientRect(), r = a.getBoundingClientRect();
-            if (r.bottom > c.bottom - 8) card.scrollTop += r.bottom - c.bottom + 16;
-            else if (r.top < c.top + 8) card.scrollTop -= c.top - r.top + 16;
-          }
+          inSight();
         };
         window.visualViewport.addEventListener("resize", follow);
         window.visualViewport.addEventListener("scroll", follow);
+        card.addEventListener("input", () => requestAnimationFrame(inSight)); // the overtime note can appear as times are typed
       }
       fitCorner(); // Back's first place: beside the date, or above it
       center();
