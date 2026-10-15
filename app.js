@@ -2080,7 +2080,7 @@
     // Phones and tablets: three buttons that open their texting app or copy the text and number. Computers: the QR code.
     let send = null, copyMsg = null, qr = null, showQr = null, sendBox;
     if (phone) {
-      send = iconLabel(h("a", { class: "btn go" }), "message", "Open Texting App");
+      send = iconLabel(h("a", { class: "btn go" }), "message", "Send Text Now");
       copyMsg = iconLabel(h("button", { type: "button", class: "btn ghost" }), "copy", "Copy Message");
       const copyNum = iconLabel(h("button", { type: "button", class: "btn ghost" }), "phone", "Copy Number");
       send.addEventListener("click", (e) => {
