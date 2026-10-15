@@ -2587,16 +2587,24 @@
       const sendView = [...card.childNodes];
       // The card's width: narrow on a phone; wide on a computer with room (the text beside the code, the form's boxes
       // beside the message).
+      // The height that can really be seen: on a phone, the browser's toolbars (any browser) cover part of the window, so the card's
+      // bottom would hide behind them.
+      const seen = () => (window.visualViewport ? Math.min(window.visualViewport.height, window.innerHeight) : window.innerHeight);
       const size = (wide) => {
         const w = window.innerWidth, cw = wide && w >= 900 ? Math.min(900, w - 48) : Math.min(400, w - 24);
-        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - 24}px` });
+        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${seen() - 24}px` });
       };
       size(desk);
       pickEl.append(card);
       // On a computer the window is big, so Back moves from the window's corner into the card's, where it's seen.
       if (desk) { corner.classList.add("in-card"); corner.style.fontSize = ""; card.append(corner); }
       // Full height: the glass Back floats over whatever is under it.
-      const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
+      const center = () => { card.style.top = `${Math.max(12, (seen() - card.offsetHeight) / 2)}px`; };
+      // A phone browser's toolbars slide in and out as the page scrolls: the card follows what can be seen.
+      if (window.visualViewport) {
+        const follow = () => { if (!card.isConnected) { window.visualViewport.removeEventListener("resize", follow); return; } card.style.maxHeight = `${seen() - 24}px`; center(); };
+        window.visualViewport.addEventListener("resize", follow);
+      }
       center();
       // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
       // send it). Back, or the phone's back gesture, returns to the text as it was.

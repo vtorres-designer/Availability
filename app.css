@@ -958,7 +958,10 @@ dialog:not([open]) { display: none; }
 /* After a shift is picked: a card in the middle of the window, over the same blurred page. Always dark (the page
    behind is always dimmed), so it keeps the dark theme's colors in light mode too. */
 .pf-card {
-  position: fixed; display: grid; gap: 14px; padding: 16px 18px 18px; border-radius: 26px; overflow: auto; overscroll-behavior: contain;
+  position: fixed; display: grid; gap: 14px; padding: 16px 18px calc(22px + env(safe-area-inset-bottom, 0px)); border-radius: 26px; overflow: auto; overscroll-behavior: contain;
+  /* Never taller than the part of the screen that can be seen, in any phone browser (their toolbars cover the rest).
+     The page also sets this from the browser's own measure of what's seen; this holds where it can't. */
+  max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px);
   --bg: #0d1220; --surface: #161d2e; --ink: #e8ecf4; --muted: #9ba6ba; --line: #2b344a; --accent: #8db0f2; --accent-ink: #0d1220;
   --note-bg: #1b2640; --note-line: #2a3c63;
   color: var(--ink); background: linear-gradient(180deg, rgba(38, 49, 74, 0.94), rgba(20, 27, 43, 0.96));
