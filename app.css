@@ -251,6 +251,8 @@ h2 { font-size: 28px; line-height: 1.05; }
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
   font-size: 14px;
 }
+/* Read down (Oct 15): the two Available colors share the first column, Not Available gets the second. */
+.legend { grid-template-rows: auto auto; grid-auto-flow: column; }
 .legend li { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sw { width: 18px; height: 18px; border-radius: 6px; flex: none; position: relative; }
 /* A soft glossy bubble over each color: a bright spot of light near the top left, a gentle shine fading down, a
@@ -607,7 +609,7 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
   .day { min-height: 54px; border-radius: 8px; }
   .day .num { font-size: 20px; }
   .day .tag { font-size: 9px; letter-spacing: 0.04em; }
-  .legend { grid-template-columns: 1fr; }
+  .legend { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
 }
 @media (prefers-reduced-motion: reduce) {
   .day, .day.open:not(.past), .day.ot:not(.past), .day.pot:not(.past) { transition: none; }
