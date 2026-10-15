@@ -1694,3 +1694,11 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
     body:not(.owner) .page { height: auto; max-height: calc(var(--vh) - var(--below)); }
   }
 }
+
+/* Owner windows (Oct 15): each section sits on its own faint see-through panel, so its text and buttons read as one group. */
+#editSheet .seg, #editSheet .sheet-in > .stack, #settingsSheet .group {
+  padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.035);
+}
+#editSheet .seg { margin: 0; min-width: 0; }
+#editSheet .seg > legend { float: left; grid-column: 1 / -1; padding: 0 0 2px; } /* inside the panel, not on its border */
+#settingsSheet .group + .group { margin-top: 4px; }
