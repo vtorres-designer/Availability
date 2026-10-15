@@ -96,7 +96,7 @@
   // notes: his notes to supervisors, in tab order (see "notes" below). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
-  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "" });
 
@@ -427,6 +427,7 @@
     if (typeof r.phone === "string") d.phone = r.phone.trim().slice(0, 20);
     d.notes = Array.isArray(r.notes) ? cleanNotes(r.notes) : notesFromOld(r);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
+    if (typeof r.status === "string") d.status = r.status.trim().slice(0, 60);
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
@@ -1220,6 +1221,8 @@
     if (!w.length) return "Not taking extra shifts right now";
     return `Accepting ${w.length < 3 ? w.join(" & ") : `${w.slice(0, -1).join(", ")} & ${w[w.length - 1]}`} requests`;
   }
+  // The status line by the green light: his own words from Settings, or the sentence built from his shifts.
+  const statusLine = () => pub.status || acceptingText(pub.willing);
   // The badge's letters: first and last initials ("VT").
   const initials = (name) => { const p = name.trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() : ""; };
   const dateText = (k) => fmt(k, { month: "short", day: "numeric", year: "numeric" });
@@ -1312,8 +1315,8 @@
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready;
     $("#accepting").classList.toggle("none", !pub.willing.length);
-    $("#acceptingText").textContent = acceptingText(pub.willing);
-    if (!typer) { $("#acceptingTyped").textContent = acceptingText(pub.willing); $("#acceptingRest").textContent = ""; }
+    $("#acceptingText").textContent = statusLine();
+    if (!typer) { $("#acceptingTyped").textContent = statusLine(); $("#acceptingRest").textContent = ""; }
     syncBeat();
     const call = ready && !!smsNumber(), lic = ready && !!pub.licName;
     $("#heroChips").hidden = !(call || lic);
@@ -4356,6 +4359,8 @@
     const put = (id, v) => { const el = $(id); if (!rebased || el !== document.activeElement) el.value = v; };
     put("#setCallHours", num(pub.callHours));
     put("#setName", pub.name);
+    put("#setStatus", pub.status);
+    $("#setStatus").placeholder = acceptingText(pub.willing);
     put("#setEmpId", pub.empId);
     put("#setPhone", pub.phone);
     put("#setLicName", pub.licName);
@@ -4398,6 +4403,7 @@
     const t = e.target;
     if (t.closest && t.closest("#noteEdit")) { if (!editNote(t)) return; }
     else if (t.id === "setCallHours") { const n = Number(t.value); if (t.value.trim() !== "" && n >= 0 && n <= 48) pub.callHours = n; }
+    else if (t.id === "setStatus") pub.status = t.value.trim().slice(0, 60);
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
     else if (t.id === "setPhone") pub.phone = t.value.trim().slice(0, 20);
@@ -4433,6 +4439,7 @@
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) {
       pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
+      $("#setStatus").placeholder = acceptingText(pub.willing);
       renderNotes(); // the night-shift note (and its tab) goes and comes back with Overnight, just as it was
     }
     else return;
