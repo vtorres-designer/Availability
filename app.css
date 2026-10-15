@@ -1119,7 +1119,20 @@ dialog:not([open]) { display: none; }
 
 /* Customize Text First inside the card: the same look. Boxes set into the card, the message as an editable blue bubble,
    the send buttons raised like the shift buttons (copy buttons sunken, like Customize Text First). */
-.pf-status { justify-content: center; text-align: center; font-weight: 600; }
+.pf-status { justify-content: center; align-items: center; text-align: center; font-weight: 600; font-size: min(16px, 4.2vw); white-space: nowrap; } /* one line, on the narrowest phones too */
+.pf-form .shift-chosen { display: none; } /* the shift chip above says which shift */
+.pf-card.pf-form .pf-chip { justify-self: center; }
+/* The form in three parts, each in its own softly shaded panel with room between them, so it's clear where each
+   starts and stops: the details (the note and the boxes), the message, and sending it. Every part's label starts at
+   the left. */
+.pf-form .tx-grid { row-gap: 16px; }
+.pf-form .tx-col:first-child, .pf-form .tx-col:last-child > .field, .pf-form .tx-col:last-child > .send {
+  padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.pf-form .tx-col:last-child { gap: 16px; }
+.pf-form .tx-col:first-child > p.muted { margin: 0 0 2px; }
+.pf-form .send { display: grid; gap: 10px; margin: 0; border-top: 0; }
+.pf-form .send .label, .pf-form .field-head .label, .pf-form .tx-col .label { text-align: left; justify-self: start; }
 .pf-form .tx-col { gap: 10px; }
 .pf-form .field input, .pf-form .field textarea {
   background: rgba(0, 0, 0, 0.22); border: 0; border-radius: 14px; color: var(--ink);
@@ -1150,7 +1163,6 @@ dialog:not([open]) { display: none; }
   min-height: 50px; border-radius: 16px; color: var(--ink); font-weight: 600; background: rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
-.pf-form .send .label { text-align: center; }
 
 /* When the shift starts and ends (Customize Text First): side by side, each time box with a two-part AM/PM bar beside
    it, its name in grey inside it. On P-OT days, which hours would be overtime. */

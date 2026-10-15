@@ -2639,13 +2639,16 @@
       const setStatus = (o, timed) => {
         requestAnimationFrame(fitBubble); // called whenever the form rewrites the message
         if (o && o.no) { swatch.className = "sw busy"; said.textContent = o.no.join(" "); return; }
+        // Short, so it stays on one line beside its square. Hours are named only once real times are typed; before
+        // that nobody knows how long the shift is.
         const st = otState(o);
         swatch.className = `sw ${st === "pot" ? "ot" : st}`;
+        // "I'm available" would only repeat what the green chip above already says, so the line hides then.
+        said.parentNode && (said.parentNode.hidden = st === "open");
         said.textContent = st === "open" ? "I'm available"
-          : o === true ? "I'm available, but it would be overtime"
-          : o.part ? "I'm available, but part of the shift would be overtime"
-          : st === "ot" ? `I'm available, but all ${hoursText(o.hours)} would be overtime`
-          : `I'm available, but ${timed ? num(o.ot) : "some"} of the ${hoursText(o.hours)} would be overtime`;
+          : !timed ? (o === true || st === "ot" ? "This shift may be overtime" : "Some of this shift may be overtime")
+          : st === "ot" ? `All ${hoursText(o.hours)} would be overtime`
+          : `${num(o.ot)} of the ${hoursText(o.hours)} would be overtime`;
       };
       const swap = (nodes, wide) => {
         card.replaceChildren(...nodes);
@@ -2663,7 +2666,10 @@
           const fnotes = h("aside", { class: "note-box pf-notes" });
           fillNotes(fnotes, "form");
           card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
-          formView = [dayHead(), h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+          // The shift as the card shows it (its letter box, name, and clock lines on a yellow day), then the line saying
+          // whether it would be overtime.
+          formView = [dayHead(), chip, h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+          form.refresh(); // now that the status line is in place, it can hide itself
         } else { form.recall(); form.refresh(); }
         swap(formView, true);
         fitBubble();
