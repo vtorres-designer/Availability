@@ -1540,18 +1540,16 @@
     if (!privAccess) {
       hints.append(h("b", { text: standIn ? "Fix your GitHub key to see and edit your hours. " : "Fix your GitHub key to save. " }),
         h("button", { type: "button", class: "linkish", text: "Show Me How", onclick: () => showSheet("#keySheet") }));
-    } else if (!Object.keys(priv.days).length) {
-      hints.append("Every day is blank until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or tap a day to edit it.");
-    } else {
-      hints.append("Tap a day to edit it. Red: working or busy. Green: available. Yellow (any overtime) shows up on its own.");
     }
-    if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
-    if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
-    if (pub.licName && licExpired()) hints.append(h("br"), h("b", { text: "Your license shows Expired at the top. When you renew, enter the new dates in Settings." }));
+    // Only warnings now (Oct 15): the box shows up only while something needs fixing.
+    const line = (...bits) => { if (hints.childNodes.length) hints.append(h("br")); hints.append(...bits); };
+    if (!pub.phone) line("Add your cell number in Settings so supervisors can text you.");
+    if (pub.licName && licExpired()) line(h("b", { text: "Your license shows Expired at the top. When you renew, enter the new dates in Settings." }));
 
     const c = changes();
     const n = c.days.size + (c.settings ? 1 : 0) + (c.publish ? 1 : 0);
-    if (c.publish && !c.days.size && !c.settings) hints.append(h("br"), h("b", { text: "Tap Save to update what supervisors see." }));
+    if (c.publish && !c.days.size && !c.settings) line(h("b", { text: "Tap Save to update what supervisors see." }));
+    $("#ownerBanner").hidden = !hints.childNodes.length;
     const btn = $("#saveBtn");
     btn.disabled = saving || n === 0;
     btn.textContent = saving ? "Saving…" : n ? `Save ${n} Change${n === 1 ? "" : "s"}` : "Saved";

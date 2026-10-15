@@ -1800,3 +1800,4 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
 .fold-grip { position: absolute; left: 16px; top: 50%; margin: -10px 0 0; z-index: 1; }
 .fold-chev { position: absolute; right: 20px; top: 50%; margin-top: -6px; }
 #settingsSheet .group.fold.open > .fold-head { margin-bottom: 4px; }
+.toolbar .preview-btn { min-height: 44px; } /* See What Supervisors See, above Add Schedule, Settings and Save (Oct 15) */
