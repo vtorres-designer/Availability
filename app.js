@@ -1412,7 +1412,7 @@
       for (let i = 0; i < 7; i++) {
         const k = addDays(ws, i);
         const d = dateOf(k);
-        const showMonth = d.getDate() === 1 || (wi === 0 && i === 0);
+        const showMonth = d.getDate() === 1; // only a new month's 1st (Oct 15): the week label already names the month
         let cls, tag, label, disabled = false, weekly = false;
         if (asOwner) {
           const info = ownerInfo(k);
