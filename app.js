@@ -2383,7 +2383,7 @@
       if (from && to) to.style.fontSize = getComputedStyle(from).fontSize;
     }
     // Which day this is, over the three shifts, all in a column in the middle of the window.
-    const W = Math.min(340, vw - 40);
+    const W = Math.min(340, vw - 24);
     const col = h("div", { class: "pf-col", role: "group", "aria-labelledby": "pfDay" });
     Object.assign(col.style, { left: `${(vw - W) / 2}px`, width: `${W}px` });
     const answer = info.kind === "ot" ? mixedOt(k, info) || "I'm available, but it would be overtime" : "I'm available";
@@ -2421,6 +2421,12 @@
     pickEl.replaceChildren(ghost, col);
     pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
     showSheet("#shiftPick");
+    // The clock lines shrink until they fit between the letter box and the arrow (narrow phones, bigger text settings),
+    // so they never run into the arrow or push the shift's name off center.
+    for (const tg of col.querySelectorAll(".pf-tag")) {
+      const room = tg.parentNode.clientWidth;
+      for (let fs = 15; tg.scrollWidth > room && fs > 9; fs -= 0.5) tg.style.fontSize = `${fs - 0.5}px`;
+    }
     col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
     // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
     // itself, so no focus ring shows on a button nobody has touched.

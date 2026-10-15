@@ -910,7 +910,7 @@ dialog:not([open]) { display: none; }
 .pf-two .clock-ic { margin-right: 7px; }
 .pf-two > span:nth-child(4n) { margin-left: 5px; } /* the hours, a space after the colon */
 .clock-ic { display: inline-grid; flex: none; }
-.clock-ic svg { width: 17px; height: 17px; }
+.clock-ic svg { width: 1.13em; height: 1.13em; } /* 17px at full size; it shrinks with its line */
 .clock-hand { transform-box: view-box; transform-origin: 12px 12px; }
 @keyframes clock-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: no-preference) { .clock-hand { animation: clock-turn 3s linear infinite; } }
@@ -928,6 +928,12 @@ dialog:not([open]) { display: none; }
 .pf-btn:disabled .pf-name { text-decoration: line-through; text-decoration-thickness: 2px; font: 400 28px/1.05 var(--font-body); }
 .pf-btn:disabled .pf-letter { background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); font: 400 22px/1 var(--font-body); }
 /* The light top presses down onto its dark edge and rises again: the edge's bottom never moves. */
+/* Narrow phones: a slimmer letter box and arrow and less padding leave the clock lines room for their full size. */
+@media (max-width: 400px) {
+  .pf-btn { grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 6px; padding: 10px 10px; }
+  .pf-letter { width: 34px; height: 34px; font-size: 20px; }
+  .pf-arrow svg { width: 24px; height: 24px; }
+}
 @keyframes pf-press {
   from { transform: translateY(0); box-shadow: 0 10px 0 var(--edge), inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
   to { transform: translateY(6px); box-shadow: 0 4px 0 var(--edge), inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
