@@ -1769,3 +1769,13 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
 }
 .status-mock input::placeholder { color: rgba(212, 247, 232, 0.4); }
 .group.fold > .fold-head { grid-column: 1 / -1; } /* full width, even in a two-column section */
+
+/* A grip before each Settings section's title (Oct 15): press and drag to move the section up or down. */
+.fold-head { justify-content: flex-start; }
+.fold-name { flex: 1; min-width: 0; }
+.fold-grip {
+  flex: none; width: 14px; height: 20px; margin-left: -4px; cursor: grab; touch-action: none; opacity: 0.6;
+  background: radial-gradient(circle, var(--muted) 1.6px, transparent 2px) 0 0 / 7px 7px;
+}
+.group.dragging { box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.7); transform: scale(1.015); position: relative; z-index: 2; }
+.group.dragging .fold-grip { cursor: grabbing; }

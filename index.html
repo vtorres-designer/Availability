@@ -341,12 +341,23 @@ Thu 10/15 2300-0700</pre>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
 
-    <div class="group" data-fold="Shifts I Offer on Days Off">
+    <div class="group" data-fold="My Info" data-sec="info">
+      <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
+        <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
+      <div class="two">
+        <label class="field"><span class="label">Employee ID (shown at the bottom)</span>
+          <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
+        <label class="field"><span class="label">Cell number (texts come here)</span>
+          <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
+      </div>
+    </div>
+
+    <div class="group" data-fold="Shifts I Offer on Days Off" data-sec="offer">
       <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
       <div class="checks" id="setWilling"></div>
     </div>
 
-    <div class="group" data-fold="Status Light">
+    <div class="group" data-fold="Status Light" data-sec="status">
       <div class="status-mock">
         <p class="accepting" id="statusMock"><button type="button" class="live-dot" id="mockDot" aria-label="Status light color. Tap to change it."></button>
           <input type="text" id="setStatus" maxlength="60" autocomplete="off" placeholder="Tap to write your status" aria-label="Status line by the light"></p>
@@ -355,13 +366,13 @@ Thu 10/15 2300-0700</pre>
       <select id="setLed" hidden aria-hidden="true" tabindex="-1"><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select>
     </div>
 
-    <div class="group" data-fold="Permanent Weekly Hours">
+    <div class="group" data-fold="Permanent Weekly Hours" data-sec="weekly">
       <span class="label">Every Week (red until you turn it off)</span>
       <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
     </div>
 
-    <div class="group" data-fold="Notes to Supervisors">
+    <div class="group" data-fold="Notes to Supervisors" data-sec="notes">
       <span class="label" id="notesLabel">Notes to supervisors (optional)</span>
       <div class="note-tabs">
         <div class="note-tablist" role="tablist" id="noteTabs" aria-labelledby="notesLabel"></div>
@@ -393,21 +404,7 @@ Thu 10/15 2300-0700</pre>
       </div>
     </div>
 
-    <div class="group" data-fold="Your Info">
-      <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
-        <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
-      <div class="two">
-        <label class="field"><span class="label">Employee ID (shown at the bottom)</span>
-          <input type="text" id="setEmpId" maxlength="20" autocomplete="off" inputmode="text"></label>
-        <label class="field"><span class="label">Cell number (texts come here)</span>
-          <input type="tel" id="setPhone" maxlength="20" autocomplete="tel" placeholder="(555) 123-4567"></label>
-      </div>
-      <label class="field"><span class="label">Ask supervisors to call when a shift starts within (hrs; 0 = never)</span>
-        <input type="number" id="setCallHours" min="0" max="48" step="any" inputmode="decimal"></label>
-      <p class="muted small">The Call Me button at the top of the page quotes this number too.</p>
-    </div>
-
-    <div class="group" data-fold="License Button">
+    <div class="group" data-fold="License Button" data-sec="license">
       <span class="label">License (a button at the top of the page; tapping it shows the number and dates)</span>
       <label class="field"><span class="label">License name (leave empty to hide it)</span>
         <input type="text" id="setLicName" maxlength="60" placeholder="e.g. Denver Security Guard License" autocomplete="off"></label>
@@ -422,7 +419,7 @@ Thu 10/15 2300-0700</pre>
       <p class="muted small">The button says Active until the end of the expiration date, then Expired. When you renew, enter the new dates here and tap Save.</p>
     </div>
 
-    <div class="group" id="uniGroup" data-fold="My Uniform">
+    <div class="group" id="uniGroup" data-fold="My Uniform" data-sec="uniform">
       <span class="label">My Uniform (a button in the corner of the page: supervisors who booked a shift pick what you wear)</span>
       <label class="label uni-sub" for="setUniCode">Code for My Uniform</label>
       <div class="uni-row">
@@ -445,7 +442,7 @@ Thu 10/15 2300-0700</pre>
       <p class="sr" id="uniSaid" role="status"></p>
     </div>
 
-    <div class="group" data-fold="Credentials PDF">
+    <div class="group" data-fold="Credentials PDF" data-sec="creds">
       <span class="label">Credentials PDF (anyone with the link can open it)</span>
       <p class="small" id="credStatus">Checking…</p>
       <div class="row-btns">
@@ -455,7 +452,7 @@ Thu 10/15 2300-0700</pre>
       <p class="muted small">Uploads right away. You don't need to tap Save. The See My Credentials link shows the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
     </div>
 
-    <div class="group" data-fold="Feedback Email">
+    <div class="group" data-fold="Feedback Email" data-sec="feedback">
       <label class="field"><span class="label">Email for feedback</span>
         <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
       <p class="error" id="setFeedbackError" hidden></p>
@@ -464,7 +461,7 @@ Thu 10/15 2300-0700</pre>
       <p class="small" id="fbTestResult" hidden></p>
     </div>
 
-    <div class="group two" data-fold="Pay Period Range &amp; Overtime Limit">
+    <div class="group two" data-fold="Pay Period Range &amp; Overtime Limit" data-sec="payweek">
       <label class="field"><span class="label">Pay week ends (at midnight)</span>
         <select id="setWeekEnd">
           <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
@@ -474,17 +471,20 @@ Thu 10/15 2300-0700</pre>
       <label class="field"><span class="label">Overtime after (hrs/week)</span>
         <input type="number" id="setOt" min="1" max="80" step="any" inputmode="decimal"></label>
     </div>
-    <div class="group" data-fold="Assumed Shift Length &amp; Graveyard Start Time">
+    <div class="group" data-fold="Assumed Shift Length &amp; Graveyard Start Time" data-sec="shifttimes">
       <div class="two">
       <label class="field"><span class="label">Usual shift length (hrs)</span>
         <input type="number" id="setPickup" min="1" max="24" step="any" inputmode="decimal"></label>
       <label class="field"><span class="label">Graveyard usually starts</span>
         <select id="setNightStart"><option value="18:00">6:00 PM</option><option value="18:30">6:30 PM</option><option value="19:00">7:00 PM</option><option value="19:30">7:30 PM</option><option value="20:00">8:00 PM</option><option value="20:30">8:30 PM</option><option value="21:00">9:00 PM</option><option value="21:30">9:30 PM</option><option value="22:00">10:00 PM</option><option value="22:30">10:30 PM</option><option value="">11:00 PM</option><option value="23:30">11:30 PM</option><option value="00:00">12:00 AM</option><option value="00:30">12:30 AM</option><option value="01:00">1:00 AM</option></select></label>
       </div>
+      <label class="field"><span class="label">Ask supervisors to call when a shift starts within (hrs; 0 = never)</span>
+        <input type="number" id="setCallHours" min="0" max="48" step="any" inputmode="decimal"></label>
+      <p class="muted small">The Call Me button at the top of the page quotes this number too.</p>
       <p class="muted small" id="otExplain"></p>
     </div>
     <!-- No more P-OT days (Oct 15): these settings are kept, just not shown. -->
-    <div class="group" hidden data-fold="P-OT Shifts">
+    <div class="group" hidden data-fold="P-OT Shifts" data-sec="pot">
       <span class="label">P-OT Shifts (half yellow, half green days)</span>
       <p class="muted small">On a P-OT day, a supervisor who enters the shift's start and end times (under Customize Text First) sees hour by hour which hours would be overtime. Set the start times and the longest shift you'd take on those days. Leave a box empty for no limit. Supervisors can see these two settings.</p>
       <div class="two">

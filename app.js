@@ -98,7 +98,7 @@
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
   const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", nightStart: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "" });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [] });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -562,6 +562,8 @@
     if (Number(r.pickup) > 0 && Number(r.pickup) <= 24) d.pickup = Number(r.pickup);
     d.weekly = cleanWeekly(r.weekly, d.pickup);
     d.uniformCode = cleanCode(r.uniformCode);
+    // The order he dragged Settings' sections into (Oct 15), by their keys.
+    if (Array.isArray(r.secOrder)) d.secOrder = r.secOrder.filter((x) => typeof x === "string" && /^[a-z]{1,20}$/.test(x)).slice(0, 30);
     if (r.days && typeof r.days === "object") {
       for (const [k, v] of Object.entries(r.days)) {
         const rec = isKey(k) ? cleanPrivRec(v, d.pickup) : null;
@@ -893,7 +895,7 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (f !== "uniform" && f !== "notes" && JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup", "secOrder"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Notes, each on its own (by id) like My Uniform's items below, so a change to one note never undoes another's.
     d.nt = { items: {}, order: pub.notes.map((n) => n.id) };
     for (const id of new Set([...pub.notes, ...saved.pub.notes].map((n) => n.id))) {
@@ -969,6 +971,7 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
+    { const e = d.priv && d.priv.secOrder; if (e && Array.isArray(e.to) && take(e, priv.secOrder)) priv.secOrder = normalizePriv({ secOrder: e.to }).secOrder; }
     const full = { notes: applyNotes(d.nt, take), items: applyUniform(d.uni, take) };
     for (const [w, e] of Object.entries(d.wk || {})) {
       const dow = Number(w);
@@ -4470,6 +4473,47 @@
     if (rebased) for (const x of SHIFT_KEYS) { const c = $(`#sw-${x}`); if (c) c.checked = pub.willing.includes(x); }
     else $("#setWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`sw-${x}`, x, pub.willing.includes(x))));
   }
+  // Settings' sections in the order he dragged them into (priv.secOrder, saved with his settings so every device
+  // matches). Sections it doesn't name keep their place after the ones it does.
+  const foldGroups = () => [...document.querySelectorAll("#settingsSheet [data-sec]")];
+  function applySecOrder() {
+    const list = foldGroups(), order = priv.secOrder || [];
+    if (!list.length) return;
+    const end = list[list.length - 1].nextSibling, parent = list[0].parentNode;
+    const rank = (g) => { const i = order.indexOf(g.dataset.sec); return i < 0 ? order.length + list.indexOf(g) : i; };
+    for (const g of [...list].sort((a, b) => rank(a) - rank(b))) parent.insertBefore(g, end);
+  }
+  // Press the grip and drag up or down: the section moves past the ones it's dragged over. Works with a finger too.
+  function dragSection(g, grip) {
+    // Moving the section in the page drops the grip's hold on the pointer, so the window follows the drag instead.
+    const move = (e) => {
+      for (const o of foldGroups()) {
+        if (o === g || o.hidden) continue;
+        const r = o.getBoundingClientRect(), mid = r.top + r.height / 2;
+        const below = g.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING;
+        if (below && e.clientY > mid) { o.after(g); g.dragged = true; }
+        else if (!below && e.clientY < mid) { o.before(g); g.dragged = true; }
+      }
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      g.classList.remove("dragging");
+      if (!g.dragged) return;
+      priv.secOrder = foldGroups().map((x) => x.dataset.sec);
+      afterChange();
+      setTimeout(() => { g.dragged = false; }, 0); // after the click that ends a drag
+    };
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      g.dragged = false;
+      g.classList.add("dragging");
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+      window.addEventListener("pointercancel", stop);
+    });
+  }
   function openSettings() {
     noteSel = "";
     renderNotes();
@@ -4486,6 +4530,7 @@
     $("#setPotError").hidden = true;
     potAtOpen = { from: pub.potFrom, to: pub.potTo };
     fillSettings(false);
+    applySecOrder();
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     showSheet("#settingsSheet");
@@ -5084,8 +5129,11 @@
     $("#addShift").addEventListener("click", addShiftRow);
     // Settings sections fold to their titles (Oct 15): tap a title to open or close it. All start closed.
     for (const g of document.querySelectorAll("#settingsSheet [data-fold]")) {
-      const head = h("button", { type: "button", class: "fold-head", "aria-expanded": "false" }, h("span", { text: g.dataset.fold }), h("i", { class: "fold-chev", "aria-hidden": "true" }));
-      head.addEventListener("click", () => {
+      const grip = h("span", { class: "fold-grip", title: "Drag to move this section", "aria-hidden": "true" });
+      const head = h("button", { type: "button", class: "fold-head", "aria-expanded": "false" }, grip, h("span", { class: "fold-name", text: g.dataset.fold }), h("i", { class: "fold-chev", "aria-hidden": "true" }));
+      dragSection(g, grip);
+      head.addEventListener("click", (e) => {
+        if (e.target.closest(".fold-grip") || g.dragged) return;
         const open = g.classList.toggle("open");
         head.setAttribute("aria-expanded", String(open));
         if (open) fitNoteText();
