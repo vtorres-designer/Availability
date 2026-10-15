@@ -2222,7 +2222,7 @@
     const shiftStatus = (ot, timed) => {
       if (ot && ot.no) { swatch.className = "sw busy"; say(ot.no.join(" ")); return; }
       const st = otState(ot);
-      swatch.className = `sw ${st}`;
+      swatch.className = `sw ${st === "pot" ? "ot" : st}`; // any overtime is plain yellow
       say(st === "open" ? "I'm available"
         : ot === true ? "I'm available, but it would be overtime"
         : ot.part ? "I'm available, but part of the shift would be overtime"
