@@ -1768,3 +1768,4 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
   background: transparent; color: inherit; font: inherit;
 }
 .status-mock input::placeholder { color: rgba(212, 247, 232, 0.4); }
+.group.fold > .fold-head { grid-column: 1 / -1; } /* full width, even in a two-column section */
