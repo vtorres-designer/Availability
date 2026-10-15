@@ -1189,16 +1189,22 @@
     if (rec) priv.days[k] = rec;
     else delete priv.days[k];
   }
-  // A new schedule entry for a day keeps his per-shift choices from Edit Day: they override whatever the schedule says.
+  // A new schedule entry for a day keeps what he added in Edit Day: his per-shift choices (they override whatever the
+  // schedule says) and his own note, unless the new entry brings a note of its own (Oct 15 audit: pasting the schedule
+  // again used to wipe a note he'd typed).
   function setDayKeep(k, rec) {
-    const o = priv.days[k] && priv.days[k].o;
-    if (!o) { setDay(k, rec); return; }
-    // Cleared back to nothing: an every-week day goes back to its weekly shift, still with his choices (Oct 15 audit:
-    // a bare "none" would have hidden the weekly hours).
+    const cur = priv.days[k];
+    const o = cur && cur.o, note = cur && cur.note;
+    if (!o && !note) { setDay(k, rec); return; }
+    // Cleared back to nothing: an every-week day goes back to its weekly shift, still with his choices (a bare "none"
+    // would have hidden the weekly hours).
     let base = rec;
     const rule = rec ? null : ruleOn(k, priv);
     if (rule) { base = Object.assign({}, rule); delete base.d; delete base.from; }
-    setDay(k, cleanPrivRec(Object.assign({}, base || { s: "none" }, { o }), priv.pickup));
+    const keep = { o };
+    // A work day's note is usually the site from an earlier paste: it only stays while the day is still a work day.
+    if (note && !(base && base.note) && (cur.s !== "work" || (base && base.s === "work"))) keep.note = note;
+    setDay(k, cleanPrivRec(Object.assign({}, base || { s: "none" }, keep), priv.pickup));
   }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
