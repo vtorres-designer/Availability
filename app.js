@@ -5173,8 +5173,8 @@
   //   0.45 s  the status light switches on, then the status line types itself out (to 1.7 s)
   //   1.8 s   a sparkle in the middle of the strip; 2.1 s the strip opens both ways, then its colors flow
   //   2 s     a ring of light runs out along the grid from the badge; 2.05 s a shine crosses the badge
-  //   2.35 s  a shine crosses Call Me, then the license (2.55 s)
-  //   3.3 s   once every shine is done, a big sparkle bursts on the badge's corner (it outlasts "opening")
+  //           and, together with it and taking the same time, Call Me and the license
+  //   2.05 s  with the badge's shine, a small sparkle bursts on the badge's corner (it outlasts "opening")
   // and then for good: the status light and his name glow together, the days he can take breathe together, the
   // grid drifts, the arrow nudges, and the button icons glitch now and then. All timings live in app.css.
   // A slow connection shows the page as it is after 1.5 s, with only the lasting effects. Reduced motion: none of it.
