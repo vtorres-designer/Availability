@@ -3,29 +3,35 @@
   "name": "Vincent Torres",
   "empId": "10023185",
   "phone": "7206694305",
-  "note": "",
-  "noteUntil": "",
+  "notes": [
+    {
+      "id": "n1",
+      "text": "",
+      "until": "",
+      "front": true,
+      "day": false,
+      "form": false,
+      "auto": "night"
+    }
+  ],
   "willing": [
     "overnight"
   ],
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
-  "potFrom": "19:00",
-  "potTo": "00:00",
-  "potMax": 12,
+  "potFrom": "",
+  "potTo": "",
+  "potMax": 0,
   "callHours": 10,
   "licName": "Denver Security Guard License",
   "licNo": "2026-BFN-0012673",
   "licIssued": "2026-06-16",
   "licExpires": "2027-06-16",
-  "nightAuto": true,
+  "uniform": {
+    "hash": "",
+    "items": []
+  },
   "days": {
-    "2026-10-13": {
-      "s": "ot"
-    },
-    "2026-10-14": {
-      "s": "ot"
-    },
     "2026-10-15": {
       "s": "ot"
     },
@@ -106,6 +112,6 @@
       "2026-10-23": 1
     }
   },
-  "updated": "2026-10-13T21:42:32.822Z",
-  "rev": "2026-10-13T21:42:32.822Z~8ik2"
+  "updated": "2026-10-15T09:25:19.550Z",
+  "rev": "2026-10-15T09:25:19.550Z~twuq"
 }
