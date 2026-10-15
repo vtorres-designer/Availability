@@ -2013,15 +2013,17 @@
       another,
     ];
     const again = () => { show(steps, type ? ".shift-chosen .linkish" : null); update(); };
-    custom.addEventListener("click", () => {
+    const openForm = () => {
       // The same form comes back each time, with any edits to the message and the times typed.
       if (!m.form) m.form = textForm(k, info, type, tr.back, shiftStatus, { ctx });
       else { m.form.recall(); m.form.refresh(); }
       show(m.form.nodes, null);
       tr.forward(again);
-    });
+    };
+    custom.addEventListener("click", openForm);
     update();
     show(steps, type ? ".shift-chosen .linkish" : null);
+    tr.openForm = openForm; // Customize Text First tapped on the floating card: openDay goes straight on to the form
   }
 
   // The full message form. back() returns to the simple window; status(ot, timed) updates the line at the top as the
@@ -2186,7 +2188,7 @@
     };
   }
 
-  function openDay(k, pre) {
+  function openDay(k, pre, form) {
     const info = publicInfo(k);
     $("#dayKicker").textContent = fmt(k, { weekday: "long" });
     $("#dayTitle").textContent = fmt(k, { month: "long", day: "numeric" });
@@ -2243,6 +2245,7 @@
       },
       back() { if (trail.length) nav.back(sheet, trail[trail.length - 1]); },
       memo: {},
+      openForm: null,
     };
     sheet.goBack = tr.back;
     syncBack();
@@ -2260,6 +2263,8 @@
     $("#daySheet").openedAt = Date.now();
     $("#daySheet").openerKey = k;
     showSheet("#daySheet");
+    // Only now, once the window has its place in the history, so Back from the form returns to this window.
+    if (form && tr.openForm) tr.openForm();
   }
 
   // "I'm available. Morning and Swing would be overtime." when the shifts he takes differ; null when they don't.
@@ -2289,6 +2294,7 @@
     if (pre) {
       tr.change = () => {
         $("#daySheet").close("");
+        nav.closed($("#daySheet")); // before the shift buttons add their own history entry
         const t = document.querySelector(`#weeks .day[data-key="${k}"]`);
         if (t) floatPick(k, t); else openDay(k);
       };
@@ -2409,12 +2415,13 @@
       const shadow = h("span", { class: "pf-shadow", "aria-hidden": "true" });
       if (takes) {
         btn.style.animationDelay = shadow.style.animationDelay = `${-i * 0.45}s`;
-        btn.addEventListener("click", () => { pickEl.close("picked"); openDay(k, t); });
+        btn.addEventListener("click", () => toCard(t, slot));
       } else {
         btn.disabled = true;
         btn.setAttribute("aria-label", `${SHIFT_LABEL[t]}: not available`);
       }
-      return h("div", { class: `pf-slot${takes ? " takes" : ""}` }, shadow, btn);
+      const slot = h("div", { class: `pf-slot${takes ? " takes" : ""}` }, shadow, btn);
+      return slot;
     });
     col.append(head, ...slots);
     pickEl.tile = tile;
@@ -2440,10 +2447,82 @@
       return `translate(${cx - (b.left + b.width / 2)}px, ${cy - (b.top + b.height / 2)}px) scale(${Math.max(0.15, r.width / b.width)}, ${Math.max(0.15, r.height / b.height)})`;
     };
     const anim = (el, frames, o) => (el.animate ? el.animate(frames, o) : null);
-    let closing = false;
+    let closing = false, card = null;
+    // A shift he takes, tapped: its button grows into a card in the middle of the window, with the text as a chat bubble,
+    // a raised Send Text Now and a quieter Customize Text First. The other shifts and the heading fade away.
+    const toCard = (t, slot) => {
+      if (card || closing) return;
+      const raw = shiftOt(k, t, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0) ? true : null);
+      const ot = untimed(raw), yellow = otState(ot) !== "open";
+      const text = composeMessage(k, { who: store.get(LS.who) || "", type: t, time: "", ot, part: "", day: null });
+      const phone = isPhone(), qr = phone ? null : qrPanel();
+      // A shift that may start soon asks for a call first (once).
+      let acked = false;
+      const gate = (go, url) => {
+        if (shortNotice(k, null) && !acked) { warnCall(k, null, () => { acked = true; if (!url) go(); }, url); return false; }
+        if (!url) go();
+        return true;
+      };
+      const send = iconLabel(phone ? h("a", { class: `pf-btn pf-send ${yellow ? "ot" : "open"}`, href: smsHref(text) })
+        : h("button", { type: "button", class: `pf-btn pf-send ${yellow ? "ot" : "open"}` }), "message", "Send Text Now");
+      send.addEventListener("click", (e) => {
+        if (phone) { if (!gate(null, send.getAttribute("href"))) e.preventDefault(); return; }
+        gate(() => {
+          qr.show(true);
+          qr.draw(text, () => {
+            center(); // the code made the card taller
+            try { qr.el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (x) { /* old browser */ }
+          });
+        });
+      });
+      const custom = h("button", { type: "button", class: "pf-quiet", text: "Customize Text First" });
+      // Its history entry goes now, before the day window adds its own (the close event comes too late for that).
+      custom.addEventListener("click", () => { pickEl.close("picked"); nav.closed(pickEl); openDay(k, t, true); });
+      const back = h("button", { type: "button", class: "pf-back", "aria-label": "Pick a different shift" }, icon("chev"), h("span", { text: "Shifts" }));
+      // Back to the shifts: once this window has closed (its close clears it), it opens again on the same day.
+      back.addEventListener("click", () => { pickEl.addEventListener("close", () => floatPick(k, tile), { once: true }); pickEl.close("picked"); });
+      const notes = h("aside", { class: "note-box pf-notes" });
+      fillNotes(notes, "day");
+      card = h("div", { class: "pf-card", role: "group", "aria-label": `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}, ${SHIFT_LABEL[t]}: text me` },
+        h("div", { class: "pf-card-head" }, back,
+          h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })),
+          h("span", { class: "pf-back-twin", "aria-hidden": "true" })),
+        h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
+          h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null)),
+        notes.hidden ? null : notes,
+        h("div", { class: "pf-thread" }, h("p", { class: "pf-to", text: `To ${firstName() || "me"}` }), h("p", { class: "pf-bubble", text })),
+        h("div", { class: "pf-slot takes bob" }, h("span", { class: "pf-shadow", "aria-hidden": "true" }), send),
+        phone ? copyLinks(() => text, (go) => gate(go)) : null,
+        qr ? qr.el : null,
+        custom,
+        h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." }));
+      const CW = Math.min(400, vw - 24);
+      Object.assign(card.style, { left: `${(vw - CW) / 2}px`, width: `${CW}px`, maxHeight: `${vh - 24}px` });
+      pickEl.append(card);
+      const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
+      center();
+      try { pickEl.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+      const done = () => col.remove();
+      if (still || !card.animate) { done(); return; }
+      // The tapped button grows into the card; everything else in the column fades out.
+      const from = slot.getBoundingClientRect(), to = card.getBoundingClientRect();
+      slots.forEach((s) => s.classList.remove("bob"));
+      [head, ...slots].forEach((el) => anim(el, [{ opacity: 1 }, { opacity: 0 }], { duration: el === slot ? 120 : 200, fill: "forwards" }));
+      const grow = anim(card, [
+        { transform: `translate(${from.left + from.width / 2 - (to.left + to.width / 2)}px, ${from.top + from.height / 2 - (to.top + to.height / 2)}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.4 },
+        { transform: "none", opacity: 1 },
+      ], { duration: 420, easing: "cubic-bezier(.2,.9,.25,1)" });
+      for (const c of card.children) anim(c, [{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 200, fill: "backwards" });
+      if (grow) grow.onfinish = done; else done();
+    };
     pickEl.leave = () => {
       if (closing) return;
       closing = true;
+      if (card) {
+        const a = !still && card.animate ? anim(card, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.96)" }], { duration: 180, fill: "forwards" }) : null;
+        if (a) a.onfinish = () => pickEl.close(""); else pickEl.close("");
+        return;
+      }
       if (still || !ghost.animate) { pickEl.close(""); return; }
       slots.forEach((s) => s.classList.remove("bob"));
       anim(head, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
