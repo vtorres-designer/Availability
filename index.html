@@ -338,12 +338,12 @@ Thu 10/15 2300-0700</pre>
       <button class="x" value="close" aria-label="Close">×</button>
     </div>
 
-    <div class="group" data-fold="Usual Shifts">
+    <div class="group" data-fold="Shifts I Offer on Days Off">
       <span class="label">Shifts I'll usually pick up (supervisors see these names, no times)</span>
       <div class="checks" id="setWilling"></div>
     </div>
 
-    <div class="group" data-fold="Status Light">
+    <div class="group" data-fold="Status Line Under My Name">
       <div class="status-mock">
         <p class="accepting" id="statusMock"><button type="button" class="live-dot" id="mockDot" aria-label="Status light color. Tap to change it."></button>
           <input type="text" id="setStatus" maxlength="60" autocomplete="off" placeholder="Tap to write your status" aria-label="Status line by the light"></p>
@@ -352,7 +352,7 @@ Thu 10/15 2300-0700</pre>
       <select id="setLed" hidden aria-hidden="true" tabindex="-1"><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select>
     </div>
 
-    <div class="group" data-fold="Every Week">
+    <div class="group" data-fold="Permanent Weekly Hours">
       <span class="label">Every Week (red until you turn it off)</span>
       <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
@@ -390,7 +390,7 @@ Thu 10/15 2300-0700</pre>
       </div>
     </div>
 
-    <div class="group" data-fold="Your Info">
+    <div class="group" data-fold="Name, Phone &amp; Call Window">
       <label class="field"><span class="label">Your name (shown at the top; texts greet your first name)</span>
         <input type="text" id="setName" maxlength="40" autocomplete="name"></label>
       <label class="field"><span class="label">Employee ID (shown at the bottom of the page)</span>
@@ -402,7 +402,7 @@ Thu 10/15 2300-0700</pre>
       <p class="muted small">The Call Me button at the top of the page quotes this number too.</p>
     </div>
 
-    <div class="group" data-fold="License">
+    <div class="group" data-fold="License Button">
       <span class="label">License (a button at the top of the page; tapping it shows the number and dates)</span>
       <label class="field"><span class="label">License name (leave empty to hide it)</span>
         <input type="text" id="setLicName" maxlength="60" placeholder="e.g. Denver Security Guard License" autocomplete="off"></label>
@@ -417,7 +417,7 @@ Thu 10/15 2300-0700</pre>
       <p class="muted small">The button says Active until the end of the expiration date, then Expired. When you renew, enter the new dates here and tap Save.</p>
     </div>
 
-    <div class="group" id="uniGroup" data-fold="My Uniform">
+    <div class="group" id="uniGroup" data-fold="Uniform Page">
       <span class="label">My Uniform (a button in the corner of the page: supervisors who booked a shift pick what you wear)</span>
       <label class="label uni-sub" for="setUniCode">Code for My Uniform</label>
       <div class="uni-row">
@@ -450,7 +450,7 @@ Thu 10/15 2300-0700</pre>
       <p class="muted small">Uploads right away. You don't need to tap Save. The See My Credentials link shows the new file within a minute or two. Replaced and removed files stay in your repository's history on GitHub.</p>
     </div>
 
-    <div class="group" data-fold="Feedback Email">
+    <div class="group" data-fold="Where Feedback Goes">
       <label class="field"><span class="label">Email for feedback</span>
         <input type="text" id="setFeedback" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com"></label>
       <p class="error" id="setFeedbackError" hidden></p>
@@ -459,7 +459,7 @@ Thu 10/15 2300-0700</pre>
       <p class="small" id="fbTestResult" hidden></p>
     </div>
 
-    <div class="group two" data-fold="Pay Week & Overtime">
+    <div class="group two" data-fold="Pay Period Range &amp; Overtime Limit">
       <label class="field"><span class="label">Pay week ends (at midnight)</span>
         <select id="setWeekEnd">
           <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
@@ -469,7 +469,7 @@ Thu 10/15 2300-0700</pre>
       <label class="field"><span class="label">Overtime after (hrs/week)</span>
         <input type="number" id="setOt" min="1" max="80" step="any" inputmode="decimal"></label>
     </div>
-    <div class="group" data-fold="Shift Length & Graveyard Start">
+    <div class="group" data-fold="Assumed Shift Length &amp; Graveyard Start Time">
       <label class="field"><span class="label">Usual shift length (hrs)</span>
         <input type="number" id="setPickup" min="1" max="24" step="any" inputmode="decimal"></label>
       <label class="field"><span class="label">Graveyard usually starts (for overtime colors and texts)</span>
