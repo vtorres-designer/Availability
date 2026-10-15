@@ -2428,7 +2428,6 @@
     // Back, in the top left corner of the window the whole time: from the shifts it puts the day back, from the text it
     // returns to the shifts, from the form to the text. What it does now is goBack.
     let goBack = () => { if (pickEl.leave) pickEl.leave(); };
-    const TOP = 56; // nothing goes higher than this, so Back has the corner to itself
     const corner = h("button", { type: "button", class: "pf-corner", "aria-label": "Back" }, icon("chev"), h("span", { text: "Back" }));
     corner.addEventListener("click", () => goBack());
     pickEl.replaceChildren(ghost, col, corner);
@@ -2440,7 +2439,7 @@
       const room = tg.parentNode.clientWidth;
       for (let fs = 15; tg.scrollWidth > room && fs > 9; fs -= 0.5) tg.style.fontSize = `${fs - 0.5}px`;
     }
-    col.style.top = `${Math.max(TOP, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
+    col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
     // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
     // itself, so no focus ring shows on a button nobody has touched.
     const first = byKeys && col.querySelector(".pf-btn:not(:disabled)");
@@ -2511,11 +2510,12 @@
       // The card's width: narrow for the text, wide on a laptop for the form (its boxes beside the message).
       const size = (wide) => {
         const w = window.innerWidth, cw = wide && w >= 900 ? Math.min(900, w - 48) : Math.min(400, w - 24);
-        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - TOP - 12}px` });
+        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - 24}px` });
       };
       size(false);
       pickEl.append(card);
-      const center = () => { card.style.top = `${Math.max(TOP, (window.innerHeight - card.offsetHeight) / 2)}px`; };
+      // Full height: the glass Back floats over whatever is under it.
+      const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
       center();
       // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
       // send it). Back, or the phone's back gesture, returns to the text as it was.
