@@ -96,7 +96,7 @@
   // notes: his notes to supervisors, in tab order (see "notes" below). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
-  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", nightStart: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "" });
 
@@ -438,6 +438,7 @@
     if (isTime(r.potFrom) && isTime(r.potTo)) { d.potFrom = r.potFrom; d.potTo = r.potTo; }
     if (typeof r.callHours === "number" && r.callHours >= 0 && r.callHours <= 48) d.callHours = r.callHours;
     if (Number(r.potMax) > 0 && Number(r.potMax) <= 24) d.potMax = Number(r.potMax);
+    if (isTime(r.nightStart)) d.nightStart = r.nightStart;
     if (typeof r.licName === "string") d.licName = r.licName.trim().slice(0, 60);
     if (typeof r.licNo === "string") d.licNo = r.licNo.trim().slice(0, 40);
     if (isDay(r.licIssued)) d.licIssued = r.licIssued;
@@ -683,6 +684,10 @@
     const mins = Math.round(len * 60);
     if (type === "morning") return { start: 420, len: mins };
     if (type === "swing") return { start: Math.max(0, 1380 - mins), len: mins };
+    // A graveyard starts when he set it in Settings (some sites start at 10 PM, Oct 15) and runs his usual length;
+    // without a setting it ends at 7 AM.
+    const night = pub && isTime(pub.nightStart) ? minutesOf(pub.nightStart) : null;
+    if (night != null) return { start: night < 720 ? night + 1440 : night, len: mins };
     return { start: 1860 - mins, len: mins };
   }
   // A time a supervisor typed ("2300-0700"). An overnight that starts before noon starts the next morning.
@@ -4455,6 +4460,7 @@
     put("#setWeekEnd", String((pub.weekStart + 6) % 7));
     put("#setOt", num(priv.otAfter));
     put("#setPickup", num(priv.pickup));
+    put("#setNightStart", pub.nightStart);
     $("#otExplain").textContent = otExplain();
     if (!rebased || $("#setPotError").hidden) put("#setPotStart", pub.potFrom ? `${hhmm24(pub.potFrom)}-${hhmm24(pub.potTo)}` : "");
     put("#setPotMax", pub.potMax ? num(pub.potMax) : "");
@@ -4521,6 +4527,7 @@
     else if (t.id === "setWeekEnd") { pub.weekStart = ((parseInt(t.value, 10) || 0) + 1) % 7; renderWeekly(); }
     else if (t.closest && t.closest("#setWeekly")) readWeekly(t);
     else if (t.id === "setOt") { if (Number(t.value) > 0) priv.otAfter = Number(t.value); }
+    else if (t.id === "setNightStart") pub.nightStart = isTime(t.value) ? t.value : "";
     else if (t.id === "setPickup") { if (Number(t.value) > 0 && Number(t.value) <= 24) priv.pickup = Number(t.value); }
     else if (t.closest("#setWilling")) {
       pub.willing = [...document.querySelectorAll("#setWilling input:checked")].map((i) => i.value);
