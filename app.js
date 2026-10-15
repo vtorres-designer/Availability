@@ -2425,7 +2425,13 @@
     });
     col.append(head, ...slots);
     pickEl.tile = tile;
-    pickEl.replaceChildren(ghost, col);
+    // Back, in the top left corner of the window the whole time: from the shifts it puts the day back, from the text it
+    // returns to the shifts, from the form to the text. What it does now is goBack.
+    let goBack = () => { if (pickEl.leave) pickEl.leave(); };
+    const TOP = 56; // nothing goes higher than this, so Back has the corner to itself
+    const corner = h("button", { type: "button", class: "pf-corner", "aria-label": "Back" }, icon("chev"), h("span", { text: "Back" }));
+    corner.addEventListener("click", () => goBack());
+    pickEl.replaceChildren(ghost, col, corner);
     pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
     showSheet("#shiftPick");
     // The clock lines shrink until they fit between the letter box and the arrow (narrow phones, bigger text settings),
@@ -2434,7 +2440,7 @@
       const room = tg.parentNode.clientWidth;
       for (let fs = 15; tg.scrollWidth > room && fs > 9; fs -= 0.5) tg.style.fontSize = `${fs - 0.5}px`;
     }
-    col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
+    col.style.top = `${Math.max(TOP, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
     // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
     // itself, so no focus ring shows on a button nobody has touched.
     const first = byKeys && col.querySelector(".pf-btn:not(:disabled)");
@@ -2477,16 +2483,15 @@
       });
       const custom = h("button", { type: "button", class: "pf-quiet", text: "Customize Text First" });
       custom.addEventListener("click", () => showForm());
-      const back = h("button", { type: "button", class: "pf-back", "aria-label": "Pick a different shift" }, icon("chev"), h("span", { text: "Shifts" }));
       // Back to the shifts: once this window has closed (its close clears it), it opens again on the same day.
-      back.addEventListener("click", () => { pickEl.addEventListener("close", () => floatPick(k, tile), { once: true }); pickEl.close("picked"); });
+      const toShifts = () => { pickEl.addEventListener("close", () => floatPick(k, tile), { once: true }); pickEl.close("picked"); };
+      goBack = toShifts;
       const notes = h("aside", { class: "note-box pf-notes" });
       fillNotes(notes, "day");
-      const dayHead = (btn) => h("div", { class: "pf-card-head" }, btn,
-        h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })),
-        h("span", { class: "pf-back-twin", "aria-hidden": "true" }));
+      const dayHead = () => h("div", { class: "pf-card-head" },
+        h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })));
       card = h("div", { class: "pf-card", role: "group", "aria-label": `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}, ${SHIFT_LABEL[t]}: text me` },
-        dayHead(back),
+        dayHead(),
         h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
           h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null)),
         notes.hidden ? null : notes,
@@ -2506,11 +2511,11 @@
       // The card's width: narrow for the text, wide on a laptop for the form (its boxes beside the message).
       const size = (wide) => {
         const w = window.innerWidth, cw = wide && w >= 900 ? Math.min(900, w - 48) : Math.min(400, w - 24);
-        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - 24}px` });
+        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - TOP - 12}px` });
       };
       size(false);
       pickEl.append(card);
-      const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
+      const center = () => { card.style.top = `${Math.max(TOP, (window.innerHeight - card.offsetHeight) / 2)}px`; };
       center();
       // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
       // send it). Back, or the phone's back gesture, returns to the text as it was.
@@ -2543,20 +2548,19 @@
         center();
         if (!still && card.animate) for (const c of card.children) anim(c, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 220, fill: "backwards" });
       };
-      const showSend = () => swap(sendView, false);
+      const showSend = () => { swap(sendView, false); goBack = toShifts; };
       function showForm() {
         if (!form) {
           form = textForm(k, info, t, () => {}, setStatus, { ctx: { ack: acked ? "none" : "" } });
-          const fback = h("button", { type: "button", class: "pf-back", "aria-label": "Back to the text" }, icon("chev"), h("span", { text: "Back" }));
-          fback.addEventListener("click", () => nav.back(pickEl, showSend));
           const fnotes = h("aside", { class: "note-box pf-notes" });
           fillNotes(fnotes, "form");
           card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
-          formView = [dayHead(fback), h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+          formView = [dayHead(), h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
         } else { form.recall(); form.refresh(); }
         swap(formView, true);
         fitBubble();
         nav.step(pickEl, showSend);
+        goBack = () => nav.back(pickEl, showSend);
       }
       try { pickEl.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
       const done = () => col.remove();
@@ -2583,6 +2587,7 @@
       if (still || !ghost.animate) { pickEl.close(""); return; }
       slots.forEach((s) => s.classList.remove("bob"));
       anim(head, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
+      anim(corner, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
       slots.forEach((s) => anim(s, [{ transform: "none", opacity: 1 }, { transform: fromTile(s), opacity: 0 }], { duration: 220, easing: "ease-in", fill: "forwards" }));
       const back = anim(ghost, [{ transform: "translateY(-12px) scale(1.18)", opacity: 0 }, { transform: "translateY(-12px) scale(1.18)", opacity: 1, offset: 0.5 }, { transform: "none", opacity: 1 }],
         { duration: 380, delay: 120, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
@@ -2596,6 +2601,7 @@
     anim(ghost, [{ transform: "none" }, { transform: "translateY(-12px) scale(1.18)" }], { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
     anim(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 360, fill: "forwards" });
     anim(head, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 300, easing: "ease-out", fill: "backwards" });
+    anim(corner, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 250, fill: "backwards" });
     slots.forEach((s, i) => {
       const a = anim(s, [{ transform: fromTile(s), opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: "none", opacity: 1 }],
         { duration: 520, delay: 300 + i * 80, easing: "cubic-bezier(.2,1.25,.35,1)", fill: "backwards" });

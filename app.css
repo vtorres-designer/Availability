@@ -965,14 +965,26 @@ dialog:not([open]) { display: none; }
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 .pf-card p { margin: 0; }
-/* The top: back to the shifts on the left, the day in the middle (an empty twin on the right keeps it centered). */
-.pf-card-head { display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; }
-.pf-back {
-  appearance: none; border: 0; justify-self: start; display: inline-flex; align-items: center; gap: 2px; padding: 6px 10px 6px 6px;
-  border-radius: 999px; cursor: pointer; color: var(--ink); font: 600 14px/1 var(--font-body);
-  background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+/* Back, always in the window's top left corner while a day is open, in frosted glass lettering (like the iPhone's
+   glass clock): letters filled with milky, see-through glass, brighter at the top where light hits it and clearer through
+   the middle, a soft light rim, a darker edge along the bottom for thickness, and a faint shadow on the page. */
+.pf-corner {
+  position: fixed; z-index: 2; top: calc(8px + env(safe-area-inset-top, 0px)); left: calc(6px + env(safe-area-inset-left, 0px));
+  appearance: none; border: 0; background: none; padding: 8px 12px 8px 2px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: inline-flex; align-items: center; gap: 0; font: 700 26px/1 var(--font-display); letter-spacing: 0.01em;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.22)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+  transition: transform 0.12s ease;
 }
-.pf-back svg { width: 18px; height: 18px; transform: scaleX(-1); }
+.pf-corner span {
+  color: transparent; -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.22);
+  /* Only a thin band of light at the very top and bottom; clear glass between. */
+  background: linear-gradient(172deg, rgba(255, 255, 255, 0.32) 0%, rgba(240, 246, 255, 0.05) 14%, rgba(225, 235, 250, 0.025) 55%, rgba(235, 242, 255, 0.04) 88%, rgba(255, 255, 255, 0.14) 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
+.pf-corner svg { width: 28px; height: 28px; margin-right: -2px; transform: scaleX(-1); color: rgba(240, 246, 255, 0.2); stroke-width: 3.2; }
+.pf-corner:active { transform: translateY(1px); }
+@media (forced-colors: active) { .pf-corner span { color: ButtonText; -webkit-text-stroke: 0; background: none; } }
+.pf-card-head { display: grid; justify-items: center; }
 .pf-card-day { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .pf-card-date { font: 700 28px/1.05 var(--font-display); color: #fff; }
 /* The shift picked: its letter box, name and (on a yellow day) its clock line, like its button. */
