@@ -4484,31 +4484,58 @@
     for (const g of [...list].sort((a, b) => rank(a) - rank(b))) parent.insertBefore(g, end);
   }
   // Press the grip and drag up or down: the section moves past the ones it's dragged over. Works with a finger too.
+  // While dragging (Oct 15): the section lifts and follows the pointer, a grey dotted outline marks where it will land,
+  // and the other sections slide out of its way. Letting go drops it into the outline.
   function dragSection(g, grip) {
-    // Moving the section in the page drops the grip's hold on the pointer, so the window follows the drag instead.
+    let slot = null, startY = 0, top0 = 0, scroller = null, before = "";
+    const others = () => foldGroups().filter((o) => o !== g && !o.hidden);
+    // Slides each section from where it was to where it is now.
+    const glide = (list, from) => list.forEach((o, i) => {
+      const dy = from[i] - o.getBoundingClientRect().top;
+      if (!dy) return;
+      o.style.transition = "none";
+      o.style.transform = `translateY(${dy}px)`;
+      requestAnimationFrame(() => { o.style.transition = "transform 0.18s ease"; o.style.transform = ""; });
+    });
     const move = (e) => {
-      for (const o of foldGroups()) {
-        if (o === g || o.hidden) continue;
-        const r = o.getBoundingClientRect(), mid = r.top + r.height / 2;
-        const below = g.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING;
-        if (below && e.clientY > mid) { o.after(g); g.dragged = true; }
-        else if (!below && e.clientY < mid) { o.before(g); g.dragged = true; }
-      }
+      // Near the top or bottom edge, Settings scrolls along.
+      const box = scroller.getBoundingClientRect();
+      if (e.clientY < box.top + 50) scroller.scrollTop -= 12;
+      else if (e.clientY > box.bottom - 50) scroller.scrollTop += 12;
+      g.style.top = `${top0 + e.clientY - startY}px`;
+      const list = others(), from = list.map((o) => o.getBoundingClientRect().top);
+      let target = null;
+      for (const o of list) { const r = o.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { target = o; break; } }
+      const where = target ? target : list[list.length - 1].nextSibling;
+      if (slot.nextSibling === where || slot === where) return;
+      if (target) target.before(slot); else list[list.length - 1].after(slot);
+      glide(list, from);
     };
     const stop = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("pointercancel", stop);
+      const from = g.getBoundingClientRect().top;
+      slot.replaceWith(g);
       g.classList.remove("dragging");
-      if (!g.dragged) return;
-      priv.secOrder = foldGroups().map((x) => x.dataset.sec);
-      afterChange();
+      Object.assign(g.style, { position: "", top: "", left: "", width: "", zIndex: "" });
+      glide([g], [from]);
+      const now = foldGroups().map((x) => x.dataset.sec).join();
+      if (now !== before) { priv.secOrder = now.split(","); afterChange(); }
+      g.dragged = now !== before;
       setTimeout(() => { g.dragged = false; }, 0); // after the click that ends a drag
     };
     grip.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      g.dragged = false;
+      scroller = g.closest(".sheet-in") || document.scrollingElement;
+      before = foldGroups().map((x) => x.dataset.sec).join();
+      const r = g.getBoundingClientRect();
+      slot = h("div", { class: "fold-slot", "aria-hidden": "true" });
+      slot.style.height = `${r.height}px`;
+      g.before(slot);
+      startY = e.clientY; top0 = r.top;
       g.classList.add("dragging");
+      Object.assign(g.style, { position: "fixed", top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, zIndex: "50" });
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop);
       window.addEventListener("pointercancel", stop);

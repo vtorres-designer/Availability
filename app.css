@@ -1777,5 +1777,6 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
   flex: none; width: 14px; height: 20px; margin-left: -4px; cursor: grab; touch-action: none; opacity: 0.6;
   background: radial-gradient(circle, var(--muted) 1.6px, transparent 2px) 0 0 / 7px 7px;
 }
-.group.dragging { box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.7); transform: scale(1.015); position: relative; z-index: 2; }
+#settingsSheet .group.dragging { box-shadow: 0 18px 36px -12px rgba(0, 0, 0, 0.85), inset 0 0 0 1px rgba(255, 255, 255, 0.12); background: #263046; pointer-events: none; }
+.fold-slot { border: 2px dashed rgba(170, 180, 200, 0.55); border-radius: 14px; box-sizing: border-box; }
 .group.dragging .fold-grip { cursor: grabbing; }
