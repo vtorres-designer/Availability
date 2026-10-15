@@ -1047,6 +1047,9 @@ dialog:not([open]) { display: none; }
 .pf-card .other-app { display: grid; justify-items: center; gap: 6px; }
 .pf-other-links { display: flex; justify-content: center; gap: 24px; }
 .pf-card .qr-send { justify-self: center; }
+/* The steps under a QR code: numbered, short, easy to follow. */
+.qr-steps { margin: 2px 0 4px; padding-left: 22px; text-align: left; display: grid; gap: 4px; font-size: 15px; line-height: 1.35; max-width: 320px; }
+.qr-steps li::marker { font-weight: 700; color: var(--accent); }
 
 /* Customize Text First inside the card: the same look. Boxes set into the card, the message as an editable blue bubble,
    the send buttons raised like the shift buttons (copy buttons sunken, like Customize Text First). */

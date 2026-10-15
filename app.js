@@ -1839,7 +1839,12 @@
     const tooLong = h("p", { class: "muted small", hidden: true, text: "This text is too long for a QR code. Shorten it, or text the number from your phone." });
     const mac = isMac() ? h("a", { class: "linkish", text: "Open in Messages on this Mac" }) : null;
     const el = h("div", { class: "qr qr-send", hidden: true }, code, tooLong,
-      h("p", { class: "qr-cap", text: "Scan with your phone's camera to text me." }),
+      h("p", { class: "qr-cap", text: "Text me from your phone:" }),
+      // Spelled out for anyone who hasn't used a QR code before.
+      h("ol", { class: "qr-steps" },
+        h("li", { text: "Open your phone's camera app." }),
+        h("li", { text: "Point it at this square code and hold still." }),
+        h("li", { text: "Tap the link that pops up. Your texting app opens with the message filled in. Tap Send." })),
       h("p", { class: "muted small", text: `Or text ${prettyPhone()} from your phone.` }),
       mac);
     let timer = 0, last = null, fresh = false;
@@ -2479,6 +2484,8 @@
       send.addEventListener("click", (e) => {
         if (phone) { if (!gate(null, send.getAttribute("href"))) e.preventDefault(); return; }
         gate(() => {
+          // The code is how the text goes out from a computer, so the button goes away once it's showing.
+          send.parentNode.hidden = true;
           qr.show(true);
           qr.draw(text, () => {
             center(); // the code made the card taller
