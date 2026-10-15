@@ -1195,6 +1195,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
         - var(--foot-gap) - var(--foot-pad) - 2 * var(--link-pad) - var(--meta-gap) - 197px);
       /* The smallest a day gets before the calendar scrolls instead (a little smaller where that keeps three weeks whole). */
       --tile-min: clamp(64px, calc(var(--room) / 3), 70px);
+      --num-base: clamp(26px, calc(var(--wh) * 0.038), 42px); /* the date's size in a day tile */
     }
     @supports (height: 100dvh) {
       body:not(.owner) { --vh: 100dvh; }
@@ -1267,11 +1268,28 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       scroll-padding-bottom: 8px; /* with its focus ring (3px, 2px out) */
     }
     body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
-    body:not(.owner) .day {
-      min-height: clamp(var(--tile-min), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)),
-        calc((var(--room) - (var(--weeks, 3) - 3) * 35px) / var(--weeks, 3)), 8.4vw), 176px);
+    /* His choice (Oct 14): with more weeks the days get shorter so every week fits without scrolling (from 4 weeks;
+       3 weeks look as they always did). --fit is the height each day gets if the weeks share the room; a day never gets
+       shorter than 44px (a finger's width): below that the gaps between the weeks close up instead (--sq). Days under
+       60px scale what's in them down with them (--sh), the date to 20px at the least. 5 weeks or more can still
+       scroll inside the calendar. --weeks is set on #weeks with the calendar, so all of this lives inside it. */
+    body:not(.owner) #weeks {
+      --k: clamp(0, var(--weeks, 3) - 3, 1); /* 0 for 3 weeks (nothing changes), 1 for more */
+      --fit: calc((var(--room) - (var(--weeks, 3) - 3) * 35px) / var(--weeks, 3));
+      --sq: calc(clamp(0px, 44px - var(--fit), 12px) * var(--k));
+      --tile: clamp(min(var(--tile-min), max(44px, var(--fit))), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)),
+        var(--fit), 8.4vw), 176px);
+      --sh: calc(clamp(0px, 60px - var(--tile), 16px) * var(--k));
+      --pt: max(3px, calc(var(--day-pt, 6px) - var(--sh) * 0.1875)); --pb: max(3px, calc(var(--day-pb, 7px) - var(--sh) * 0.25));
+      --mon: calc(10px - var(--sh) / 16); --tag: calc(11px - var(--sh) / 8);
+      gap: calc(14px - var(--sq));
     }
-    body:not(.owner) .day .num { font-size: clamp(26px, calc(var(--wh) * 0.038), 42px); }
+    body:not(.owner) #weeks .week { gap: max(2px, calc(6px - var(--sq) / 2)); }
+    body:not(.owner) .day { min-height: var(--tile); padding: var(--pt) 2px var(--pb); }
+    body:not(.owner) .day .mon { font-size: var(--mon); min-height: var(--mon); }
+    body:not(.owner) .day .tag { font-size: var(--tag); }
+    /* The date takes what's left of a short day (and its full size in 3 weeks: the 200px). */
+    body:not(.owner) .day .num { font-size: max(20px, min(var(--num-base), calc(var(--tile) - var(--pt) - var(--pb) - var(--mon) - var(--tag) + (1 - var(--k)) * 200px))); }
 
     /* The four links in one line along the bottom; the employee ID and the last update in one line under them. In the
        narrowest windows they move left just enough to leave the bottom right corner free (for the My Uniform button,
@@ -1315,8 +1333,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
      there): a smaller header and days, so his preview still shows the whole calendar, as theirs does. */
   @media (min-width: 960px) and (min-height: 560px) and (max-height: 615px) {
     body.previewing { --pad: 6px; --badge: 44px; --name: 34px; --tile-min: clamp(44px, calc(var(--room) / 3 - 6px), 64px); }
-    body.previewing .day { padding: 4px 2px 5px; }
-    body.previewing .day .num { font-size: 24px; }
+    body.previewing { --day-pt: 4px; --day-pb: 5px; --num-base: 24px; }
   }
   /* A window taller than it is wide (a big tablet held upright, a screen turned on its side): the days reach their
      widest long before the height runs out, so the page ends under its content instead of keeping the links at the
