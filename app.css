@@ -1598,6 +1598,9 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
     body:not(.owner) .page > .top > .lede { grid-column: 1; grid-row: 4; z-index: 2; margin: 14px 18px 0; }
     body:not(.owner) .page > .top > .note-box[hidden] + .lede { margin-top: var(--edge); }
     body:not(.owner) .page > .key { grid-column: 1; grid-row: 5; z-index: 2; margin: 16px 18px var(--edge); }
+    /* The color key reads like a table (Oct 15): two columns sized to their labels, each label on one line beside its swatch. */
+    body:not(.owner) .legend { grid-template-columns: max-content max-content; justify-content: start; gap: 10px 28px; }
+    body:not(.owner) .legend li { white-space: nowrap; }
     body:not(.owner) .note-box { padding: var(--note-pad); font-size: var(--note-font); } /* the day window's too */
     body:not(.owner) .lede { font-size: var(--lede); }
 
@@ -1617,16 +1620,18 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
        scroll inside the calendar. --weeks is set on #weeks with the calendar, so all of this lives inside it. */
     body:not(.owner) #weeks {
       --k: clamp(0, var(--weeks, 3) - 3, 1); /* 0 for 3 weeks (nothing changes), 1 for more */
-      --fit: calc((var(--room) - (var(--weeks, 3) - 3) * 35px) / var(--weeks, 3));
-      --sq: calc(clamp(0px, 44px - var(--fit), 12px) * var(--k));
-      --tile: clamp(min(var(--tile-min), max(44px, var(--fit))), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)),
+      /* The weeks keep their full gaps (it looked cramped when they closed up, Oct 15): the days get shorter instead,
+         each week giving up 4px more for its slightly bigger gap. */
+      --fit: calc((var(--room) - (var(--weeks, 3) - 3) * 35px - var(--weeks, 3) * 4px) / var(--weeks, 3));
+      --sq: 0px;
+      --tile: clamp(min(var(--tile-min), max(40px, var(--fit))), min(calc((var(--tiles) - (var(--weeks, 3) - 3) * 70px) / (var(--weeks, 3) + 0.2)),
         var(--fit), 8.4vw), 176px);
       --sh: calc(clamp(0px, 60px - var(--tile), 16px) * var(--k));
       --pt: max(3px, calc(var(--day-pt, 6px) - var(--sh) * 0.1875)); --pb: max(3px, calc(var(--day-pb, 7px) - var(--sh) * 0.25));
       --mon: calc(10px - var(--sh) / 16); --tag: calc(11px - var(--sh) / 8);
-      gap: calc(14px - var(--sq));
+      gap: 16px;
     }
-    body:not(.owner) #weeks .week { gap: max(2px, calc(6px - var(--sq) / 2)); }
+    body:not(.owner) #weeks .week { gap: 6px; }
     body:not(.owner) .day { min-height: var(--tile); padding: var(--pt) 2px var(--pb); }
     body:not(.owner) .day .mon { font-size: var(--mon); min-height: var(--mon); }
     body:not(.owner) .day .tag { font-size: var(--tag); }
