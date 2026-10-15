@@ -248,7 +248,18 @@ h2 { font-size: 28px; line-height: 1.05; }
   font-size: 14px;
 }
 .legend li { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.sw { width: 18px; height: 18px; border-radius: 5px; flex: none; }
+.sw { width: 18px; height: 18px; border-radius: 6px; flex: none; position: relative; }
+/* A soft glossy bubble over each color: a bright spot of light near the top left, a gentle shine fading down, a
+   shadow pooling inside the bottom edge, and a faint shadow under it. Laid over the color, so every color gets it. */
+.sw::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 40% at 32% 24%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 48%, rgba(0, 0, 0, 0.22) 100%);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.sw.none::after { background: radial-gradient(ellipse 55% 40% at 32% 24%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 100%); }
+@media (forced-colors: active) { .sw::after { display: none; } }
 .sw.open, .dot.open { background: var(--open); }
 .sw.ot, .dot.ot { background: var(--ot); }
 /* P-OT (part of the shift would be overtime): split corner to corner, from top left to bottom right.
