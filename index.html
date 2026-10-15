@@ -23,7 +23,7 @@
      fallback fonts until they're in). -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
-<link rel="stylesheet" href="app.css?v=43">
+<link rel="stylesheet" href="app.css?v=44">
 </head>
 <body>
 <main class="page">
@@ -336,7 +336,7 @@ Thu 10/15 2300-0700</pre>
       <ul class="rules">
         <li><b>One line per day:</b> day name (optional), date, then the shift. The day name is checked against the date, which catches typos.</li>
         <li><b>Working:</b> start-end in 24-hour time, like <i>2300-0700</i>. A shift that ends after midnight still goes on the day it starts. Paid hours come from the times. If a break isn't paid, add the paid hours at the end, like <i>7.5h</i>.</li>
-        <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow (or P-OT, half yellow) if picking up a shift would mean overtime.</li>
+        <li><b>Not scheduled:</b> <i>no shift</i>. The day turns green, or yellow if picking up a shift would mean any overtime.</li>
         <li><b>Don't want to work:</b> <i>busy</i> (red). <i>off</i> alone is flagged because it could mean either.</li>
         <li><b>Notes go in quotes:</b> <i>2300-0700 "Site B"</i>. Anything in quotes is a private note and is never read as a time or a word like open or clear. To quote something inside a note, use single quotes: <i>"Sgt said 'call me'"</i>. Any other word the site doesn't recognize is flagged.</li>
         <li><b>Every-week days</b> from Settings stay red unless a line here says otherwise for that date. <i>clear</i> puts a date back to its every-week setting.</li>
@@ -375,7 +375,7 @@ Thu 10/15 2300-0700</pre>
 
     <div class="group">
       <span class="label">Every Week (red until you turn it off)</span>
-      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow or P-OT. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
+      <p class="muted small">Check the days you work, or are busy, every single week. Days you work count toward your weekly hours, so days near overtime still turn yellow. To change just one date, like a holiday, tap that day on the calendar. Changes here count from today: days already past this pay week keep what they were. Supervisors only see red, never your times.</p>
       <div class="wk" id="setWeekly"></div>
     </div>
 
@@ -495,7 +495,8 @@ Thu 10/15 2300-0700</pre>
         <input type="number" id="setPickup" min="1" max="24" step="any" inputmode="decimal"></label>
       <p class="muted small" id="otExplain"></p>
     </div>
-    <div class="group">
+    <!-- No more P-OT days (Oct 15): these settings are kept, just not shown. -->
+    <div class="group" hidden>
       <span class="label">P-OT Shifts (half yellow, half green days)</span>
       <p class="muted small">On a P-OT day, a supervisor who enters the shift's start and end times (under Customize Text First) sees hour by hour which hours would be overtime. Set the start times and the longest shift you'd take on those days. Leave a box empty for no limit. Supervisors can see these two settings.</p>
       <div class="two">
@@ -653,7 +654,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=43"></script>
-<script src="app.js?v=43" onerror="document.documentElement.classList.add('app-failed')"></script>
+<script src="parser.js?v=44"></script>
+<script src="app.js?v=44" onerror="document.documentElement.classList.add('app-failed')"></script>
 </body>
 </html>

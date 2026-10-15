@@ -903,7 +903,13 @@ dialog:not([open]) { display: none; }
 .pf-btn.ot .pf-letter, .pf-btn.pot .pf-letter { background: rgba(255, 255, 255, 0.35); }
 .pf-arrow { display: grid; place-items: center; }
 .pf-arrow svg { width: 28px; height: 28px; }
-.pf-tag { font: 700 12px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+/* Under a yellow shift's name: a ticking clock and how many hours until overtime. */
+.pf-tag { display: inline-flex; align-items: center; gap: 6px; font: 700 15px/1.1 var(--font-body); }
+.clock-ic { display: inline-grid; flex: none; }
+.clock-ic svg { width: 17px; height: 17px; }
+.clock-hand { transform-box: view-box; transform-origin: 12px 12px; }
+@keyframes clock-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) { .clock-hand { animation: clock-turn 3s linear infinite; } }
 /* The shadow under a raised button, on the page: soft, a little wider than tall, below the edge. */
 .pf-shadow {
   position: absolute; left: 6%; right: 6%; bottom: -18px; height: 22px; border-radius: 50%; z-index: 0; pointer-events: none;

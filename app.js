@@ -678,17 +678,15 @@
   // r: {hours, ot}, or true when an older calendar file only says the shift is overtime.
   // On a P-OT day, {part: true} is overtime of unknown size and {no: [...]} a shift he doesn't take.
   const otState = (r) => (r === true ? "ot" : r && r.part ? "pot" : !r || r.no || !(r.ot > 0) ? "open" : r.ot >= r.hours ? "ot" : "pot");
-  // A day's color: green when one more usual shift has no overtime, yellow when all of it would be overtime,
-  // and P-OT (half green, half yellow) when part of it would. With several shifts, the one with the most overtime decides.
+  // A day's color: green when one more usual shift (8 hours) has no overtime, yellow when it would touch overtime at
+  // all (his choice, Oct 15: no more half-green P-OT days; each shift button says how many hours until overtime).
   function otKind(k, types, len, weekStart, left) {
-    let kind = "open";
     for (const t of types) {
       const r = otIn(k, defaultSpan(t, len), weekStart, left);
       if (!r) return null;
-      if (otState(r) === "ot") return "ot";
-      if (otState(r) === "pot") kind = "pot";
+      if (otState(r) !== "open") return "ot";
     }
-    return kind;
+    return "open";
   }
   // Hours left before overtime in a pay week. His colors and supervisors' numbers use the same count.
   const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
@@ -1496,7 +1494,7 @@
     } else if (!Object.keys(priv.days).length) {
       hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
     } else {
-      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow (all overtime) and P-OT (part overtime) show up on their own.");
+      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow (any overtime) shows up on its own.");
     }
     if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
     if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
@@ -1604,6 +1602,8 @@
     check: '<polyline points="20 6 9 17 4 12"/>',
     chev: '<polyline points="9 18 15 12 9 6"/>',
   };
+  // A small clock whose minute hand turns around the center (the hand stops for people who ask for less motion).
+  const clockIcon = () => { const s = h("span", { class: "clock-ic", "aria-hidden": "true" }); s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" focusable="false"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="12" x2="15.5" y2="12"/><line class="clock-hand" x1="12" y1="12" x2="12" y2="5.5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>'; return s; };
   const icon = (name) => { const s = h("span"); s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`; return s.firstChild; };
   function iconLabel(el, icon, text) {
     el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[icon]}</svg><span></span>`;
@@ -2379,12 +2379,15 @@
     const slots = SHIFT_ORDER.map((t, i) => {
       const takes = accepts.indexOf(t) >= 0;
       const raw = shiftOt(k, t, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0) ? true : null);
-      const st = takes ? otState(untimed(raw)) : "no";
-      const tag = st === "ot" ? "Overtime" : st === "pot" ? "Part overtime" : "";
+      // Yellow when the usual shift touches overtime at all; then a ticking clock says how many of its hours come first.
+      const st = !takes ? "no" : otState(untimed(raw)) === "open" ? "open" : "ot";
+      const until = takes && raw && typeof raw === "object" && raw.ot > 0 ? round2(raw.hours - raw.ot) : null;
+      const tag = st !== "ot" ? null : h("span", { class: "pf-tag" }, clockIcon(),
+        h("span", { text: until == null ? "Overtime" : until <= 0 ? "All overtime" : `${num(until)} ${until === 1 ? "hour" : "hours"} until overtime` }));
       // A box with the shift's first letter on the left, the name in the middle, an arrow on the right (taken shifts only).
       const btn = h("button", { type: "button", class: `pf-btn ${st}`, "data-type": t },
         h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
-        h("span", { class: "pf-mid" }, h("span", { class: "pf-name", text: SHIFT_LABEL[t] }), tag ? h("span", { class: "pf-tag", text: tag }) : null),
+        h("span", { class: "pf-mid" }, h("span", { class: "pf-name", text: SHIFT_LABEL[t] }), tag),
         h("span", { class: "pf-arrow", "aria-hidden": "true" }, takes ? icon("chev") : null));
       // Its shadow on the page below, under the edge (which stays put while the top presses down and back up).
       const shadow = h("span", { class: "pf-shadow", "aria-hidden": "true" });
@@ -3090,8 +3093,7 @@
     const ws = weekStartOf(k, pub.weekStart);
     let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
     const shift = `One more ${num(priv.pickup)}-hr shift`;
-    if (info.kind === "ot") line += ` ${shift} would be all overtime, so supervisors see yellow.`;
-    else if (info.kind === "pot") line += ` Part of ${shift.toLowerCase()} would be overtime, so supervisors see P-OT (half green, half yellow).`;
+    if (info.kind === "ot") line += ` ${shift} would reach overtime, so supervisors see yellow.`;
     else if (info.kind === "open") line += " Supervisors see green.";
     return line;
   }
@@ -3285,7 +3287,7 @@
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
-    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, P-OT (half green, half yellow) when only part of that shift would be overtime, and yellow when all of it would. Hours past ${num(priv.otAfter)} are overtime, not ${num(priv.otAfter)} itself. Supervisors see each week's scheduled hours, and their texts say how many hours would be overtime. Those numbers are exact, so an overnight on a pay week's last day can show when it starts.`;
+    return `Each pay week ends ${end} at midnight. Hours worked after that count toward the next week, and a shift that crosses midnight is split between the two weeks (an overnight you'd pick up on the last day is counted the same way). A day is green when one more ${num(priv.pickup)}-hour shift would keep its pay week at ${num(priv.otAfter)} hours or less, and yellow when any of that shift would be overtime. On a yellow day, each shift button says how many hours until overtime. Hours past ${num(priv.otAfter)} are overtime, not ${num(priv.otAfter)} itself. Supervisors see each week's scheduled hours, and their texts say how many hours would be overtime. Those numbers are exact, so an overnight on a pay week's last day can show when it starts.`;
   }
 
   // ---------- owner: every-week days ----------
