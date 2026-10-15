@@ -96,7 +96,7 @@
   // notes: his notes to supervisors, in tab order (see "notes" below). callHours: a shift starting sooner than this asks for a call.
   // licName/licNo/licIssued/licExpires: his license, shown at the top ("" hides it). Dates are "YYYY-MM-DD".
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
-  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
+  const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "" });
 
@@ -428,6 +428,7 @@
     d.notes = Array.isArray(r.notes) ? cleanNotes(r.notes) : notesFromOld(r);
     if (Array.isArray(r.willing)) d.willing = cleanWilling(r.willing);
     if (typeof r.status === "string") d.status = r.status.trim().slice(0, 60);
+    if (["green", "yellow", "red"].includes(r.led)) d.led = r.led;
     const ws = parseInt(r.weekStart, 10);
     if (ws >= 0 && ws <= 6) d.weekStart = ws;
     if (typeof r.feedback === "string") d.feedback = feedbackId(r.feedback);
@@ -1315,6 +1316,7 @@
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready;
     $("#accepting").classList.toggle("none", !pub.willing.length);
+    for (const c of ["yellow", "red"]) $("#accepting").classList.toggle(`led-${c}`, pub.led === c);
     $("#acceptingText").textContent = statusLine();
     if (!typer) { $("#acceptingTyped").textContent = statusLine(); $("#acceptingRest").textContent = ""; }
     syncBeat();
@@ -4360,6 +4362,7 @@
     put("#setCallHours", num(pub.callHours));
     put("#setName", pub.name);
     put("#setStatus", pub.status);
+    put("#setLed", pub.led);
     $("#setStatus").placeholder = acceptingText(pub.willing);
     put("#setEmpId", pub.empId);
     put("#setPhone", pub.phone);
@@ -4403,6 +4406,7 @@
     const t = e.target;
     if (t.closest && t.closest("#noteEdit")) { if (!editNote(t)) return; }
     else if (t.id === "setCallHours") { const n = Number(t.value); if (t.value.trim() !== "" && n >= 0 && n <= 48) pub.callHours = n; }
+    else if (t.id === "setLed") pub.led = ["green", "yellow", "red"].includes(t.value) ? t.value : "green";
     else if (t.id === "setStatus") pub.status = t.value.trim().slice(0, 60);
     else if (t.id === "setName") pub.name = t.value.trim().slice(0, 40);
     else if (t.id === "setEmpId") pub.empId = t.value.trim().slice(0, 20);
