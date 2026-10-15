@@ -3445,7 +3445,6 @@
     }
     const willing = rec && rec.s === "open" && rec.w ? rec.w : pub.willing;
     $("#editWilling").replaceChildren(...SHIFT_KEYS.map((x) => checkRow(`ew-${x}`, x, willing.includes(x))));
-    $("#useUsual").hidden = !(rec && rec.s === "open" && rec.w);
     $("#editWeek").textContent = weekLine(k);
   }
 
@@ -4985,7 +4984,6 @@
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", onEditChange);
     for (const id of ["#workHours", "#workNote", "#busyNote"]) $(id).addEventListener("input", onEditChange);
-    $("#useUsual").addEventListener("click", () => { setDay(editKey, { s: "open" }); fillEdit(false); afterChange(); });
     // Enter on a checkbox or switch would press Done (the form's default button) and close Settings, losing his place in
     // the notes: it does nothing there, as in an item's window. Enter in a text box is still Done.
     $("#settingsForm").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("input[type=checkbox], input[type=radio]")) e.preventDefault(); });
