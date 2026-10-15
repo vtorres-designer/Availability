@@ -1420,7 +1420,7 @@
   // A note shows while it has text, its show-until date hasn't passed (the viewer's clock), and, for the night-shift
   // line, while he takes overnights. Nothing shows before the calendar file is in, or when it couldn't be read.
   const nightOn = () => pub.willing.includes("overnight");
-  const noteLive = (n) => !!n.text.trim() && !(n.until && todayKey() > n.until) && (n.auto !== "night" || nightOn());
+  const noteLive = (n) => !n.auto && !!n.text.trim() && !(n.until && todayKey() > n.until);
   const notesOn = (place) => (dataIn && (owner || !loadError) ? pub.notes.filter((n) => n[place] && noteLive(n)) : []);
   // A note box: the notes for one place (front, day or form), one under the other, each with its own tag.
   // With none for that place the box is hidden, so it leaves no gap.
@@ -3776,7 +3776,9 @@
   let noteSel = ""; // the open note's id
   const PLACES = ["front", "day", "form"];
   const placeBox = (p) => $(`#note${p[0].toUpperCase()}${p.slice(1)}`);
-  const noteTabs = () => pub.notes.filter((n) => n.auto !== "night" || nightOn());
+  // The built-in night-shift note is hidden for good (his choice, Oct 15): only his own notes, Note 1, Note 2, ...
+  // It stays in the saved data so older files and drafts still read, but never shows anywhere.
+  const noteTabs = () => pub.notes.filter((n) => !n.auto);
   const noteTitle = (n) => (n.auto ? "Night shifts" : `Note ${pub.notes.filter((x) => !x.auto).indexOf(n) + 1}`);
   const openNote = () => pub.notes.filter((n) => n.id === noteSel)[0] || null;
   function renderNotes() {
