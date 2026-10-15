@@ -2428,11 +2428,17 @@
     // Back, in the top left corner of the window the whole time: from the shifts it puts the day back, from the text it
     // returns to the shifts, from the form to the text. What it does now is goBack.
     let goBack = () => { if (pickEl.leave) pickEl.leave(); };
-    const corner = h("button", { type: "button", class: "pf-corner", "aria-label": "Back" }, icon("chev"), h("span", { text: "Back" }));
+    // One span per letter, so each can lift as the rainbow passes over it (--i: its place in the word).
+    const corner = h("button", { type: "button", class: "pf-corner", "aria-label": "Back" }, icon("chev"),
+      h("span", { class: "pf-word", "aria-hidden": "true" }, [..."Back"].map((c, i) => h("span", { class: "pf-ch", style: `--i:${i}`, text: c }))));
     corner.addEventListener("click", () => goBack());
     pickEl.replaceChildren(ghost, col, corner);
     pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
     showSheet("#shiftPick");
+    // The rainbow's slices: the word's width, and each letter's place in it.
+    const word = corner.querySelector(".pf-word");
+    word.style.setProperty("--w", `${word.offsetWidth}px`);
+    for (const ch of word.children) ch.style.setProperty("--x", `${ch.offsetLeft - word.offsetLeft}px`);
     // The clock lines shrink until they fit between the letter box and the arrow (narrow phones, bigger text settings),
     // so they never run into the arrow or push the shift's name off center.
     for (const tg of col.querySelectorAll(".pf-tag")) {

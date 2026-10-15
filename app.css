@@ -975,15 +975,41 @@ dialog:not([open]) { display: none; }
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.22)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
   transition: transform 0.12s ease;
 }
-.pf-corner span {
-  color: transparent; -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.22);
-  /* Only a thin band of light at the very top and bottom; clear glass between. */
-  background: linear-gradient(172deg, rgba(255, 255, 255, 0.32) 0%, rgba(240, 246, 255, 0.05) 14%, rgba(225, 235, 250, 0.025) 55%, rgba(235, 242, 255, 0.04) 88%, rgba(255, 255, 255, 0.14) 100%);
+/* Each letter is its own piece of glass, with its own slice of the rainbow: the band is as wide as three words and its
+   place across the word is --rp (1.6: parked off to the left, -0.6: gone past the right). --w is the word's width and
+   --x the letter's place in it (set when the corner is drawn), so the slices line up into one band. */
+@property --rp { syntax: "<number>"; inherits: true; initial-value: 1.6; }
+.pf-corner .pf-word { display: inline-flex; --w: 60px; }
+.pf-ch {
+  display: inline-block; color: transparent; -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(105deg, transparent 38%, rgba(255, 70, 160, 0.75) 43%, rgba(255, 196, 60, 0.75) 47%, rgba(80, 240, 150, 0.75) 51%,
+      rgba(70, 170, 255, 0.75) 55%, rgba(170, 100, 255, 0.75) 59%, transparent 64%)
+      calc(var(--w) * -2 * var(--rp) - var(--x, 0px)) 0 / calc(var(--w) * 3) 100% no-repeat,
+    /* The glass: only a thin band of light at the very top and bottom, clear between. */
+    linear-gradient(172deg, rgba(255, 255, 255, 0.32) 0%, rgba(240, 246, 255, 0.05) 14%, rgba(225, 235, 250, 0.025) 55%, rgba(235, 242, 255, 0.04) 88%, rgba(255, 255, 255, 0.14) 100%);
   -webkit-background-clip: text; background-clip: text;
+}
+@keyframes pf-rainbow {
+  0%, 63% { --rp: 1.6; } /* resting; then a sweep of about 1.7 s */
+  100% { --rp: -0.6; }
+}
+/* Each letter lifts off the screen toward the viewer as the rainbow reaches it (it grows, from its middle) and settles
+   back, one after another, like riding a wave. The shine crosses the word about 77-86% of the way through each round;
+   each letter's lift comes a beat after the one before. */
+.pf-ch { transform-origin: 50% 55%; }
+@keyframes pf-ride {
+  0%, 73% { transform: none; }
+  78% { transform: scale(1.32); }
+  84%, 100% { transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pf-corner .pf-word { animation: pf-rainbow 4.5s ease-in-out 1.2s infinite; }
+  .pf-ch { animation: pf-ride 4.5s cubic-bezier(.35, 0, .3, 1) calc(1.2s + var(--i) * 0.11s) infinite; }
 }
 .pf-corner svg { width: 28px; height: 28px; margin-right: -2px; transform: scaleX(-1); color: rgba(240, 246, 255, 0.2); stroke-width: 3.2; }
 .pf-corner:active { transform: translateY(1px); }
-@media (forced-colors: active) { .pf-corner span { color: ButtonText; -webkit-text-stroke: 0; background: none; } }
+@media (forced-colors: active) { .pf-ch { color: ButtonText; -webkit-text-stroke: 0; background: none; } }
 .pf-card-head { display: grid; justify-items: center; }
 .pf-card-day { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .pf-card-date { font: 700 28px/1.05 var(--font-display); color: #fff; }
