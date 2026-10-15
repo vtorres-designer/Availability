@@ -904,7 +904,10 @@ dialog:not([open]) { display: none; }
 .pf-arrow { display: grid; place-items: center; }
 .pf-arrow svg { width: 28px; height: 28px; }
 /* Under a yellow shift's name: a ticking clock and how many hours until overtime. */
-.pf-tag { display: inline-flex; align-items: center; gap: 6px; font: 700 15px/1.1 var(--font-body); }
+.pf-tag { display: inline-flex; align-items: center; gap: 7px; font: 700 15px/1.2 var(--font-body); text-align: left; }
+.pf-tag.pf-two { display: inline-grid; grid-template-columns: auto auto auto auto; column-gap: 0; row-gap: 2px; align-items: center; white-space: nowrap; }
+.pf-two .clock-ic { margin-right: 7px; }
+.pf-two > span:nth-child(4n) { margin-left: 5px; } /* the hours, a space after the colon */
 .clock-ic { display: inline-grid; flex: none; }
 .clock-ic svg { width: 17px; height: 17px; }
 .clock-hand { transform-box: view-box; transform-origin: 12px 12px; }

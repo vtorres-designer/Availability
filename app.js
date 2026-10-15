@@ -2332,6 +2332,22 @@
     ], { duration: 480, easing: "ease-out" });
   }
 
+  // The week's hours until overtime for a shift on day k, as the clock line under a yellow shift's name. A graveyard on
+  // the pay week's last day runs into the next week, so it gets a line for each day ("Thu: 1 hr until overtime").
+  function weekClock(k, t) {
+    const leftIn = (w) => (pubOt && w in pubOt.left ? pubOt.left[w] : null);
+    const say = (n) => (n <= 0 ? "overtime" : `${num(n)} ${n === 1 ? "hr" : "hrs"} until overtime`);
+    const ws = weekStartOf(k, pub.weekStart), next = addDays(ws, 7);
+    const here = leftIn(ws), there = leftIn(next);
+    if (here == null) return null;
+    // Each line: its own clock, the day, the colon, the hours, in columns, so the days start together and the colons line up.
+    if (t === "overnight" && addDays(k, 1) === next && there != null) {
+      return h("span", { class: "pf-tag pf-two" }, [[k, here], [next, there]].map(([d, n]) => [
+        clockIcon(), h("span", { text: fmt(d, { weekday: "short" }) }), h("span", { text: ":" }), h("span", { text: say(n) })]));
+    }
+    return h("span", { class: "pf-tag" }, clockIcon(), h("span", { text: here <= 0 ? "Overtime this week" : say(here).replace(/^./, (c) => c.toUpperCase()) }));
+  }
+
   // A green or yellow day tapped: it floats up off the calendar and splits into the three shifts. The ones he takes
   // are raised, bold and bob slowly (green, yellow or both, as that shift's overtime is); the ones he doesn't are
   // pressed in, see-through and still. Picking one opens the day window at that shift's text. A tap outside, Escape or
@@ -2379,11 +2395,11 @@
     const slots = SHIFT_ORDER.map((t, i) => {
       const takes = accepts.indexOf(t) >= 0;
       const raw = shiftOt(k, t, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0) ? true : null);
-      // Yellow when the usual shift touches overtime at all; then a ticking clock says how many of its hours come first.
+      // Yellow when the usual shift touches overtime at all. Then a ticking clock gives the week's hours until overtime,
+      // the same count as the week's "hrs scheduled" (it never guesses when the shift starts). A graveyard on the pay
+      // week's last day runs into the next week, so it gives both: "Thu: 1 hr until overtime · Fri: 5 hrs".
       const st = !takes ? "no" : otState(untimed(raw)) === "open" ? "open" : "ot";
-      const until = takes && raw && typeof raw === "object" && raw.ot > 0 ? round2(raw.hours - raw.ot) : null;
-      const tag = st !== "ot" ? null : h("span", { class: "pf-tag" }, clockIcon(),
-        h("span", { text: until == null ? "Overtime" : until <= 0 ? "All overtime" : `${num(until)} ${until === 1 ? "hour" : "hours"} until overtime` }));
+      const tag = st !== "ot" ? null : weekClock(k, t);
       // A box with the shift's first letter on the left, the name in the middle, an arrow on the right (taken shifts only).
       const btn = h("button", { type: "button", class: `pf-btn ${st}`, "data-type": t },
         h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
