@@ -1060,8 +1060,10 @@ dialog:not([open]) { display: none; }
 .pf-desk-send .qr-send { justify-self: stretch; margin: 0; }
 .pf-desk-send { grid-auto-rows: 1fr; } /* its one panel (the code, or the wait) fills the column */
 .pf-desk .qr-or { display: none; } /* the number is in the texting app's header beside it */
-/* On a computer, Back sits in the card's own top left corner. */
-.pf-corner.in-card { position: absolute; top: 12px; left: 10px; }
+/* Once a card is open, Back sits in its top left corner, level with the date. */
+.pf-corner.in-card { z-index: 3; } /* placed over the card's corner by the page; stays there while the card scrolls */
+@media (max-width: 600px) { .pf-corner.in-card { font-size: 22px; } } /* a phone's card: room beside the date */
+.pf-card.back-row { padding-top: 54px; } /* Back on its own line above the date */
 .pf-desk-grid { align-items: stretch; }
 /* The text side on a computer: a small texting app, as tall as the code's panel beside it. */
 .pf-msgs {

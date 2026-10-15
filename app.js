@@ -2596,15 +2596,33 @@
       };
       size(desk);
       pickEl.append(card);
-      // On a computer the window is big, so Back moves from the window's corner into the card's, where it's seen.
-      if (desk) { corner.classList.add("in-card"); corner.style.fontSize = ""; card.append(corner); }
+      // Once there's a card, Back moves from the window's corner into the card's own, level with the date.
+      corner.classList.add("in-card"); corner.style.fontSize = "";
+      pickEl.append(corner); // after the card, so it floats over it
+      // Where the date is too wide for Back to sit beside it (narrow phones, long months), Back gets a line of its own above.
+      function fitCorner() {
+        card.classList.remove("back-row");
+        center();
+        const day = card.querySelector(".pf-card-day");
+        if (!day) return;
+        const b = corner.getBoundingClientRect();
+        const left = Math.min(...[...day.children].map((p) => { const r = document.createRange(); r.selectNodeContents(p); return r.getBoundingClientRect().left; }));
+        if (b.right + 8 > left && b.bottom > day.getBoundingClientRect().top) { card.classList.add("back-row"); center(); }
+      }
       // Full height: the glass Back floats over whatever is under it.
-      const center = () => { card.style.top = `${Math.max(12, (seen() - card.offsetHeight) / 2)}px`; };
+      // Back floats over the card's top left corner and stays there on the screen while the card scrolls under it.
+      const placeCorner = () => {
+        const narrow = window.innerWidth <= 600, row = card.classList.contains("back-row");
+        corner.style.left = `${parseFloat(card.style.left) + (narrow ? 12 : 14)}px`;
+        corner.style.top = `${parseFloat(card.style.top) + (row ? 12 : narrow ? 20 : 18)}px`;
+      };
+      const center = () => { card.style.top = `${Math.max(12, (seen() - card.offsetHeight) / 2)}px`; placeCorner(); };
       // A phone browser's toolbars slide in and out as the page scrolls: the card follows what can be seen.
       if (window.visualViewport) {
         const follow = () => { if (!card.isConnected) { window.visualViewport.removeEventListener("resize", follow); return; } card.style.maxHeight = `${seen() - 24}px`; center(); };
         window.visualViewport.addEventListener("resize", follow);
       }
+      fitCorner(); // Back's first place: beside the date, or above it
       center();
       // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
       // send it). Back, or the phone's back gesture, returns to the text as it was.
@@ -2631,7 +2649,7 @@
       };
       const swap = (nodes, wide) => {
         card.replaceChildren(...nodes);
-        if (desk) card.append(corner); // Back stays in the card's corner
+        fitCorner(); // where Back sits for this screen
         card.classList.toggle("pf-form", nodes === formView);
         size(wide);
         card.scrollTop = 0;
