@@ -2311,6 +2311,19 @@
     choose(false);
   }
 
+  // A red (busy) day tapped: it shakes its head no, hard and quick, and opens nothing. Its name already says it's
+  // not available, for screen readers.
+  function shakeNo(tile) {
+    if (!tile.animate) return;
+    if (tile.shake) tile.shake.cancel();
+    tile.shake = tile.animate([
+      { transform: "translateX(0)" }, { transform: "translateX(-9px) rotate(-3deg)" }, { transform: "translateX(9px) rotate(3deg)" },
+      { transform: "translateX(-8px) rotate(-2.5deg)" }, { transform: "translateX(8px) rotate(2.5deg)" },
+      { transform: "translateX(-5px) rotate(-1.5deg)" }, { transform: "translateX(5px) rotate(1.5deg)" },
+      { transform: "translateX(-2px)" }, { transform: "translateX(0)" },
+    ], { duration: 480, easing: "ease-out" });
+  }
+
   // A green or yellow day tapped: it floats up off the calendar and splits into the three shifts. The ones he takes
   // are raised, bold and bob slowly (green, yellow or both, as that shift's overtime is); the ones he doesn't are
   // pressed in, see-through and still. Picking one opens the day window at that shift's text. A tap outside, Escape or
@@ -4604,6 +4617,7 @@
       const k = b.dataset.key;
       if (!ownerView()) {
         const kind = publicInfo(k).kind;
+        if (kind === "busy") return shakeNo(b);
         return (kind === "open" || kind === "ot") && smsNumber() ? floatPick(k, b) : openDay(k);
       }
       if (busy) return toast("One moment, loading your calendar…");
