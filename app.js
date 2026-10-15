@@ -5079,6 +5079,24 @@
       onEditChange();
     });
     $("#addShift").addEventListener("click", addShiftRow);
+    // Settings sections fold to their titles (Oct 15): tap a title to open or close it. All start closed.
+    for (const g of document.querySelectorAll("#settingsSheet [data-fold]")) {
+      const head = h("button", { type: "button", class: "fold-head", "aria-expanded": "false" }, h("span", { text: g.dataset.fold }), h("i", { class: "fold-chev", "aria-hidden": "true" }));
+      head.addEventListener("click", () => {
+        const open = g.classList.toggle("open");
+        head.setAttribute("aria-expanded", String(open));
+        if (open) fitNoteText();
+      });
+      // The section's old title line would repeat the new one: only its explanation in brackets stays, as a subtitle.
+      const old = g.firstElementChild;
+      if (old && old.matches("span.label")) {
+        const m = old.textContent.match(/\(([^)]*)\)\s*$/);
+        if (m) old.textContent = m[1].charAt(0).toUpperCase() + m[1].slice(1) + ".";
+        else old.remove();
+      }
+      g.prepend(head);
+      g.classList.add("fold");
+    }
     // Enter on a checkbox or switch would press Done (the form's default button) and close Settings, losing his place in
     // the notes: it does nothing there, as in an item's window. Enter in a text box is still Done.
     $("#settingsForm").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("input[type=checkbox], input[type=radio]")) e.preventDefault(); });

@@ -1742,3 +1742,15 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
 }
 .sticky textarea::placeholder { color: rgba(59, 50, 4, 0.45); }
 .sticky-foot { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(59, 50, 4, 0.5); }
+
+/* Settings sections fold to their titles (Oct 15). */
+#settingsSheet .group.fold { gap: 0; padding: 0; }
+#settingsSheet .group.fold:not(.open) > :not(.fold-head) { display: none; }
+#settingsSheet .group.fold.open { gap: 8px; padding: 0 12px 12px; }
+#settingsSheet .group.fold.open > .fold-head { margin: 0 -12px; width: calc(100% + 24px); }
+.fold-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px;
+  padding: 0 14px; border: 0; background: transparent; color: var(--ink); font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;
+}
+.fold-chev { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg) translateY(-3px); transition: transform 0.2s ease; }
+.group.open .fold-chev { transform: rotate(-135deg) translateY(-1px); }
