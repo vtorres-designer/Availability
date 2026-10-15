@@ -350,10 +350,12 @@ Thu 10/15 2300-0700</pre>
     </div>
 
     <div class="group" data-fold="Status Light">
-      <label class="field"><span class="label">Status line by the light (leave empty to hide it)</span>
-        <input type="text" id="setStatus" maxlength="60" autocomplete="off"></label>
-      <label class="field"><span class="label">Status light color</span>
-        <select id="setLed"><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select></label>
+      <div class="status-mock">
+        <p class="accepting" id="statusMock"><button type="button" class="live-dot" id="mockDot" aria-label="Status light color. Tap to change it."></button>
+          <input type="text" id="setStatus" maxlength="60" autocomplete="off" placeholder="Tap to write your status" aria-label="Status line by the light"></p>
+      </div>
+      <p class="muted small">Tap the light to change its color. Tap the words to change them. Leave them empty to hide the line.</p>
+      <select id="setLed" hidden aria-hidden="true" tabindex="-1"><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select>
     </div>
 
     <div class="group" data-fold="Every Week">

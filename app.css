@@ -1754,3 +1754,17 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
 }
 .fold-chev { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg) translateY(-3px); transition: transform 0.2s ease; }
 .group.open .fold-chev { transform: rotate(-135deg) translateY(-1px); }
+
+/* Settings' status line (Oct 15): the front page's light and words on the same dark header blue, edited in place. */
+.status-mock {
+  padding: 16px 14px; border-radius: 12px;
+  background: radial-gradient(120% 140% at 0% 0%, #13305a 0%, #0b1a33 60%, #081326 100%);
+  box-shadow: inset 0 0 0 1px rgba(120, 170, 255, 0.18);
+}
+.status-mock .accepting { font-size: 14px; }
+.status-mock .live-dot { padding: 0; border: 0; cursor: pointer; flex: none; }
+.status-mock input {
+  flex: 1; min-width: 0; padding: 4px 0; border: 0; border-bottom: 1px dashed rgba(212, 247, 232, 0.35); border-radius: 0;
+  background: transparent; color: inherit; font: inherit;
+}
+.status-mock input::placeholder { color: rgba(212, 247, 232, 0.4); }

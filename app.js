@@ -1356,7 +1356,7 @@
     $("#badge").hidden = !letters; // and the frame it sits in, with its sparkle
     $("#shieldText").textContent = letters;
     $("#accepting").hidden = !ready || !pub.status;
-    for (const c of ["yellow", "red"]) $("#accepting").classList.toggle(`led-${c}`, pub.led === c);
+    for (const c of ["yellow", "red"]) for (const el of [$("#accepting"), $("#statusMock")]) el.classList.toggle(`led-${c}`, pub.led === c);
     $("#acceptingText").textContent = statusLine();
     if (!typer) { $("#acceptingTyped").textContent = statusLine(); $("#acceptingRest").textContent = ""; }
     syncBeat();
@@ -4450,6 +4450,7 @@
     put("#setName", pub.name);
     put("#setStatus", pub.status);
     put("#setLed", pub.led);
+    for (const c of ["yellow", "red"]) $("#statusMock").classList.toggle(`led-${c}`, pub.led === c);
     put("#setEmpId", pub.empId);
     put("#setPhone", pub.phone);
     put("#setLicName", pub.licName);
@@ -5102,6 +5103,13 @@
     $("#settingsForm").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("input[type=checkbox], input[type=radio]")) e.preventDefault(); });
     $("#settingsForm").addEventListener("input", onSettingsChange);
     $("#settingsForm").addEventListener("change", onSettingsChange);
+    // Settings' copy of the status line (Oct 15): tapping its light steps green, yellow, red.
+    $("#mockDot").addEventListener("click", () => {
+      const sel = $("#setLed"), order = ["green", "yellow", "red"];
+      sel.value = order[(order.indexOf(sel.value) + 1) % order.length];
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      for (const c of ["yellow", "red"]) $("#statusMock").classList.toggle(`led-${c}`, sel.value === c);
+    });
     $("#noteTabs").addEventListener("click", (e) => {
       const b = e.target.closest("[role=tab]");
       if (!b) return;
