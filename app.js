@@ -2476,17 +2476,17 @@
         });
       });
       const custom = h("button", { type: "button", class: "pf-quiet", text: "Customize Text First" });
-      // Its history entry goes now, before the day window adds its own (the close event comes too late for that).
-      custom.addEventListener("click", () => { pickEl.close("picked"); nav.closed(pickEl); openDay(k, t, true); });
+      custom.addEventListener("click", () => showForm());
       const back = h("button", { type: "button", class: "pf-back", "aria-label": "Pick a different shift" }, icon("chev"), h("span", { text: "Shifts" }));
       // Back to the shifts: once this window has closed (its close clears it), it opens again on the same day.
       back.addEventListener("click", () => { pickEl.addEventListener("close", () => floatPick(k, tile), { once: true }); pickEl.close("picked"); });
       const notes = h("aside", { class: "note-box pf-notes" });
       fillNotes(notes, "day");
+      const dayHead = (btn) => h("div", { class: "pf-card-head" }, btn,
+        h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })),
+        h("span", { class: "pf-back-twin", "aria-hidden": "true" }));
       card = h("div", { class: "pf-card", role: "group", "aria-label": `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}, ${SHIFT_LABEL[t]}: text me` },
-        h("div", { class: "pf-card-head" }, back,
-          h("div", { class: "pf-card-day" }, h("p", { class: "pf-kicker", text: fmt(k, { weekday: "long" }) }), h("p", { class: "pf-card-date", text: fmt(k, { month: "long", day: "numeric" }) })),
-          h("span", { class: "pf-back-twin", "aria-hidden": "true" })),
+        dayHead(back),
         h("div", { class: `pf-chip ${yellow ? "ot" : "open"}` }, h("span", { class: "pf-letter", "aria-hidden": "true", text: SHIFT_LABEL[t][0] }),
           h("span", { class: "pf-chip-text" }, h("span", { class: "pf-chip-name", text: SHIFT_LABEL[t] }), yellow ? weekClock(k, t) : null)),
         notes.hidden ? null : notes,
@@ -2496,11 +2496,62 @@
         qr ? qr.el : null,
         custom,
         h("p", { class: "pf-hint", text: "Customize Text First adds your name, the shift start and end time, the site address, and/or the pay rate." }));
-      const CW = Math.min(400, vw - 24);
-      Object.assign(card.style, { left: `${(vw - CW) / 2}px`, width: `${CW}px`, maxHeight: `${vh - 24}px` });
+      const sendView = [...card.childNodes];
+      // The card's width: narrow for the text, wide on a laptop for the form (its boxes beside the message).
+      const size = (wide) => {
+        const w = window.innerWidth, cw = wide && w >= 900 ? Math.min(900, w - 48) : Math.min(400, w - 24);
+        Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${window.innerHeight - 24}px` });
+      };
+      size(false);
       pickEl.append(card);
       const center = () => { card.style.top = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`; };
       center();
+      // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
+      // send it). Back, or the phone's back gesture, returns to the text as it was.
+      let form = null, formView = null;
+      const swatch = h("span", { class: "sw" }), said = h("span");
+      // The message bubble is as tall as its text, like a real text message (it grows and shrinks as it changes).
+      const fitBubble = () => {
+        const m = card.querySelector("#txMsg");
+        if (!m) return;
+        m.rows = 1; // its own minimum of 5 lines would leave room under a short text
+        m.style.height = "0px";
+        m.style.height = `${m.scrollHeight + 2}px`;
+      };
+      const setStatus = (o, timed) => {
+        requestAnimationFrame(fitBubble); // called whenever the form rewrites the message
+        if (o && o.no) { swatch.className = "sw busy"; said.textContent = o.no.join(" "); return; }
+        const st = otState(o);
+        swatch.className = `sw ${st === "pot" ? "ot" : st}`;
+        said.textContent = st === "open" ? "I'm available"
+          : o === true ? "I'm available, but it would be overtime"
+          : o.part ? "I'm available, but part of the shift would be overtime"
+          : st === "ot" ? `I'm available, but all ${hoursText(o.hours)} would be overtime`
+          : `I'm available, but ${timed ? num(o.ot) : "some"} of the ${hoursText(o.hours)} would be overtime`;
+      };
+      const swap = (nodes, wide) => {
+        card.replaceChildren(...nodes);
+        card.classList.toggle("pf-form", wide);
+        size(wide);
+        card.scrollTop = 0;
+        center();
+        if (!still && card.animate) for (const c of card.children) anim(c, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 220, fill: "backwards" });
+      };
+      const showSend = () => swap(sendView, false);
+      function showForm() {
+        if (!form) {
+          form = textForm(k, info, t, () => {}, setStatus, { ctx: { ack: acked ? "none" : "" } });
+          const fback = h("button", { type: "button", class: "pf-back", "aria-label": "Back to the text" }, icon("chev"), h("span", { text: "Back" }));
+          fback.addEventListener("click", () => nav.back(pickEl, showSend));
+          const fnotes = h("aside", { class: "note-box pf-notes" });
+          fillNotes(fnotes, "form");
+          card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
+          formView = [dayHead(fback), h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+        } else { form.recall(); form.refresh(); }
+        swap(formView, true);
+        fitBubble();
+        nav.step(pickEl, showSend);
+      }
       try { pickEl.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
       const done = () => col.remove();
       if (still || !card.animate) { done(); return; }
