@@ -1122,6 +1122,9 @@ dialog:not([open]) { display: none; }
 .pf-status { justify-content: center; align-items: center; text-align: center; font-weight: 600; font-size: min(16px, 4.2vw); white-space: nowrap; } /* one line, on the narrowest phones too */
 .pf-form .shift-chosen { display: none; } /* the shift chip above says which shift */
 .pf-card.pf-form .pf-chip { justify-self: center; }
+/* The overtime note under the time boxes: soft see-through yellow when the hours run into overtime, grey when not. */
+.pf-otnote { margin: -2px 2px 2px; font: 600 14px/1.3 var(--font-body); color: var(--muted); }
+.pf-otnote.ot { color: rgba(240, 196, 70, 0.78); }
 /* The form in three parts, each in its own softly shaded panel with room between them, so it's clear where each
    starts and stops: the details (the note and the boxes), the message, and sending it. Every part's label starts at
    the left. */

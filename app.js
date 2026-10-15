@@ -2627,7 +2627,6 @@
       // Customize Text First: the full form in the same card (name, times, site, pay, the message to edit, and the way to
       // send it). Back, or the phone's back gesture, returns to the text as it was.
       let form = null, formView = null;
-      const swatch = h("span", { class: "sw" }), said = h("span");
       // The message bubble is as tall as its text, like a real text message (it grows and shrinks as it changes).
       const fitBubble = () => {
         const m = card.querySelector("#txMsg");
@@ -2636,17 +2635,17 @@
         m.style.height = "0px";
         m.style.height = `${m.scrollHeight + 2}px`;
       };
+      // Under the Start and End boxes, once both are typed: how much of those hours would be overtime, right where the
+      // supervisor is looking (soft yellow), or that none would be (grey). Nothing until then: the chip above already
+      // says whether the day is overtime.
+      const otNote = h("p", { class: "pf-otnote", "aria-live": "polite", hidden: true });
       const setStatus = (o, timed) => {
         requestAnimationFrame(fitBubble); // called whenever the form rewrites the message
-        if (o && o.no) { swatch.className = "sw busy"; said.textContent = o.no.join(" "); return; }
-        // Short, so it stays on one line beside its square. Hours are named only once real times are typed; before
-        // that nobody knows how long the shift is.
-        const st = otState(o);
-        swatch.className = `sw ${st === "pot" ? "ot" : st}`;
-        // "I'm available" would only repeat what the green chip above already says, so the line hides then.
-        said.parentNode && (said.parentNode.hidden = st === "open");
-        said.textContent = st === "open" ? "I'm available"
-          : !timed ? (o === true || st === "ot" ? "This shift may be overtime" : "Some of this shift may be overtime")
+        const st = otState(o), no = !!(o && o.no);
+        otNote.hidden = !timed && !no;
+        otNote.classList.toggle("ot", no || st !== "open");
+        otNote.textContent = no ? o.no.join(" ")
+          : st === "open" ? "No overtime for these hours"
           : st === "ot" ? `All ${hoursText(o.hours)} would be overtime`
           : `${num(o.ot)} of the ${hoursText(o.hours)} would be overtime`;
       };
@@ -2668,8 +2667,9 @@
           card.addEventListener("input", (e) => { if (e.target.id === "txMsg") fitBubble(); });
           // The shift as the card shows it (its letter box, name, and clock lines on a yellow day), then the line saying
           // whether it would be overtime.
-          formView = [dayHead(), chip, h("p", { class: "status-line pf-status", "aria-live": "polite" }, swatch, said), fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
-          form.refresh(); // now that the status line is in place, it can hide itself
+          formView = [dayHead(), chip, fnotes.hidden ? null : fnotes, ...form.nodes].filter(Boolean);
+          const clocks = form.nodes[0].querySelector(".clocks");
+          if (clocks) clocks.after(otNote);
         } else { form.recall(); form.refresh(); }
         swap(formView, true);
         fitBubble();
