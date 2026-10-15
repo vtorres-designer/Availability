@@ -2319,7 +2319,7 @@
   const stillMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   function floatPick(k, tile) {
     if (!pickEl) {
-      pickEl = h("dialog", { class: "pick-float", id: "shiftPick" });
+      pickEl = h("dialog", { class: "pick-float", id: "shiftPick", tabindex: "-1" });
       document.body.append(pickEl);
       pickEl.addEventListener("click", (e) => { if (e.target === pickEl && pickEl.leave) pickEl.leave(); });
       pickEl.addEventListener("cancel", (e) => { if (pickEl.leave) { e.preventDefault(); pickEl.leave(); } });
@@ -2382,8 +2382,11 @@
     pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
     showSheet("#shiftPick");
     col.style.top = `${Math.max(16, (vh - col.offsetHeight) / 2)}px`; // measured once it's on screen
-    const first = col.querySelector(".pf-btn:not(:disabled)");
-    if (first) try { first.focus({ preventScroll: true }); } catch (x) { first.focus(); }
+    // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
+    // itself, so no focus ring shows on a button nobody has touched.
+    const first = byKeys && col.querySelector(".pf-btn:not(:disabled)");
+    const to = first || pickEl;
+    try { to.focus({ preventScroll: true }); } catch (x) { to.focus(); }
     // From the day's middle to each button's: where a button starts, and goes back to.
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const fromTile = (slot) => {

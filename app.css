@@ -90,7 +90,8 @@ body.owner { padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* His rule (Oct 15): no focus ring anywhere on the site, for anyone, ever. */
+*:focus, *:focus-visible, *:focus-within { outline: none !important; }
 
 .page {
   max-width: 560px;
@@ -197,7 +198,6 @@ a { color: var(--accent); }
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent); transform: translateX(-120%) skewX(-20deg);
 }
 .hchip:hover, .hchip[aria-expanded="true"] { background: rgba(255, 255, 255, 0.15); }
-.hchip:focus-visible, .hb-btn:focus-visible { outline: 2px solid var(--hero-label); outline-offset: 2px; }
 .hchip.expired { border-color: rgba(255, 140, 140, 0.55); }
 .hchip.plain { cursor: default; }
 .hchip.plain:hover { background: rgba(255, 255, 255, 0.08); }
@@ -524,7 +524,6 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   padding-inline: 2px; text-align: center;
 }
 .seg input:checked + span { box-shadow: inset 0 0 0 2px var(--accent); background: var(--surface); }
-.seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .checks { display: grid; gap: 6px; }
 .check {
@@ -701,7 +700,6 @@ dialog:not([open]) { display: none; }
 .file-btn { position: relative; overflow: hidden; }
 .file-btn input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
 .file-btn.disabled { opacity: 0.55; pointer-events: none; }
-.file-btn:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* Feedback: three quick choices, then the message. My Uniform's item categories are the same kind of chips. */
 .fb-kind, .chip-pick { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -713,7 +711,6 @@ dialog:not([open]) { display: none; }
   font-weight: 700; font-size: 14px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line);
 }
 .fb-kind input:checked + span, .chip-pick input:checked + span { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
-.fb-kind input:focus-visible + span, .chip-pick input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
 @media (forced-colors: active) {
   .fb-kind span, .chip-pick span { border: 1px solid ButtonText; }
   .fb-kind input:checked + span, .chip-pick input:checked + span { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
@@ -754,7 +751,6 @@ dialog:not([open]) { display: none; }
 }
 .switch-in:checked + .switch { background: var(--open); }
 .switch-in:checked + .switch::after { transform: translateX(18px); }
-.switch-in:focus-visible + .switch { outline: 3px solid var(--accent); outline-offset: 2px; }
 .btn.note-del { justify-self: start; color: var(--item-del, var(--busy)); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
 @media (forced-colors: active) {
@@ -819,7 +815,6 @@ dialog:not([open]) { display: none; }
 .u-frame.item-frame { width: 170px; height: 340px; touch-action: none; cursor: grab; border-radius: 4px; }
 .item-frame:active { cursor: grabbing; }
 .item-frame.empty { cursor: default; }
-.item-frame:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; }
 .item-frame .u-other { opacity: 0.35; }
 .item-frame .fit-empty { display: grid; place-items: center; margin: 0; padding: 0 12px; text-align: center; font: 600 13px/1.35 var(--font-body); }
 /* On a dark label over the mannequin, so it reads on the figure in both themes. */
@@ -863,7 +858,6 @@ dialog:not([open]) { display: none; }
 .shift-choice .btn { width: 100%; }
 .decline { font-weight: 700; font-size: 17px; }
 .shift-chosen .label { color: var(--ink); }
-.decline:focus { outline: none; }
 
 /* A day tapped: it floats up off the calendar and splits into the three shifts, in the middle of the window over a
    dark, well-blurred page. Each button: a box with the shift's letter on the left, the name in the middle, an arrow on
@@ -901,7 +895,6 @@ dialog:not([open]) { display: none; }
 .pf-btn.ot { background: var(--lit), var(--ot); color: var(--ot-ink); --edge: #5a3f02; }
 .pf-btn.pot { background: var(--lit), linear-gradient(to top right, var(--ot) calc(50% - 0.5px), var(--open) calc(50% + 0.5px)); color: var(--ot-ink); --edge: #2f370b; }
 .pf-btn:not(:disabled):active { transform: translateY(8px); --depth: 2px; }
-.pf-btn:focus-visible { outline: 3px solid #8fc2ff; outline-offset: 5px; }
 .pf-mid { display: grid; justify-items: center; gap: 3px; min-width: 0; }
 .pf-letter {
   width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center;
@@ -1035,7 +1028,6 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
 }
 .uni-open, .uni-open body { overflow: hidden; }
 .uni p { margin: 0; }
-.uni h2:focus, #title:focus { outline: none; } /* focused only so screen readers start at the title (#title: the preview) */
 .uni .btn.go { font-size: 15px; }
 .u-kick { font: 700 11px/1.3 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .u-pill {
@@ -1060,7 +1052,6 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
 /* The header is tall, so its band starts and ends further out (its slant would show at the corners). */
 .u-hero::after { left: -60%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.14), transparent); transform: translateX(-100%) skewX(-20deg); }
 .u-hero .u-pill { color: #dbe7f7; background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
-.u-hero .u-pill:focus-visible { outline-color: var(--hero-label); }
 .u-mid { flex: 1; display: grid; align-content: end; gap: 14px; padding-top: 14px; }
 .u-row1 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
 .u-hero .u-ic {
@@ -1111,7 +1102,6 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
   background: var(--bg); color: var(--u-card-ink); font: 600 11.5px/1.2 var(--font-body); text-align: center; overflow-wrap: anywhere;
 }
 @media (max-width: 340px) { .u-strip { grid-auto-columns: 84px; } } /* the next card still peeks in, so the row reads as scrollable */
-.u-item:focus-visible { outline-offset: 1px; }
 .u-item[aria-pressed="true"] { border-color: var(--open); background: var(--pick-bg); }
 .u-item[aria-pressed="true"]::after {
   content: "✓"; content: "✓" / ""; /* seen, not read out: the card is already "pressed" */
@@ -1338,7 +1328,7 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       grid-column: 2; grid-row: 2 / 7; z-index: 1; align-self: start; max-height: 100%;
       overflow-y: auto; padding: 0 16px 16px; align-content: start; border-radius: 16px; box-shadow: var(--float-shadow);
       scroll-padding-top: calc(var(--dow-top) + 24px); /* a day reached with the keyboard comes into view below the weekday names */
-      scroll-padding-bottom: 8px; /* with its focus ring (3px, 2px out) */
+      scroll-padding-bottom: 8px; /* a little room below a day reached with the keyboard */
     }
     body:not(.owner) .cal .dow { padding: var(--dow-top) 0 4px; }
     /* His choice (Oct 14): with more weeks the days get shorter so every week fits without scrolling (from 4 weeks;
