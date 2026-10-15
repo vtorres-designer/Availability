@@ -21,8 +21,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- The fonts load without holding up the page: a slow or stuck font server never leaves it blank (it shows in the
      fallback fonts until they're in). -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&family=Caveat:wght@500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&family=Caveat:wght@500;700&display=swap"></noscript>
 <link rel="stylesheet" href="app.css?v=69">
 </head>
 <body>
@@ -278,8 +278,9 @@
       <span class="label">Shifts I'm working</span>
       <div id="shiftRows" class="stack"></div>
       <button type="button" class="btn ghost wide" id="addShift">+ Add Shift</button>
-      <label class="field"><span class="label">Note (only you see it)</span>
-        <input type="text" id="workNote" maxlength="100" placeholder="e.g. the site name"></label>
+      <label class="sticky" for="workNote">
+        <textarea id="workNote" maxlength="100" rows="3" placeholder="Note to self, like the site name" aria-label="Note for this day (only you see it)"></textarea>
+        <span class="sticky-foot" aria-hidden="true">Only you see this</span></label>
     </div>
     <div id="editPicks" class="stack">
       <span class="label">Shifts supervisors can request</span>

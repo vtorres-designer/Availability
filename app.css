@@ -1719,3 +1719,25 @@ body:not(.owner) .day.unset:not(.past) .mon { color: rgba(160, 175, 200, 0.45); 
 .pick-name { display: grid; gap: 1px; min-width: 0; }
 .pick-name small { font-size: 12px; }
 .pick-box { min-height: 44px; padding: 0 12px; }
+
+/* Edit Day's note (Oct 15): a yellow sticky note, tilted a little, with a folded corner, written on in handwriting. */
+.sticky {
+  position: relative; display: grid; gap: 2px; margin: 6px 4px 4px; padding: 14px 16px 10px;
+  background: linear-gradient(180deg, #fff3a3 0%, #fde97a 100%); color: #3b3204;
+  border-radius: 2px 2px 18px 2px; transform: rotate(-1.2deg);
+  box-shadow: 0 10px 18px -8px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+.sticky::before { /* a strip of tape across the top */
+  content: ""; position: absolute; top: -9px; left: 50%; width: 72px; height: 20px; transform: translateX(-50%) rotate(2deg);
+  background: rgba(255, 255, 255, 0.35); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.sticky::after { /* the folded bottom corner */
+  content: ""; position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; border-radius: 0 0 18px 0;
+  background: linear-gradient(135deg, #e9cf4f 50%, transparent 50%); box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.12);
+}
+.sticky textarea {
+  width: 100%; min-height: 72px; padding: 0; border: 0; background: transparent; resize: none; color: inherit;
+  font: 600 24px/1.15 "Caveat", "Segoe Print", "Bradley Hand", cursive;
+}
+.sticky textarea::placeholder { color: rgba(59, 50, 4, 0.45); }
+.sticky-foot { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(59, 50, 4, 0.5); }

@@ -5064,7 +5064,13 @@
     $("#fbTest").addEventListener("click", onFeedbackTest);
     $("#unlockForm").addEventListener("submit", onUnlock);
     $("#editForm").addEventListener("change", (e) => { if (!e.target.closest(".field.clock")) onEditChange(); });
-    $("#workNote").addEventListener("input", onEditChange);
+    // The day's note is one line, written on a sticky note: Enter doesn't start a new line, and a pasted line break
+    // becomes a space.
+    $("#workNote").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+    $("#workNote").addEventListener("input", (e) => {
+      if (/[\r\n]/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*[\r\n]+\s*/g, " ");
+      onEditChange();
+    });
     $("#addShift").addEventListener("click", addShiftRow);
     // Enter on a checkbox or switch would press Done (the form's default button) and close Settings, losing his place in
     // the notes: it does nothing there, as in an item's window. Enter in a text box is still Done.
