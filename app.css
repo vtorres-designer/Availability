@@ -1182,16 +1182,18 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       --bleed: max(16px, 50vw - var(--pw) / 2 + 16px); /* from the window's left edge to the page's first column */
       /* Sizes that step down in shorter windows (below). */
       --pad: clamp(40px, calc(var(--wh) * 0.06), 64px); /* as much room above his name as between the buttons and the cards */
-      --badge: clamp(64px, min(5.4vw, calc(var(--wh) * 0.114)), 92px); --badge-gap: clamp(16px, 1.6vw, 26px); /* (a wide but short window: smaller) */
-      --name: clamp(44px, min(4.1vw, calc(var(--wh) * 0.087)), 70px); --kicker: clamp(13px, 1.05vw, 17px); --head-gap: 12px;
-      --chip-h: 42px; --chip-pad: 10px 16px; --chip-font: clamp(14px, 1.05vw, 16px);
+      --badge: clamp(84px, min(7vw, calc(var(--wh) * 0.15)), 124px); --badge-gap: clamp(18px, 1.8vw, 30px); /* (a wide but short window: smaller) */
+      --name: clamp(50px, min(4.8vw, calc(var(--wh) * 0.095)), 84px); --kicker: clamp(15px, 1.2vw, 20px); --head-gap: 12px;
+      --status: clamp(17px, 1.35vw, 21px);
+      --chip-h: 48px; --chip-pad: 12px 20px; --chip-font: clamp(16px, 1.25vw, 19px);
       --edge: 18px; --note-pad: 10px 12px; --note-font: 15px; --lede: 17px; --dow-top: 16px;
       --foot-gap: 18px; --foot-pad: 8px; --link-pad: 6px; --meta-gap: 4px;
       --call-w: 460px; --call-cols: minmax(0, 1fr); --pick-at: auto; --pick-top: 4px; /* Call Me's box: Pick a Day under its text */
       /* The height really left for three weeks of days once the header (taller in a wide window: a bigger badge), the
          calendar's labels and the links have theirs (197px: the parts that never change size); the days never grow past
          it. */
-      --room: calc(var(--wh) - 2 * var(--pad) - 1.13 * var(--badge) - var(--head-gap) - var(--chip-h) - var(--dow-top)
+      --room: calc(var(--wh) - 2 * var(--pad) - max(1.13 * var(--badge), 1.4 * var(--kicker) + var(--name) + 1.5 * var(--status)
+        + var(--head-gap)) - var(--head-gap) - var(--chip-h) - var(--dow-top)
         - var(--foot-gap) - var(--foot-pad) - 2 * var(--link-pad) - var(--meta-gap) - 197px);
       /* The smallest a day gets before the calendar scrolls instead (a little smaller where that keeps three weeks whole). */
       --tile-min: clamp(64px, calc(var(--room) / 3), 70px);
@@ -1221,23 +1223,24 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
       background: radial-gradient(60% 120% at 85% 0%, rgba(58, 142, 230, 0.3), transparent 60%), linear-gradient(160deg, var(--hero-a) 0%, var(--hero-b) 100%);
       --rx: calc(var(--bleed) + var(--badge) / 2); --ry: calc(var(--pad) + env(safe-area-inset-top, 0px) + var(--badge) * 0.565);
     }
-    /* His badge, then the eyebrow and his name (one line, unless the name is very long); the status light lines up
-       with his name. With no name (so no badge) both start at the left. */
+    /* His badge on the left, beside one straight column: the eyebrow and his name (one line, unless the name is very
+       long), the status light, then Call Me and the license, all starting at the same edge. With no name (so no badge)
+       the column starts at the left. */
     body:not(.owner) .hero .badge-row { display: contents; }
     body:not(.owner) .hero .badge, body:not(.owner) .hero .who { position: relative; z-index: 1; } /* above the grid, as their row was */
-    body:not(.owner) .hero .badge { grid-column: 1; grid-row: 1; margin-right: var(--badge-gap); }
+    body:not(.owner) .hero .badge { grid-column: 1; grid-row: 1 / span 3; align-self: center; margin-right: var(--badge-gap); }
     body:not(.owner) .hero .shield { width: var(--badge); height: auto; }
     body:not(.owner) .hero .who { grid-column: 2 / -1; grid-row: 1; }
     body:not(.owner) .hero .eyebrow { font-size: var(--kicker); letter-spacing: 0.16em; }
     body:not(.owner) .hero h1 { font-size: var(--name); line-height: 1; }
-    body:not(.owner) .hero .accepting { grid-column: 2; grid-row: 2; margin-top: -4px; font-size: clamp(14px, 1.1vw, 17px); gap: 11px; white-space: nowrap; }
-    /* Call Me and the license in one line at the right (a very long license name wraps inside its button, never the
-       status line); the box they open goes under them. */
-    body:not(.owner) .hero .hchips { grid-column: 3; grid-row: 2; justify-self: end; justify-content: flex-end; flex-wrap: nowrap; align-items: center; gap: 10px; margin-left: 24px; }
+    body:not(.owner) .hero .accepting { grid-column: 2 / -1; grid-row: 2; margin-top: -4px; font-size: var(--status); gap: 11px; white-space: nowrap; }
+    /* Call Me and the license in one line under the status light (a very long license name wraps inside its button);
+       the box they open goes under them. */
+    body:not(.owner) .hero .hchips { grid-column: 2 / -1; grid-row: 3; justify-self: start; justify-content: flex-start; flex-wrap: nowrap; align-items: center; gap: 12px; }
     body:not(.owner) .hero #heroCallBtn { flex: none; }
     body:not(.owner) .hero .hchip { font-size: var(--chip-font); padding: var(--chip-pad); min-height: var(--chip-h); }
     body:not(.owner) .hero .hchip svg { width: 18px; height: 18px; }
-    body:not(.owner) .hero .hero-box { grid-column: 2 / -1; grid-row: 3; justify-self: end; max-width: 460px; }
+    body:not(.owner) .hero .hero-box { grid-column: 2 / -1; grid-row: 4; justify-self: start; max-width: 460px; }
     body:not(.owner) .hero #heroCall { max-width: var(--call-w); grid-template-columns: var(--call-cols); column-gap: 16px; align-items: center; }
     body:not(.owner) .hero #pickDay { grid-area: var(--pick-at); margin-top: var(--pick-top); }
     /* The strip runs along the band's bottom edge, behind the cards; it opens from the gap between them. */
@@ -1319,14 +1322,14 @@ html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0
   /* The shortest windows: a smaller header and tighter spacing keep the whole calendar in view. */
   @media (min-width: 960px) and (min-height: 560px) and (max-height: 640px) {
     body:not(.owner) {
-      --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
-      --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
+      --pad: 18px; --badge: 72px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --status: 15px; --head-gap: 8px; --chip-h: 36px; --chip-pad: 6px 14px;
+      --chip-font: 15px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
     }
   }
   @media (min-width: 960px) and (min-height: 560px) and (max-height: 696px) {
     body.previewing {
-      --pad: 18px; --badge: 52px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --head-gap: 8px; --chip-h: 34px; --chip-pad: 6px 12px;
-      --chip-font: 14px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
+      --pad: 18px; --badge: 72px; --badge-gap: 14px; --name: 40px; --kicker: 12px; --status: 15px; --head-gap: 8px; --chip-h: 36px; --chip-pad: 6px 14px;
+      --chip-font: 15px; --edge: 14px; --note-pad: 7px 10px; --note-font: 14px; --lede: 15px; --dow-top: 12px; --tile-min: 64px; --meta-gap: 0px;
     }
   }
   /* Under about 616px the bar leaves the preview less room than supervisors ever have (their page goes to one column
