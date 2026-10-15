@@ -615,10 +615,9 @@
   // shorter than the shift) is spread evenly. A shift without times counts on the day it's listed.
   const dayNumber = (k) => { const [y, m, d] = k.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
   const minutesOf = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  // forSupervisors: count the way the public numbers do. A shift that runs past midnight is counted as if it ended
-  // at 7 AM (the default overnight end), so the hours left before overtime never depend on his real start and end times.
-  // Otherwise a shift on the pay week's last day would give them away: the hours before midnight are midnight minus the start.
-  function hoursInWeek(weekStartKey, v, forSupervisors) {
+  // Supervisors get these exact numbers too (his choice, Oct 15): a shift on the pay week's last day can give away
+  // its start time (the hours before midnight are midnight minus the start), and he's fine with that.
+  function hoursInWeek(weekStartKey, v) {
     const from = dayNumber(weekStartKey) * 1440, to = from + 7 * 1440;
     let total = 0;
     for (let i = -1; i < 7; i++) {
@@ -628,13 +627,9 @@
       const paid = Number(rec.hours) || 0;
       if (paid <= 0) continue;
       if (rec.start && rec.end) {
-        let start = dayNumber(k) * 1440 + minutesOf(rec.start);
+        const start = dayNumber(k) * 1440 + minutesOf(rec.start);
         let len = minutesOf(rec.end) - minutesOf(rec.start);
         if (len <= 0) len += 1440;
-        if (forSupervisors && minutesOf(rec.start) + len > 1440) {
-          len = paid * 60;
-          start = dayNumber(k) * 1440 + 1860 - len; // ends 7 AM the next morning
-        }
         const inside = Math.max(0, Math.min(start + len, to) - Math.max(start, from));
         total += (paid * inside) / len;
       } else if (i >= 0) {
@@ -695,9 +690,8 @@
     }
     return kind;
   }
-  // Hours left before overtime as supervisors' numbers count them (see hoursInWeek). His colors use the same count,
-  // so what he sees is what they see.
-  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v, true);
+  // Hours left before overtime in a pay week. His colors and supervisors' numbers use the same count.
+  const privLeft = (v) => (w) => v.otAfter - hoursInWeek(w, v);
   const typesOf = (rec, p) => (rec && rec.w ? rec.w : p.willing);
   // Which of the day's shifts would have any overtime.
   const otShifts = (k, v, p, rec) => typesOf(rec, p).filter((t) => otIn(k, defaultSpan(t, v.pickup), p.weekStart, privLeft(v)).ot > 0);
@@ -733,16 +727,18 @@
     }
     return Object.keys(out).sort();
   }
-  // Hours left before overtime in those weeks, so the page can count the overtime in whatever shift time a
-  // supervisor types. He's fine with supervisors working out his weekly total from it, but it should give away
-  // as little else as it can: only weeks within one usual shift of overtime are listed. A week that's missing
-  // has room for at least one usual shift, so a shift no longer than that has no overtime there.
+  // Every pay week the calendar shows, and the next one when a shift can run into it.
+  function pubWeeks(p, days) {
+    const out = {};
+    for (const w of otWeeks(p, days)) out[w] = true;
+    for (const k of Object.keys(days)) out[weekStartOf(k, p.weekStart)] = true;
+    return Object.keys(out).sort();
+  }
+  // Hours left before overtime in each of those weeks: shown over each week ("12 hrs until overtime"), and used to count
+  // the overtime in whatever shift time a supervisor types. He's fine with supervisors seeing his weekly totals (Oct 15).
   function derivePublicOt(p, v, days) {
     const left = {};
-    for (const w of otWeeks(p, days)) {
-      const l = Math.max(0, round2(privLeft(v)(w)));
-      if (l < v.pickup) left[w] = l;
-    }
+    for (const w of pubWeeks(p, days)) left[w] = Math.max(0, round2(privLeft(v)(w)));
     return { shift: v.pickup, left };
   }
   function cleanOt(raw) {
@@ -1447,6 +1443,10 @@
       if (asOwner) {
         const hrs = weekHours(ws, priv, pub.weekStart);
         if (hrs > 0) head.append(h("span", { class: hrs >= priv.otAfter ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${hrs >= priv.otAfter ? " · overtime" : ""}` }));
+      } else {
+        // Supervisors: how many hours the week has before overtime (an older calendar file may not say).
+        const left = pubOt && ws in pubOt.left ? pubOt.left[ws] : null;
+        if (left != null) head.append(h("span", { class: left <= 0 ? "hrs over" : "hrs", text: left <= 0 ? "Overtime" : `${num(left)} ${left === 1 ? "hr" : "hrs"} until overtime` }));
       }
       frag.append(h("div", { class: "week" }, head, days));
     });
@@ -3081,9 +3081,6 @@
     const info = ownerInfo(k);
     const ws = weekStartOf(k, pub.weekStart);
     let line = `${weekLabel(ws)}: ${num(info.booked)} hrs scheduled.`;
-    // A shift that runs past midnight at a pay-week edge counts as ending at 7 AM for supervisors' numbers.
-    const theirs = hoursInWeek(ws, priv, true);
-    if (theirs !== info.booked) line += ` For supervisors it counts as ${num(theirs)}, since a shift past midnight is counted as ending at 7 AM to keep your times private.`;
     const shift = `One more ${num(priv.pickup)}-hr shift`;
     if (info.kind === "ot") line += ` ${shift} would be all overtime, so supervisors see yellow.`;
     else if (info.kind === "pot") line += ` Part of ${shift.toLowerCase()} would be overtime, so supervisors see P-OT (half green, half yellow).`;
@@ -4130,7 +4127,7 @@
   function fileBehind(file, v, read) {
     const p = file.pub, today = todayKey();
     const upcoming = (days) => JSON.stringify(Object.keys(days).filter((k) => k >= today).sort().map((k) => [k, days[k]]));
-    const derived = derivePublic(p, v), weeks = otWeeks(p, derived);
+    const derived = derivePublic(p, v), weeks = pubWeeks(p, derived);
     const nearOt = (o) => (o ? JSON.stringify([o.shift, weeks.map((w) => (w in o.left ? o.left[w] : null))]) : "");
     const otBehind = read && nearOt(file.ot) !== nearOt(derivePublicOt(p, v, derived));
     return !!file.migrated || upcoming(file.days) !== upcoming(derived) || !same(file.weekly, weeklyPublic(v)) || otBehind;
@@ -4349,7 +4346,8 @@
   // The private variable's contents, trimmed of old days if it would be too big for GitHub. copy: see pubCopy (save).
   function privatePayload(v, ws, copy) {
     const today = todayKey();
-    for (const cutoff of [addDays(today, -60), addDays(today, -14), weekStartOf(today, ws)]) {
+    // Even when space is short, the day before this pay week stays: an overnight on it runs into this week's hours.
+    for (const cutoff of [addDays(today, -60), addDays(today, -14), addDays(weekStartOf(today, ws), -1)]) {
       const out = Object.assign({}, v, { v: 2, rev: "", days: {} }, copy ? { pubCopy: copy } : {});
       for (const k of Object.keys(v.days).sort()) if (k >= cutoff) out.days[k] = v.days[k];
       const text = JSON.stringify(out);

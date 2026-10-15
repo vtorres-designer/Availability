@@ -23,7 +23,7 @@
      fallback fonts until they're in). -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
-<link rel="stylesheet" href="app.css?v=41">
+<link rel="stylesheet" href="app.css?v=42">
 </head>
 <body>
 <main class="page">
@@ -72,7 +72,7 @@
   </header>
 
   <section class="owner-banner" id="ownerBanner" hidden>
-    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>. They see colors and, in weeks within one shift of overtime, how many hours you have left before it. Not your times or notes.</p>
+    <p><b>Edit mode.</b> Only you see this. Supervisors see your calendar after you tap <b>Save</b>. They see colors and, for each week, how many hours you have left before overtime. Not your notes.</p>
     <p id="ownerHints"></p>
     <div class="row-btns">
       <button type="button" class="btn ghost sm" id="previewBtn">See What Supervisors See</button>
@@ -653,7 +653,7 @@ Thu 10/15 2300-0700</pre>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="parser.js?v=41"></script>
-<script src="app.js?v=41" onerror="document.documentElement.classList.add('app-failed')"></script>
+<script src="parser.js?v=42"></script>
+<script src="app.js?v=42" onerror="document.documentElement.classList.add('app-failed')"></script>
 </body>
 </html>
