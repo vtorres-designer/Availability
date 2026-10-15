@@ -1538,9 +1538,9 @@
       hints.append(h("b", { text: standIn ? "Fix your GitHub key to see and edit your hours. " : "Fix your GitHub key to save. " }),
         h("button", { type: "button", class: "linkish", text: "Show Me How", onclick: () => showSheet("#keySheet") }));
     } else if (!Object.keys(priv.days).length) {
-      hints.append("Every day is gray until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or pick a tool below and tap days.");
+      hints.append("Every day is blank until you mark it. Tap ", h("b", { text: "Add Schedule" }), " to paste your work schedule, or tap a day to edit it.");
     } else {
-      hints.append("Tap a tool below, then tap days. Red: working or busy. Green: available. Yellow (any overtime) shows up on its own.");
+      hints.append("Tap a day to edit it. Red: working or busy. Green: available. Yellow (any overtime) shows up on its own.");
     }
     if (priv.weekly.length) hints.append(h("br"), "↻ marks your every-week days from Settings.");
     if (!pub.phone) hints.append(h("br"), "Add your cell number in Settings so supervisors can text you.");
@@ -4636,7 +4636,7 @@
     try {
       const st = await loadOwnerState(token);
       owner = true;
-      brush = ["edit", "work", "busy", "open"].includes(store.get(LS.brush)) ? store.get(LS.brush) : "edit";
+      brush = "edit"; // the tap tools are gone (Oct 15): tapping a day always opens Edit Day
       saved = { pub: clone(st.pub), priv: clone(st.priv) };
       pubSha = st.pubSha;
       privAt = st.privAt;
