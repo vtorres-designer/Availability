@@ -2020,12 +2020,13 @@
   function textForm(k, info, type, back, status, opts) {
     const pot = !type, ctx = (opts && opts.ctx) || { ack: "" };
     const remembered = (key) => store.get(key) || "";
+    // Each box's name sits in grey inside it until something's typed, like Start and End.
     const field = (id, label, attrs, value) => {
-      const input = h("input", Object.assign({ type: "text", id }, attrs));
+      const input = h("input", Object.assign({ type: "text", id, placeholder: label, "aria-label": label }, attrs));
       input.value = value || "";
-      return { input, el: h("label", { class: "field" }, h("span", { class: "label", text: label }), input) };
+      return { input, el: h("div", { class: "field" }, input) };
     };
-    const who = field("txWho", "Your Name (optional)", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
+    const who = field("txWho", "Your Name", { maxlength: "40", autocomplete: "name" }, remembered(LS.who));
     // When the shift starts and ends, each with its AM/PM bar; a time that can't be read says so under them.
     const startF = clockField("txStart", "Start", () => refresh(), null);
     const endF = clockField("txEnd", "End", () => refresh(), null);
@@ -2044,9 +2045,9 @@
       barWatch = onWidth(bar, () => fitBar(bar));
     };
     const time = { el: h("div", { class: "stack" }, h("div", { class: "clocks" }, startF.el, endF.el), clockHint, barBox) };
-    const site = field("txSite", "Site Name (optional)", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
-    const addr = field("txAddr", "Site Address (optional)", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
-    const pay = field("txPay", "Pay Rate (optional)", { maxlength: "30", placeholder: "e.g. $22/hr", autocomplete: "off" }, remembered(LS.pay));
+    const site = field("txSite", "Site Name", { maxlength: "60", autocomplete: "organization" }, remembered(LS.site));
+    const addr = field("txAddr", "Site Address", { maxlength: "100", autocomplete: "street-address" }, remembered(LS.addr));
+    const pay = field("txPay", "Pay Rate", { maxlength: "30", autocomplete: "off" }, remembered(LS.pay));
     // How much of the shift would be overtime, counted from the typed time. Without one it's told without numbers.
     // On a P-OT day a time he doesn't take is a no. An older calendar file only says whether the day is overtime
     // (and, on a pay week's last day, for which shifts).
@@ -2153,7 +2154,7 @@
     const nodes = [h("div", { class: "tx-grid" },
       h("div", { class: "tx-col" },
         h("div", { class: "field-head shift-chosen" }, shiftLabel),
-        h("p", { class: "muted small", text: "What you fill in is added to the message." }),
+        h("p", { class: "muted small", text: "All optional. What you fill in is added to the message." }),
         who.el,
         time.el,
         site.el,
