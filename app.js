@@ -1397,6 +1397,7 @@
     $("#updated").textContent = updated && !loadError ? `Updated ${readout(new Date(updated))}` : "";
 
     renderHero();
+    aimWave();
     // His front-page notes get a box of their own, noticed every visit.
     fillNotes($("#noteBox"), "front");
 
@@ -5177,6 +5178,24 @@
   // and then for good: the status light and his name glow together, the days he can take breathe together, the
   // grid drifts, the arrow nudges, and the button icons glitch now and then. All timings live in app.css.
   // A slow connection shows the page as it is after 1.5 s, with only the lasting effects. Reduced motion: none of it.
+  // A computer's wide header (supervisors' view): its waves start from the middle of the whole group (badge, name,
+  // status and buttons) that falls onto the grid, not from the badge. Measured from what's drawn, not the boxes (the
+  // name's box runs on to the window's edge), each time the header is drawn and when the window changes size.
+  function aimWave() {
+    const hero = $(".hero");
+    if (!hero) return;
+    hero.style.removeProperty("--wx");
+    hero.style.removeProperty("--wy");
+    if (!window.matchMedia("(min-width: 960px) and (min-height: 560px)").matches || ownerView()) return;
+    const drawn = (el) => { const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); };
+    const rs = [".hero .badge", "#title", "#accepting", "#heroChips"].map((q) => $(q)).filter((el) => el && !el.hidden).map(drawn).filter((r) => r.width > 0);
+    if (!rs.length) return;
+    const hr = hero.getBoundingClientRect();
+    hero.style.setProperty("--wx", `${(Math.min(...rs.map((r) => r.left)) + Math.max(...rs.map((r) => r.right))) / 2 - hr.left}px`);
+    hero.style.setProperty("--wy", `${(Math.min(...rs.map((r) => r.top)) + Math.max(...rs.map((r) => r.bottom))) / 2 - hr.top}px`);
+  }
+  window.addEventListener("resize", () => aimWave());
+
   let revealed = false;
   function reveal(animate) {
     if (revealed) return;
@@ -5188,6 +5207,7 @@
     if (getComputedStyle(page).opacity !== "0") animate = false;
     root.classList.remove("intro");
     try { if (window.CSS && CSS.registerProperty) { CSS.registerProperty({ name: "--r", syntax: "<length>", inherits: false, initialValue: "0px" }); root.classList.add("ripple-ok"); } } catch (e) { /* already registered */ }
+    aimWave();
     root.classList.add("lit");
     syncBreath();
     if (!animate) return;

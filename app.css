@@ -119,13 +119,13 @@ a { color: var(--accent); }
 .hero > :not(.fx) { position: relative; z-index: 1; }
 .hero .grid {
   background:
-    linear-gradient(var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px,
-    linear-gradient(90deg, var(--hero-grid) 1px, transparent 1px) 0 0 / 18px 18px;
+    linear-gradient(var(--hero-grid) 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px),
+    linear-gradient(90deg, var(--hero-grid) 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px);
 }
 .hero .ripple {
   opacity: 0;
-  -webkit-mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
-  mask: linear-gradient(#000 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / 18px 18px;
+  -webkit-mask: linear-gradient(#000 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px), linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px);
+  mask: linear-gradient(#000 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px), linear-gradient(90deg, #000 1px, transparent 1px) 0 0 / var(--cell, 18px) var(--cell, 18px);
 }
 /* The strip under the header: its colors flow along it once it has turned on. They sit on a layer of their own, so
    the strip can open from the middle without hiding the sparkle it opens from. (--sx: where it opens from, if not the
@@ -657,6 +657,43 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
     animation: breathe 3s var(--bd, 0s) ease-in-out infinite;
   }
 }
+/* A computer (supervisors' wide header only; phones keep the badge's ring): the whole group (badge, name, status and
+   buttons) falls onto the grid, from a little above and a little bigger, its shadow tightening as it lands; as it lands,
+   three waves of light run out from its middle across the whole grid, stretched wide like the group. */
+/* A computer's wide header has bigger grid squares, to suit its size (phones keep 18px), and slightly brighter lines, so they show across the wide band. */
+@media (min-width: 960px) and (min-height: 560px) { body:not(.owner) .hero { --cell: 40px; --hero-grid: rgba(120, 180, 255, 0.12); } }
+@media (prefers-reduced-motion: no-preference) and (min-width: 960px) and (min-height: 560px) {
+  /* The calendar and the panel beside it shake as the group lands, while the waves cross the grid. The group touches
+     down at 0.57 s (0.15 s in, 65% of its 0.65 s fall): the shake and the waves start then, together. */
+  .opening body:not(.owner) .page > .cal, .opening body:not(.owner) .page::after, .opening body:not(.owner) .page > .top > .error,
+  .opening body:not(.owner) .page > .top > .note-box, .opening body:not(.owner) .page > .top > .lede,
+  .opening body:not(.owner) .page > .key { animation: impact-shake 0.75s 0.57s ease-out; }
+  .opening body:not(.owner) .hero .badge, .opening body:not(.owner) .hero .who, .opening body:not(.owner) .hero .accepting,
+  .opening body:not(.owner) .hero .hchips { animation: hero-fall 0.65s cubic-bezier(0.35, 0, 0.25, 1) 0.15s backwards; }
+  .opening body:not(.owner) #title .ch { animation: none; } /* the name falls with the rest of the group */
+  .lit.ripple-ok body:not(.owner) .hero .ripple {
+    background:
+      radial-gradient(ellipse calc(var(--r) * 1.7) var(--r) at var(--wx, var(--rx)) var(--wy, var(--ry)), transparent 86%, rgba(150, 215, 255, 0.95) 97%, transparent 100%),
+      radial-gradient(ellipse calc(var(--r) * 1.19) calc(var(--r) * 0.7) at var(--wx, var(--rx)) var(--wy, var(--ry)), transparent 84%, rgba(150, 215, 255, 0.7) 97%, transparent 100%),
+      radial-gradient(ellipse calc(var(--r) * 0.75) calc(var(--r) * 0.44) at var(--wx, var(--rx)) var(--wy, var(--ry)), transparent 80%, rgba(150, 215, 255, 0.5) 97%, transparent 100%);
+    animation: ripple-wide 2.6s 0.57s cubic-bezier(0.2, 0.6, 0.35, 1), mask-drift 8s linear infinite;
+  }
+}
+@keyframes hero-fall {
+  0% { opacity: 0; transform: translateY(-36px) scale(1.08); filter: drop-shadow(0 34px 22px rgba(0, 0, 0, 0.55)); }
+  65% { opacity: 1; transform: translateY(3px) scale(0.99); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45)); }
+  100% { transform: none; filter: none; }
+}
+@keyframes impact-shake {
+  0%, 100% { transform: none; }
+  10% { transform: translate(-5px, 3px) rotate(-0.35deg); }
+  22% { transform: translate(5px, -2px) rotate(0.3deg); }
+  34% { transform: translate(-4px, 2px) rotate(-0.25deg); }
+  46% { transform: translate(3px, -1px) rotate(0.15deg); }
+  60% { transform: translate(-2px, 1px); }
+  75% { transform: translate(1px, 0); }
+}
+@keyframes ripple-wide { 0% { opacity: 1; --r: 0px; } 75% { opacity: 1; } 100% { opacity: 0; --r: 1500px; } }
 @keyframes intro-failsafe { to { opacity: 1; visibility: visible; } }
 @keyframes inhale { 0% { opacity: 0; transform: scale(0.975); } 65% { opacity: 1; transform: scale(1.006); } 100% { transform: none; } }
 /* Where the page reaches the window's edges (phones, and the laptop layout: the header band supervisors see, edit mode
@@ -674,8 +711,9 @@ body.u-fab.previewing > .toast { bottom: calc(var(--bar-h, 56px) + 84px); }
 }
 @keyframes flow { from { background-position: 0 0; } to { background-position: -200% 0; } }
 @keyframes spark { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 30% { opacity: 1; transform: scale(1.3) rotate(45deg); } 60% { opacity: 1; transform: scale(0.9) rotate(70deg); } 100% { opacity: 0; transform: scale(0.2) rotate(90deg); } }
-@keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 18px 18px, 18px 18px; } }
-@keyframes mask-drift { from { -webkit-mask-position: 0 0, 0 0; mask-position: 0 0, 0 0; } to { -webkit-mask-position: 18px 18px, 18px 18px; mask-position: 18px 18px, 18px 18px; } }
+/* One grid square's worth of drift (--cell: a square's size, bigger in a computer's wide header). */
+@keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: var(--cell, 18px) var(--cell, 18px), var(--cell, 18px) var(--cell, 18px); } }
+@keyframes mask-drift { from { -webkit-mask-position: 0 0, 0 0; mask-position: 0 0, 0 0; } to { -webkit-mask-position: var(--cell, 18px) var(--cell, 18px), var(--cell, 18px) var(--cell, 18px); mask-position: var(--cell, 18px) var(--cell, 18px), var(--cell, 18px) var(--cell, 18px); } }
 @keyframes ripple { 0% { opacity: 1; --r: 0px; } 80% { opacity: 1; } 100% { opacity: 0; --r: 460px; } }
 @keyframes chip-shine { 0% { opacity: 1; transform: translateX(-120%) skewX(-20deg); } 100% { opacity: 1; transform: translateX(320%) skewX(-20deg); } }
 @keyframes icon-glitch { 0%, 91%, 100% { filter: none; transform: none; } 92% { filter: drop-shadow(-2px 0 #ff4f7b) drop-shadow(2px 0 #45e8ff); transform: translateX(1px); } 93% { filter: drop-shadow(2px 0 #ff4f7b) drop-shadow(-2px 0 #45e8ff); transform: translateX(-1px) skewX(-8deg); } 94% { filter: drop-shadow(-1px 0 #ff4f7b); transform: none; } 95% { filter: none; } }
