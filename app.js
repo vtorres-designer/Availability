@@ -490,11 +490,17 @@
     } else if (rec.s === "open") {
       const w = cleanWilling(rec.w);
       out = w ? { s: "open", w } : { s: "open" };
-    } else if (rec.s === "none") out = { s: "none" };
+      const note = cleanNote(rec.note); // a note on a day off too (Oct 15 audit: Edit Day's note showed on every day)
+      if (note) out.note = note;
+    } else if (rec.s === "none") {
+      out = { s: "none" };
+      const note = cleanNote(rec.note);
+      if (note) out.note = note;
+    }
     if (!out) return null;
     const o = cleanPicks(rec.o);
     if (o) out.o = o;
-    else if (out.s === "none") return null;
+    else if (out.s === "none" && !out.note) return null; // nothing on it
     return out;
   }
   // The shifts he works on a day (none unless it's a work day).
@@ -743,7 +749,9 @@
     const today = todayKey();
     for (const k of Object.keys(v.days).sort()) {
       if (k < today) continue;
-      const types = offerOf(v.days[k], p);
+      const rec = v.days[k];
+      if (rec.s === "none" && !rec.o) continue; // only his note on it: still a blank day
+      const types = offerOf(rec, p);
       if (!types.length) { out[k] = { s: "busy" }; continue; }
       const ots = otShifts(k, v, p, types);
       out[k] = sameSet(types, p.willing) ? { s: ots.length ? "ot" : "open" } : { s: ots.length ? "ot" : "open", w: types };
@@ -1184,7 +1192,13 @@
   // A new schedule entry for a day keeps his per-shift choices from Edit Day: they override whatever the schedule says.
   function setDayKeep(k, rec) {
     const o = priv.days[k] && priv.days[k].o;
-    setDay(k, o ? cleanPrivRec(Object.assign({}, rec || { s: "none" }, { o }), priv.pickup) : rec);
+    if (!o) { setDay(k, rec); return; }
+    // Cleared back to nothing: an every-week day goes back to its weekly shift, still with his choices (Oct 15 audit:
+    // a bare "none" would have hidden the weekly hours).
+    let base = rec;
+    const rule = rec ? null : ruleOn(k, priv);
+    if (rule) { base = Object.assign({}, rule); delete base.d; delete base.from; }
+    setDay(k, cleanPrivRec(Object.assign({}, base || { s: "none" }, { o }), priv.pickup));
   }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
@@ -1207,7 +1221,7 @@
     const rec = dayRec(k, priv);
     const booked = weekHours(k, priv, pub.weekStart);
     const base = { past: k < todayKey(), booked, rec, weekly: !!(rec && rec.weekly) };
-    if (!rec) return Object.assign(base, { kind: "unset" });
+    if (!rec || (rec.s === "none" && !rec.o)) return Object.assign(base, { kind: "unset" });
     const types = offerOf(rec, pub);
     if (!types.length) return Object.assign(base, { kind: rec.s === "work" ? "work" : "busy" });
     return Object.assign(base, { kind: otKind(k, types, priv.pickup, pub.weekStart, privLeft(priv)) });
@@ -2520,6 +2534,12 @@
       Z = Math.max(1, Math.min((vh - 90) / col.offsetHeight, (vw * 0.45) / W, 2));
       col.style.transform = `scale(${Z})`;
       corner.style.fontSize = `${Math.round(Math.min(34 * Z, 64))}px`; // as big as the date it sits beside, roughly
+    } else if (col.offsetHeight > vh - 32) {
+      // A short window (a phone turned sideways): the whole group shrinks to fit, from its middle, so every shift can be
+      // reached. It used to run off the bottom with no way to scroll to it (Oct 15 audit).
+      Z = (vh - 32) / col.offsetHeight;
+      col.style.top = `${(vh - col.offsetHeight) / 2}px`;
+      col.style.transform = `scale(${Z})`;
     }
     // From the keyboard, focus goes to the first shift he takes, ready for Enter. After a tap it rests on the window
     // itself, so no focus ring shows on a button nobody has touched.
@@ -3525,7 +3545,8 @@
     else if ((editWas && editWas.s === "work") || (!editWas && rule && rule.s === "work")) rec = { s: "open" }; // its shift was cancelled: a day off
     else if (!editWas && rule) rec = { s: "busy" };
     else rec = { s: "none" };
-    const out = cleanPrivRec(Object.assign(rec, { o }), priv.pickup);
+    // The sticky note belongs to the day, with or without a shift on it.
+    const out = cleanPrivRec(Object.assign(rec, { o, note: $("#workNote").value }), priv.pickup);
     // An every-week day left as Settings has it keeps following Settings.
     if (!editWas && rule && out && JSON.stringify(out) === JSON.stringify(cleanPrivRec({ s: rule.s, start: rule.start, end: rule.end, hours: rule.hours }, priv.pickup))) return null;
     return out;
@@ -3544,7 +3565,7 @@
     editWas = priv.days[k] ? clone(priv.days[k]) : null;
     editRows = workShifts(rec).map((x) => shiftRow(x));
     $("#shiftRows").replaceChildren(...editRows.map((r) => r.el));
-    $("#workNote").value = rec && rec.s === "work" && rec.note ? rec.note : "";
+    $("#workNote").value = rec && rec.note ? rec.note : "";
     const o = (rec && rec.o) || {};
     $("#pickRows").replaceChildren(...SHIFT_KEYS.map((t) => pickRow(t, o[t])));
     refreshEdit();
@@ -4487,7 +4508,15 @@
   // While dragging (Oct 15): the section lifts and follows the pointer, a grey dotted outline marks where it will land,
   // and the other sections slide out of its way. Letting go drops it into the outline.
   function dragSection(g, grip) {
-    let slot = null, startY = 0, top0 = 0, startX = 0, left0 = 0, scroller = null, before = "";
+    let slot = null, startY = 0, top0 = 0, startX = 0, left0 = 0, scroller = null, before = "", last = null, tick = 0;
+    // The box that really scrolls around the sections (the Settings window itself, as it turns out).
+    const scrollBox = (el) => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const oy = getComputedStyle(p).overflowY;
+        if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 1) return p;
+      }
+      return document.scrollingElement || document.documentElement;
+    };
     const tiled = () => $("#secList").classList.contains("tiles");
     const others = () => foldGroups().filter((o) => o !== g && !o.hidden);
     // Slides each section from where it was to where it is now.
@@ -4498,11 +4527,26 @@
       o.style.transform = `translate(${dx}px, ${dy}px)`;
       requestAnimationFrame(() => { o.style.transition = "transform 0.18s ease"; o.style.transform = ""; });
     });
+    // Held near the top or bottom edge, Settings keeps scrolling (faster nearer the edge), even while the finger is still
+    // (Oct 15 audit: it only scrolled while the finger moved, so on a small phone a section couldn't reach the top).
+    const edgeScroll = () => {
+      tick = 0;
+      if (!last) return;
+      const box = scroller === document.scrollingElement ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect();
+      const zone = 70, up = box.top + zone - last.clientY, down = last.clientY - (box.bottom - zone);
+      const step = up > 0 ? -Math.ceil(up / 4) : down > 0 ? Math.ceil(down / 4) : 0;
+      if (step) {
+        const was = scroller.scrollTop;
+        scroller.scrollTop += step;
+        if (scroller.scrollTop !== was) place(last);
+      }
+      tick = requestAnimationFrame(edgeScroll);
+    };
     const move = (e) => {
-      // Near the top or bottom edge, Settings scrolls along.
-      const box = scroller.getBoundingClientRect();
-      if (e.clientY < box.top + 50) scroller.scrollTop -= 12;
-      else if (e.clientY > box.bottom - 50) scroller.scrollTop += 12;
+      last = { clientX: e.clientX, clientY: e.clientY };
+      place(last);
+    };
+    const place = (e) => {
       g.style.top = `${top0 + e.clientY - startY}px`;
       if (tiled()) g.style.left = `${left0 + e.clientX - startX}px`;
       const list = others(), from = list.map((o) => o.getBoundingClientRect());
@@ -4519,12 +4563,16 @@
       glide(list, from);
     };
     const stop = () => {
+      cancelAnimationFrame(tick);
+      tick = 0;
+      last = null;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("pointercancel", stop);
       const from = g.getBoundingClientRect();
       slot.replaceWith(g);
       g.classList.remove("dragging");
+      document.documentElement.classList.remove("sec-dragging");
       Object.assign(g.style, { position: "", top: "", left: "", width: "", zIndex: "" });
       glide([g], [from]);
       const now = foldGroups().map((x) => x.dataset.sec).join();
@@ -4534,7 +4582,7 @@
     };
     grip.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      scroller = g.closest(".sheet-in") || document.scrollingElement;
+      scroller = scrollBox(g);
       before = foldGroups().map((x) => x.dataset.sec).join();
       const r = g.getBoundingClientRect();
       slot = h("div", { class: "fold-slot", "aria-hidden": "true" });
@@ -4542,10 +4590,14 @@
       g.before(slot);
       startY = e.clientY; top0 = r.top; startX = e.clientX; left0 = r.left;
       g.classList.add("dragging");
+      document.documentElement.classList.add("sec-dragging");
+      try { window.getSelection().removeAllRanges(); } catch (x) { /* ignore */ }
       Object.assign(g.style, { position: "fixed", top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, zIndex: "50" });
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop);
       window.addEventListener("pointercancel", stop);
+      last = { clientX: e.clientX, clientY: e.clientY };
+      tick = requestAnimationFrame(edgeScroll);
     });
   }
   // A small picture for each section, shown on its tile.

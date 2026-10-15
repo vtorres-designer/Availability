@@ -298,7 +298,7 @@
     const leadingZero = tok.length >= 2 && tok[0] === "0";
     if (h >= 13 || h === 0 || leadingZero || (tok.length === 4 && /^\d{4}$/.test(tok))) {
       if (h > 24 || (h === 24 && m > 0)) return { error: true };
-      return { min: (h % 24) * 60 + m };
+      return h === 24 ? { min: 0, end24: true } : { min: (h % 24) * 60 + m };
     }
     return { bare: h, bareMin: m };
   }
@@ -315,6 +315,8 @@
     const b = readTime(r[7], r[8]);
     if (a.mixed || b.mixed) return Object.assign(span, { error: `"${text}" mixes 24-hour time with AM/PM. Write 2300-0700 with no AM/PM. If AM or PM belongs to a note, put the note in quotes.` });
     if (a.error || b.error) return Object.assign(span, { error: `"${text}" isn't a time I can read. Write it like 2300-0700 or 11pm-7am.` });
+    // 2400 is midnight at the end of the date, so a shift starting then really starts on the next date (Oct 15 audit).
+    if (a.end24) return Object.assign(span, { error: `"${text}" starts at 2400, midnight at the end of this date. Put it on the next date starting at 0000, or use the start time your schedule shows.` });
     const ambiguous = () => Object.assign(span, { error: `"${text}" could be morning or night. Add am/pm (11pm-7am) or use 24-hour time (2300-0700).` });
     if (a.min == null && b.min == null) return ambiguous();
     // One side could be AM or PM ("11-7am"): pick the one that makes the shift closest to 8 hours.
