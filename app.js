@@ -98,7 +98,7 @@
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
   const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", nightStart: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [] });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [], setView: "list" });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -563,6 +563,7 @@
     d.weekly = cleanWeekly(r.weekly, d.pickup);
     d.uniformCode = cleanCode(r.uniformCode);
     // The order he dragged Settings' sections into (Oct 15), by their keys.
+    if (r.setView === "tiles") d.setView = "tiles"; // Settings as a list or as tiles (Oct 15)
     if (Array.isArray(r.secOrder)) d.secOrder = r.secOrder.filter((x) => typeof x === "string" && /^[a-z]{1,20}$/.test(x)).slice(0, 30);
     if (r.days && typeof r.days === "object") {
       for (const [k, v] of Object.entries(r.days)) {
@@ -895,7 +896,7 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (f !== "uniform" && f !== "notes" && JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup", "secOrder"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup", "secOrder", "setView"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Notes, each on its own (by id) like My Uniform's items below, so a change to one note never undoes another's.
     d.nt = { items: {}, order: pub.notes.map((n) => n.id) };
     for (const id of new Set([...pub.notes, ...saved.pub.notes].map((n) => n.id))) {
@@ -971,6 +972,7 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
+    { const e = d.priv && d.priv.setView; if (e && take(e, priv.setView)) priv.setView = e.to === "tiles" ? "tiles" : "list"; }
     { const e = d.priv && d.priv.secOrder; if (e && Array.isArray(e.to) && take(e, priv.secOrder)) priv.secOrder = normalizePriv({ secOrder: e.to }).secOrder; }
     const full = { notes: applyNotes(d.nt, take), items: applyUniform(d.uni, take) };
     for (const [w, e] of Object.entries(d.wk || {})) {
@@ -4485,14 +4487,15 @@
   // While dragging (Oct 15): the section lifts and follows the pointer, a grey dotted outline marks where it will land,
   // and the other sections slide out of its way. Letting go drops it into the outline.
   function dragSection(g, grip) {
-    let slot = null, startY = 0, top0 = 0, scroller = null, before = "";
+    let slot = null, startY = 0, top0 = 0, startX = 0, left0 = 0, scroller = null, before = "";
+    const tiled = () => $("#secList").classList.contains("tiles");
     const others = () => foldGroups().filter((o) => o !== g && !o.hidden);
     // Slides each section from where it was to where it is now.
     const glide = (list, from) => list.forEach((o, i) => {
-      const dy = from[i] - o.getBoundingClientRect().top;
-      if (!dy) return;
+      const r = o.getBoundingClientRect(), dx = from[i].left - r.left, dy = from[i].top - r.top;
+      if (!dx && !dy) return;
       o.style.transition = "none";
-      o.style.transform = `translateY(${dy}px)`;
+      o.style.transform = `translate(${dx}px, ${dy}px)`;
       requestAnimationFrame(() => { o.style.transition = "transform 0.18s ease"; o.style.transform = ""; });
     });
     const move = (e) => {
@@ -4501,9 +4504,15 @@
       if (e.clientY < box.top + 50) scroller.scrollTop -= 12;
       else if (e.clientY > box.bottom - 50) scroller.scrollTop += 12;
       g.style.top = `${top0 + e.clientY - startY}px`;
-      const list = others(), from = list.map((o) => o.getBoundingClientRect().top);
+      if (tiled()) g.style.left = `${left0 + e.clientX - startX}px`;
+      const list = others(), from = list.map((o) => o.getBoundingClientRect());
       let target = null;
-      for (const o of list) { const r = o.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { target = o; break; } }
+      for (const o of list) {
+        const r = o.getBoundingClientRect();
+        // A list: above a section's middle. Tiles: on an earlier row, or on its row left of its middle.
+        const ahead = tiled() ? e.clientY < r.top || (e.clientY <= r.bottom && e.clientX < r.left + r.width / 2) : e.clientY < r.top + r.height / 2;
+        if (ahead) { target = o; break; }
+      }
       const where = target ? target : list[list.length - 1].nextSibling;
       if (slot.nextSibling === where || slot === where) return;
       if (target) target.before(slot); else list[list.length - 1].after(slot);
@@ -4513,7 +4522,7 @@
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("pointercancel", stop);
-      const from = g.getBoundingClientRect().top;
+      const from = g.getBoundingClientRect();
       slot.replaceWith(g);
       g.classList.remove("dragging");
       Object.assign(g.style, { position: "", top: "", left: "", width: "", zIndex: "" });
@@ -4531,13 +4540,39 @@
       slot = h("div", { class: "fold-slot", "aria-hidden": "true" });
       slot.style.height = `${r.height}px`;
       g.before(slot);
-      startY = e.clientY; top0 = r.top;
+      startY = e.clientY; top0 = r.top; startX = e.clientX; left0 = r.left;
       g.classList.add("dragging");
       Object.assign(g.style, { position: "fixed", top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, zIndex: "50" });
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop);
       window.addEventListener("pointercancel", stop);
     });
+  }
+  // A small picture for each section, shown on its tile.
+  const SEC_ICONS = {
+    info: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.3-7 8-7s7 2.5 8 7"/>',
+    offer: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+    status: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+    weekly: '<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
+    notes: '<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/>',
+    license: '<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="11" r="2.2"/><path d="M4.8 16c.6-1.6 1.8-2.4 3.2-2.4s2.6.8 3.2 2.4M14 10h5M14 13.5h3.5"/>',
+    uniform: '<path d="M8 3l-5 3 2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.6-2 2.5-4 2.5S8.5 4.6 8 3z"/>',
+    creds: '<path d="M6 2h9l4 4v16H6z"/><path d="M15 2v4h4"/><circle cx="12.5" cy="13" r="3"/><path d="M11 15.5l-1 4 2.5-1.3 2.5 1.3-1-4"/>',
+    feedback: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    payweek: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h3M7 17.5h3M14 14h3M14 17.5h3"/>',
+    shifttimes: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    pot: '<circle cx="12" cy="12" r="9"/>',
+  };
+  function secIcon(k) {
+    const el = h("span", { class: "fold-icon", "aria-hidden": "true" });
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${SEC_ICONS[k] || ""}</svg>`;
+    return el;
+  }
+  // List or tiles, as he last picked (saved with his settings).
+  function showView() {
+    const tiles = priv.setView === "tiles";
+    $("#secList").classList.toggle("tiles", tiles);
+    for (const b of document.querySelectorAll(".view-pick .vp")) b.setAttribute("aria-pressed", String((b.dataset.view === "tiles") === tiles));
   }
   function openSettings() {
     noteSel = "";
@@ -4556,6 +4591,7 @@
     potAtOpen = { from: pub.potFrom, to: pub.potTo };
     fillSettings(false);
     applySecOrder();
+    showView();
     renderWeekly();
     $("#repoLine").textContent = `Saves to github.com/${REPO.owner}/${REPO.name}`;
     showSheet("#settingsSheet");
@@ -5153,9 +5189,22 @@
     });
     $("#addShift").addEventListener("click", addShiftRow);
     // Settings sections fold to their titles (Oct 15): tap a title to open or close it. All start closed.
+    // The sections live in one box, so they can be shown as a list or as tiles (Oct 15).
+    {
+      const all = [...document.querySelectorAll("#settingsSheet [data-fold]")];
+      const box = h("div", { id: "secList", class: "sec-list" });
+      all[0].before(box);
+      box.append(...all);
+      for (const b of document.querySelectorAll(".view-pick .vp")) b.addEventListener("click", () => {
+        if (priv.setView === b.dataset.view || (b.dataset.view === "list" && priv.setView !== "tiles")) return;
+        priv.setView = b.dataset.view;
+        showView();
+        afterChange();
+      });
+    }
     for (const g of document.querySelectorAll("#settingsSheet [data-fold]")) {
       const grip = h("span", { class: "fold-grip", title: "Drag to move this section", "aria-hidden": "true" });
-      const head = h("button", { type: "button", class: "fold-head", "aria-expanded": "false" }, grip, h("span", { class: "fold-name", text: g.dataset.fold }), h("i", { class: "fold-chev", "aria-hidden": "true" }));
+      const head = h("button", { type: "button", class: "fold-head", "aria-expanded": "false" }, grip, secIcon(g.dataset.sec), h("span", { class: "fold-name", text: g.dataset.fold }), h("i", { class: "fold-chev", "aria-hidden": "true" }));
       dragSection(g, grip);
       head.addEventListener("click", (e) => {
         if (e.target.closest(".fold-grip") || g.dragged) return;
