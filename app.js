@@ -98,7 +98,7 @@
   // uniform: My Uniform's clothes and the code's hash (see "My Uniform: the data"); the code itself is private (uniformCode).
   const defaultPub = () => ({ name: "", empId: "", phone: "", notes: [nightNote("n1", NIGHT_LINE)], willing: ["overnight"], status: "", led: "green", nightStart: "", weekStart: 0, feedback: "", potFrom: "", potTo: "", potMax: 0, callHours: 10,
     licName: "", licNo: "", licIssued: "", licExpires: "", uniform: { hash: "", items: [] } });
-  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [], setView: "list" });
+  const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [], secView: "tiles" });
 
   // ---------- small helpers ----------
   const $ = (s) => document.querySelector(s);
@@ -569,7 +569,9 @@
     d.weekly = cleanWeekly(r.weekly, d.pickup);
     d.uniformCode = cleanCode(r.uniformCode);
     // The order he dragged Settings' sections into (Oct 15), by their keys.
-    if (r.setView === "tiles") d.setView = "tiles"; // Settings as a list or as tiles (Oct 15)
+    // Settings as tiles (the default, his choice Oct 15) or as a list. Stored as secView: the earlier setView defaulted to the
+    // list, so a "list" there was never really chosen.
+    if (r.secView === "list") d.secView = "list";
     if (Array.isArray(r.secOrder)) d.secOrder = r.secOrder.filter((x) => typeof x === "string" && /^[a-z]{1,20}$/.test(x)).slice(0, 30);
     if (r.days && typeof r.days === "object") {
       for (const [k, v] of Object.entries(r.days)) {
@@ -894,7 +896,7 @@
     const days = new Set([...keys].filter((k) => JSON.stringify(orNull(priv.days[k])) !== JSON.stringify(orNull(saved.priv.days[k]))));
     // His layout choices for Settings (list or tiles, the sections' order) save quietly: they're kept on this device at
     // once and go along with his next save, so they never count as changes waiting (Oct 15).
-    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null, secOrder: null, setView: null }));
+    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null, secOrder: null, setView: null, secView: null }));
     return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
   }
 
@@ -906,7 +908,7 @@
     if (!saved) return d;
     for (const k of c.days) d.days[k] = { to: priv.days[k] || null, from: saved.priv.days[k] || null };
     for (const f of Object.keys(pub)) if (f !== "uniform" && f !== "notes" && JSON.stringify(pub[f]) !== JSON.stringify(saved.pub[f])) d.pub[f] = { to: pub[f], from: saved.pub[f] };
-    for (const f of ["otAfter", "pickup", "secOrder", "setView"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
+    for (const f of ["otAfter", "pickup", "secOrder", "secView"]) if (!same(priv[f], saved.priv[f])) d.priv[f] = { to: priv[f], from: saved.priv[f] };
     // Notes, each on its own (by id) like My Uniform's items below, so a change to one note never undoes another's.
     d.nt = { items: {}, order: pub.notes.map((n) => n.id) };
     for (const id of new Set([...pub.notes, ...saved.pub.notes].map((n) => n.id))) {
@@ -982,7 +984,7 @@
       const e = d.priv && d.priv[f];
       if (e && take(e, priv[f]) && Number(e.to) > 0) priv[f] = Number(e.to);
     }
-    { const e = d.priv && d.priv.setView; if (e && take(e, priv.setView)) priv.setView = e.to === "tiles" ? "tiles" : "list"; }
+    { const e = d.priv && d.priv.secView; if (e && take(e, priv.secView)) priv.secView = e.to === "list" ? "list" : "tiles"; }
     { const e = d.priv && d.priv.secOrder; if (e && Array.isArray(e.to) && take(e, priv.secOrder)) priv.secOrder = normalizePriv({ secOrder: e.to }).secOrder; }
     const full = { notes: applyNotes(d.nt, take), items: applyUniform(d.uni, take) };
     for (const [w, e] of Object.entries(d.wk || {})) {
@@ -1657,7 +1659,7 @@
     // Anything else in the settings (like the notes' order): one line that puts all of it back.
     if (c.settings && !settingsSeen) {
       out.push({ label: "Settings", what: "Other changes", undo: () => {
-        const keep = { secOrder: priv.secOrder, setView: priv.setView, days: priv.days };
+        const keep = { secOrder: priv.secOrder, secView: priv.secView, days: priv.days };
         pub = clone(saved.pub);
         priv = Object.assign(clone(saved.priv), keep);
       } });
@@ -4742,7 +4744,7 @@
   }
   // List or tiles, as he last picked (saved with his settings).
   function showView() {
-    const tiles = priv.setView === "tiles";
+    const tiles = priv.secView !== "list";
     $("#secList").classList.toggle("tiles", tiles);
     for (const b of document.querySelectorAll(".view-pick .vp")) b.setAttribute("aria-pressed", String((b.dataset.view === "tiles") === tiles));
   }
@@ -5368,8 +5370,8 @@
       all[0].before(box);
       box.append(...all);
       for (const b of document.querySelectorAll(".view-pick .vp")) b.addEventListener("click", () => {
-        if (priv.setView === b.dataset.view || (b.dataset.view === "list" && priv.setView !== "tiles")) return;
-        priv.setView = b.dataset.view;
+        if ((priv.secView === "list" ? "list" : "tiles") === b.dataset.view) return;
+        priv.secView = b.dataset.view;
         showView();
         afterChange();
       });
