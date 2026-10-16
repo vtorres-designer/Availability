@@ -1917,3 +1917,8 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 html.overlay-open .page, html.overlay-open .page *, html.overlay-open .page *::before, html.overlay-open .page *::after,
 html.overlay-open .ufab, html.overlay-open .ufab::after { animation-play-state: paused !important; }
 .pf-ghost, .pf-slot, .pf-head, .pf-corner, .pick-float .pf-card { will-change: transform, opacity; }
+
+/* Text beside a swatch stays on one line (his rule, Oct 15): a swatch never sits between two lines of a sentence. Where a
+   line wouldn't fit, the page shrinks its text a little (fitLine). */
+.pf-answer, .status-line, .legend li, .otsum > span { white-space: nowrap; }
+.pf-answer { max-width: 100%; justify-content: center; }

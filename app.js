@@ -101,6 +101,14 @@
   const defaultPriv = () => ({ otAfter: 40, pickup: 8, weekly: [], days: {}, uniformCode: "", secOrder: [], secView: "tiles" });
 
   // ---------- small helpers ----------
+  // A line that must stay one line (text beside a swatch): its text shrinks in half-pixel steps until it fits, down to 12px.
+  // It keeps a little room at each side of its box (pad, in pixels).
+  function fitLine(el, pad = 12) {
+    if (!el || !el.parentElement) return;
+    el.style.fontSize = "";
+    const room = el.parentElement.clientWidth - 2 * pad, max = parseFloat(getComputedStyle(el).fontSize);
+    for (let fs = max; el.scrollWidth > room && fs > 12; fs -= 0.5) el.style.fontSize = `${fs - 0.5}px`;
+  }
   const $ = (s) => document.querySelector(s);
   let leaving = false; // Stop Editing: from then on nothing is written, so a save still running can't put his hours back
   const store = {
@@ -2422,7 +2430,7 @@
       if (notes.hidden) { if (notes.parentNode) notes.parentNode.removeChild(notes); } else if (!notes.parentNode) wrap.insertBefore(notes, line.nextSibling);
     };
     $("#daySheet").showNotes("day");
-    const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; };
+    const say = (text) => { if (statusText.textContent !== text) statusText.textContent = text; fitLine(line); };
     // When his shifts differ (only an overnight runs into the next pay week), say which would be overtime.
     // Once a shift is picked, the line matches that shift. A P-OT day is about times, not shift names.
     const dayStatus = () => {
@@ -2472,6 +2480,7 @@
     $("#daySheet").openedAt = Date.now();
     $("#daySheet").openerKey = k;
     showSheet("#daySheet");
+    fitLine(line); // measured once it is on screen
     // Only now, once the window has its place in the history, so Back from the form returns to this window.
     if (form && tr.openForm) tr.openForm();
   }
@@ -2651,6 +2660,7 @@
     const word = corner.querySelector(".pf-word");
     word.style.setProperty("--w", `${word.offsetWidth}px`);
     for (const ch of word.children) ch.style.setProperty("--x", `${ch.offsetLeft - word.offsetLeft}px`);
+    fitLine(head.querySelector(".pf-answer"));
     // The clock lines shrink until they fit between the letter box and the arrow (narrow phones, bigger text settings),
     // so they never run into the arrow or push the shift's name off center.
     for (const tg of col.querySelectorAll(".pf-tag")) {
