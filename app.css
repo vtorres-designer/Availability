@@ -1877,3 +1877,13 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 .rc-total b { font-size: 20px; }
 .rc-save { margin-top: 6px; }
 .rc-thanks { margin: 0; text-align: center; font-size: 11.5px; color: #6d6656; }
+
+/* The license box (Oct 15): its details as rows, a name on the left and the detail on the right, with a thin line between. */
+.lic-rows { margin: 0; display: grid; }
+.lic-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 7px 2px; }
+.lic-row + .lic-row { border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.lic-row dt { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #9fb3d4; }
+.lic-row dd { margin: 0; color: #fff; font-weight: 600; text-align: right; }
+.lic-no dd { font-family: var(--font-mono); letter-spacing: 0.02em; }
+.lic-bad dd { color: #ff9b94; }
+#heroLic { min-width: min(320px, 100%); }

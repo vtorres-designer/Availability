@@ -1403,10 +1403,14 @@
     const t = callBoxText();
     $("#heroCallLead").textContent = t.lead;
     $("#heroCallRest").textContent = t.rest;
-    $("#heroLicNo").textContent = pub.licNo ? `No. ${pub.licNo}` : "";
-    $("#heroLicNo").hidden = !pub.licNo;
-    $("#heroLicDates").textContent = [pub.licIssued ? `Issued ${dateText(pub.licIssued)}` : "", pub.licExpires ? `${licExpired() ? "Expired" : "Expires"} ${dateText(pub.licExpires)}` : "", licRenews()].filter(Boolean).join(" · ");
-    $("#heroLicDates").hidden = !$("#heroLicDates").textContent;
+    // The license box (Oct 15): one row per detail, its name on the left and the detail on the right, a line between rows.
+    const renews = licRenews().replace(/^Renews /, "");
+    $("#heroLicRows").replaceChildren(...[
+      ["License No.", pub.licNo, "lic-no"],
+      ["Issued", pub.licIssued ? dateText(pub.licIssued) : ""],
+      [licExpired() ? "Expired" : "Expires", pub.licExpires ? dateText(pub.licExpires) : "", licExpired() ? "lic-bad" : ""],
+      ["Renews", renews ? renews.charAt(0).toUpperCase() + renews.slice(1) : ""],
+    ].filter((r) => r[1]).map(([k, v, cls]) => h("div", { class: `lic-row${cls ? ` ${cls}` : ""}` }, h("dt", { text: k }), h("dd", { text: v }))));
     // A chip that went away (its setting was cleared) takes its open box with it.
     if (!call) openHeroBox(null, "#heroCall");
     if (!lic || !licMore) openHeroBox(null, "#heroLic");
