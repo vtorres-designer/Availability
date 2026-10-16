@@ -17,6 +17,9 @@
   "willing": [
     "overnight"
   ],
+  "status": "Accepting graveyard requests",
+  "led": "green",
+  "nightStart": "",
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
   "potFrom": "",
@@ -122,6 +125,6 @@
     },
     "after": 40
   },
-  "updated": "2026-10-15T14:05:25.671Z",
-  "rev": "2026-10-15T14:05:25.671Z~o51c"
+  "updated": "2026-10-16T02:56:16.587Z",
+  "rev": "2026-10-16T02:56:16.587Z~tj03"
 }
