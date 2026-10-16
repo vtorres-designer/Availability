@@ -853,7 +853,11 @@
     return btoa(bin);
   }
 
+  // Files the page writes on GitHub are signed with his private no-reply address, never the account's own email (Oct 15:
+  // a save from the page put his Gmail on a commit, after he'd removed it from the history).
+  const NOREPLY = REPO.owner === "vtorres-designer" ? { name: "vtorres-designer", email: "331616106+vtorres-designer@users.noreply.github.com" } : null;
   async function gh(method, path, body, tok = token) {
+    if (NOREPLY && body && (method === "PUT" || method === "DELETE") && path.indexOf("/contents/") === 0) body = Object.assign({ committer: NOREPLY, author: NOREPLY }, body);
     const res = await fetch(API + path, {
       method,
       cache: "no-store",
