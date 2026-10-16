@@ -393,7 +393,7 @@ h2 { font-size: 28px; line-height: 1.05; }
   .day.open:not(.past):hover, .day.ot:not(.past):hover, .day.pot:not(.past):hover { box-shadow: var(--bevel), 0 0 14px 2px var(--glow); transform: translateY(-1px); }
 }
 /* Pick a Day: the days they can ask about glow twice. */
-#weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { animation: beckon 1.4s ease-in-out 2; }
+#weeks.beckon .day.open:not(.past), #weeks.beckon .day.ot:not(.past), #weeks.beckon .day.pot:not(.past) { animation: beckon 1.4s ease-in-out 3; }
 @keyframes beckon { 0%, 100% { box-shadow: var(--bevel); } 50% { box-shadow: var(--bevel), inset 0 0 0 2px #fff, 0 0 16px var(--glow); } }
 .day .rep { position: absolute; top: 4px; left: 5px; font: 700 11px/1 var(--font-body); opacity: 0.9; }
 .day .rep.alt { left: auto; right: 5px; } /* the month label is on top: move the mark out of its way */

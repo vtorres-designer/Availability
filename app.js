@@ -1459,7 +1459,7 @@
     void weeks.offsetWidth; // restart the glow when it's tapped again
     weeks.classList.add("beckon");
     clearTimeout(pickADay.timer);
-    pickADay.timer = setTimeout(() => weeks.classList.remove("beckon"), 3000);
+    pickADay.timer = setTimeout(() => weeks.classList.remove("beckon"), 4400);
     try { first.focus({ preventScroll: true }); } catch (e) { /* old browser: no focus move */ }
   }
 
