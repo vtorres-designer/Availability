@@ -2700,11 +2700,13 @@
       return `translate(${(cx - (b.left + b.width / 2)) / Z}px, ${(cy - (b.top + b.height / 2)) / Z}px) scale(${Math.max(0.15, r.width / b.width)}, ${Math.max(0.15, r.height / b.height)})`;
     };
     const anim = (el, frames, o) => (el.animate ? el.animate(frames, o) : null);
-    let closing = false, card = null;
+    let closing = false, openCard = null, turning = false;
+    const cornerSize = corner.style.fontSize; // Back's size beside the shifts (bigger on a computer), for coming back to them
     // A shift he takes, tapped: its button grows into a card in the middle of the window, with the text as a chat bubble,
     // a raised Send Text Now and a quieter Customize Text First. The other shifts and the heading fade away.
     const toCard = (t, slot) => {
-      if (card || closing) return;
+      if (openCard || closing || turning) return;
+      let card = null, growing = false;
       const raw = shiftOt(k, t, null) || (info.kind === "ot" && (!info.x || info.x.indexOf(t) >= 0) ? true : null);
       const ot = untimed(raw), yellow = otState(ot) !== "open";
       const text = composeMessage(k, { who: store.get(LS.who) || "", type: t, time: "", ot, part: "", day: null });
@@ -2732,8 +2734,42 @@
       });
       const custom = h("button", { type: "button", class: "pf-quiet", text: "Customize Text First" });
       custom.addEventListener("click", () => showForm());
-      // Back to the shifts: once this window has closed (its close clears it), it opens again on the same day.
-      const toShifts = () => { pickEl.addEventListener("close", () => floatPick(k, tile), { once: true }); pickEl.close("picked"); };
+      // Back to the shifts: the card shrinks back into the shift's button while the heading and the other shifts come
+      // back around it, in the same window (Oct 16: it closed the window and opened it again, so the day showed lifting
+      // off the calendar again before the shifts came back).
+      const toShifts = () => {
+        if (closing || turning || growing || openCard !== card) return;
+        turning = true;
+        openCard = null;
+        goBack = () => { if (pickEl.leave) pickEl.leave(); };
+        // The column where it was, its fades from a moment ago taken off; Back back in the window's corner.
+        col.style.display = "";
+        for (const el of [head, ...slots]) for (const a of el.getAnimations ? el.getAnimations() : []) if (!(window.CSSAnimation && a instanceof CSSAnimation)) a.cancel();
+        corner.classList.remove("in-card");
+        corner.style.left = corner.style.top = "";
+        corner.style.fontSize = cornerSize;
+        const leaving = card;
+        const finish = () => {
+          leaving.remove();
+          slots.forEach((s) => s.classList.add("bob"));
+          turning = false;
+          const f = byKeys ? slot.querySelector(".pf-btn") : pickEl;
+          try { f.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+        };
+        if (still || !leaving.animate) { finish(); return; }
+        const from = leaving.getBoundingClientRect(), to = slot.getBoundingClientRect();
+        for (const c of leaving.children) anim(c, [{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: "forwards" });
+        const shrink = anim(leaving, [
+          { transform: "none", opacity: 1 },
+          { opacity: 1, offset: 0.55 },
+          { transform: `translate(${to.left + to.width / 2 - (from.left + from.width / 2)}px, ${to.top + to.height / 2 - (from.top + from.height / 2)}px) scale(${to.width / from.width}, ${to.height / from.height})`, opacity: 0 },
+        ], { duration: 400, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+        // The shift takes the card's place as it lands; the heading, the other shifts and Back fade in around it.
+        anim(slot, [{ opacity: 0 }, { opacity: 1 }], { duration: 180, delay: 220, fill: "backwards" });
+        for (const el of [head, ...slots.filter((s) => s !== slot)]) anim(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 280, delay: 140, easing: "ease-out", fill: "backwards" });
+        anim(corner, [{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 180, fill: "backwards" });
+        shrink.onfinish = finish;
+      };
       goBack = toShifts;
       const notes = h("aside", { class: "note-box pf-notes" });
       fillNotes(notes, "day");
@@ -2808,6 +2844,7 @@
         Object.assign(card.style, { left: `${(w - cw) / 2}px`, width: `${cw}px`, maxHeight: `${seen() - 24}px` });
       };
       size(desk);
+      openCard = card;
       pickEl.append(card);
       // Once there's a card, Back moves from the window's corner into the card's own, level with the date.
       corner.classList.add("in-card"); corner.style.fontSize = "";
@@ -2825,6 +2862,7 @@
       // Full height: the glass Back floats over whatever is under it.
       // Back floats over the card's top left corner and stays there on the screen while the card scrolls under it.
       const placeCorner = () => {
+        if (openCard !== card) return; // gone back to the shifts: Back is in the window's corner again
         const narrow = window.innerWidth <= 600, row = card.classList.contains("back-row");
         corner.style.left = `${parseFloat(card.style.left) + (narrow ? 12 : 14)}px`;
         corner.style.top = `${parseFloat(card.style.top) + (row ? 12 : narrow ? 20 : 18)}px`;
@@ -2884,14 +2922,37 @@
           : st === "ot" ? `All ${hoursText(o.hours)} would be overtime`
           : `${num(o.ot)} of the ${hoursText(o.hours)} would be overtime`;
       };
+      // One screen of the card for another (the text, the form, the code). The card stretches from its old size to its new
+      // one while what was on it fades out where it was and the new screen fades in (Oct 16: it jumped to the new size
+      // in one frame, then filled in).
       const swap = (nodes, wide) => {
+        const from = card.getBoundingClientRect(), top = card.scrollTop;
+        const moving = !still && !!card.animate;
+        let was = null;
+        if (moving && card.firstChild) {
+          was = h("div", { class: `${card.className} pf-was`, "aria-hidden": "true" });
+          was.style.cssText = card.style.cssText;
+          was.append(...card.childNodes);
+          card.after(was);
+          was.scrollTop = top;
+        }
         card.replaceChildren(...nodes);
         fitCorner(); // where Back sits for this screen
         card.classList.toggle("pf-form", nodes === formView);
         size(wide);
         card.scrollTop = 0;
         center();
-        if (!still && card.animate) for (const c of card.children) anim(c, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 220, fill: "backwards" });
+        if (!moving) return;
+        const to = card.getBoundingClientRect();
+        anim(card, [
+          { transform: `translate(${from.left + from.width / 2 - (to.left + to.width / 2)}px, ${from.top + from.height / 2 - (to.top + to.height / 2)}px) scale(${from.width / to.width}, ${from.height / to.height})` },
+          { transform: "none" },
+        ], { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)" });
+        for (const c of card.children) anim(c, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 220, delay: 130, fill: "backwards" });
+        if (was) {
+          const out = anim(was, [{ opacity: 1 }, { opacity: 0 }], { duration: 130, fill: "forwards" });
+          out.onfinish = () => was.remove();
+        }
       };
       const showSend = () => { swap(sendView, desk); goBack = toShifts; };
       function showForm() {
@@ -2923,22 +2984,25 @@
         goBack = () => nav.back(pickEl, backToForm);
       }
       try { pickEl.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
-      const done = () => col.remove();
+      const done = () => { growing = false; col.style.display = "none"; }; // out of sight and reach, kept for Back to the shifts
       if (still || !card.animate) { done(); return; }
       // The tapped button grows into the card; everything else in the column fades out.
       const from = slot.getBoundingClientRect(), to = card.getBoundingClientRect();
       slots.forEach((s) => s.classList.remove("bob"));
       [head, ...slots].forEach((el) => anim(el, [{ opacity: 1 }, { opacity: 0 }], { duration: el === slot ? 120 : 200, fill: "forwards" }));
+      growing = true;
       const grow = anim(card, [
         { transform: `translate(${from.left + from.width / 2 - (to.left + to.width / 2)}px, ${from.top + from.height / 2 - (to.top + to.height / 2)}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.4 },
         { transform: "none", opacity: 1 },
       ], { duration: 420, easing: "cubic-bezier(.2,.9,.25,1)" });
       for (const c of card.children) anim(c, [{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 200, fill: "backwards" });
+      anim(corner, [{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 200, fill: "backwards" }); // Back arrives with the card's content
       if (grow) grow.onfinish = done; else done();
     };
     pickEl.leave = () => {
-      if (closing) return;
+      if (closing || turning) return;
       closing = true;
+      const card = openCard;
       if (card) {
         const a = !still && card.animate ? anim(card, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.96)" }], { duration: 180, fill: "forwards" }) : null;
         if (a) anim(scrim, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" });
@@ -5728,7 +5792,10 @@
     } catch {
       loadError = true;
     }
+    const shownEarly = revealed; // a slow connection: the page has been up for a while, still loading
     render();
+    // The calendar fades in over the "Loading calendar…" page it replaces, instead of swapping in in one frame (Oct 16).
+    if (shownEarly && !stillMotion() && $(".page").animate) $(".page").animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 320, easing: "ease-out" });
     // A day window opened on that gray calendar shows the day as it was then ("Not set yet"): it closes now that the real
     // days are in (and a My Uniform link that waited opens with nothing over it).
     // Its history entry goes now, not when its close event comes: by then the link's My Uniform has added its own.
@@ -5739,6 +5806,9 @@
     void document.body.offsetHeight; // the page laid out in them now, while it's still hidden, not in the opening's first frames
     clearTimeout(slow);
     reveal(true);
+    // The QR code maker (56 KB), fetched once the opening is over, so a code is drawn the moment it's asked for
+    // (Share This Calendar, a computer's text card) instead of a blank square for half a second first (Oct 16).
+    setTimeout(() => { loadQr().catch(() => { /* fetched again when a code is asked for */ }); }, 5000);
     restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });
     if (token) await enterOwner();
   }

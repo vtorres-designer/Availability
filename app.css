@@ -348,6 +348,10 @@ h2 { font-size: 28px; line-height: 1.05; }
   transition: transform 0.08s ease;
 }
 .day:active { transform: scale(0.96); }
+/* Buttons with their own press (the days, Pick a Day, the picker's buttons, the form's send button): no browser tap flash
+   over it as well. It drew a square tinted box over the rounded button for a frame or two, which on a yellow day looked
+   like it turned green (Oct 16). */
+.day, .pick-btn, .pf-quiet, .pf-form .btn.go { -webkit-tap-highlight-color: transparent; }
 .day .mon { font: 700 10px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; min-height: 10px; }
 .day .num { font: 700 24px/1 var(--font-display); }
 .day .tag { font: 700 10px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -1025,6 +1029,7 @@ dialog:not([open]) { display: none; }
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 .pf-card p { margin: 0; }
+.pf-card.pf-was { background: none; box-shadow: none; pointer-events: none; z-index: 1; } /* the screen it just left, fading out */
 /* Back, always in the window's top left corner while a day is open, in frosted glass lettering (like the iPhone's
    glass clock): letters filled with milky, see-through glass, brighter at the top where light hits it and clearer through
    the middle, a soft light rim, a darker edge along the bottom for thickness, and a faint shadow on the page. */
