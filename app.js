@@ -1448,8 +1448,9 @@
     const dow = $(".cal .dow"), bars = ["#toolbar", "#previewBar", "#uniformBtn"].map((s) => $(s)).filter((b) => !b.hidden);
     const top = Math.max(0, cal.top, getComputedStyle(dow).position === "sticky" ? dow.getBoundingClientRect().bottom : 0);
     const bottom = Math.min(window.innerHeight, cal.bottom, ...bars.map((b) => b.getBoundingClientRect().top));
-    const inView = r.top >= top && r.bottom <= bottom;
-    if (!inView) {
+    // Scrolls even when the first day already peeks in at the bottom edge: the days come up to the middle (Oct 16).
+    const centered = r.top >= top + (bottom - top) * 0.2 && r.bottom <= bottom - (bottom - top) * 0.2;
+    if (!centered) {
       const smooth = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
       try { first.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" }); } catch (e) { first.scrollIntoView(); }
     }
