@@ -1889,4 +1889,4 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 .lic-row dd { color: #fff; font-weight: 600; padding-left: 18px; }
 .lic-no dd { font-family: var(--font-mono); letter-spacing: 0.02em; }
 .lic-bad dd { color: #ff9b94; }
-#heroCall { justify-self: start; width: max-content; max-width: 100%; } /* only as wide as its words (Oct 15) */
+#heroCall { justify-self: start; width: max-content; max-width: min(300px, 100%); } /* narrow, the words wrapping onto more lines (Oct 15) */
