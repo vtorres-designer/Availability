@@ -762,6 +762,7 @@ dialog:not([open]) { display: none; }
 .qr { display: grid; justify-items: center; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); text-align: center; }
 .qr svg { display: block; width: 200px; height: 200px; background: #fff; border-radius: 8px; }
 .qr p { margin: 0; }
+#shareQr .qr-code { width: 200px; height: 200px; border-radius: 8px; background: #fff; } /* its place, kept while the code loads */
 
 /* Settings: the PDF picker is a real file input stretched over a button, so every browser opens the picker. */
 .file-btn { position: relative; overflow: hidden; }

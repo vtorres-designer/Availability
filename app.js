@@ -1772,7 +1772,10 @@
     $("#shareUrl").value = url;
     $("#shareCopy").textContent = "Copy Link";
     $("#shareNative").hidden = typeof navigator.share !== "function";
+    // The code's place is kept from the start (a white square the code fills), so the sheet opens at its full height
+    // and doesn't jump taller once the code is drawn (Oct 16).
     const box = $("#shareQr");
+    box.hidden = false;
     loadQr().then((lib) => {
       const qr = qrFor(lib, url, "QR code with the link to this calendar");
       const code = box.querySelector(".qr-code");
@@ -5689,6 +5692,23 @@
     });
   }
 
+  // The page's fonts, once their stylesheet is in (it loads without holding up the page): resolves when they're ready,
+  // or after ms, whichever is first.
+  function fontsIn(ms) {
+    return new Promise((resolve) => {
+      if (ms <= 0 || !document.fonts || !document.fonts.load) { resolve(); return; }
+      setTimeout(resolve, ms);
+      const faces = ['700 1em "Barlow Semi Condensed"', '400 1em "Source Sans 3"', '600 1em "Source Sans 3"', '700 1em "Source Sans 3"', '400 1em "JetBrains Mono"'];
+      // (The style is brought up to date first, so the fonts' stylesheet counts: without it the fonts weren't known yet,
+      // nothing waited, and they came in during the opening anyway.)
+      const go = () => { void document.documentElement.offsetWidth; Promise.all(faces.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => resolve(), () => resolve()); };
+      const link = document.querySelector('link[rel="stylesheet"][href*="fonts.googleapis"]');
+      if (!link || link.media === "all") go();
+      else { link.addEventListener("load", () => setTimeout(go, 0), { once: true }); link.addEventListener("error", () => resolve(), { once: true }); }
+    });
+  }
+
+  const bootAt = performance.now();
   async function boot() {
     wire();
     takeUniformLink();
@@ -5713,6 +5733,10 @@
     // days are in (and a My Uniform link that waited opens with nothing over it).
     // Its history entry goes now, not when its close event comes: by then the link's My Uniform has added its own.
     if (late) for (const s of ["#callSheet", "#daySheet"]) if ($(s).open) { $(s).close(""); nav.closed($(s)); }
+    // The fonts come in before the opening plays (within the same 1.5 s): arriving in the middle of it, they made the
+    // whole page lay itself out again, so his name stopped partway down and then jumped into place (Oct 16).
+    await fontsIn(1400 - (performance.now() - bootAt));
+    void document.body.offsetHeight; // the page laid out in them now, while it's still hidden, not in the opening's first frames
     clearTimeout(slow);
     reveal(true);
     restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });
