@@ -1895,14 +1895,14 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 /* Pick a Day (Oct 15): a glossy blue pill like the page's other big buttons, a calendar icon, a light that sweeps
    across now and then, and an arrow that nudges when it's touched. */
 .pick-btn {
-  position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 9px;
-  min-height: 44px; padding: 10px 16px 10px 15px; border-radius: 999px; color: #fff; font-size: 15px;
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 38px; padding: 8px 14px 8px 13px; border-radius: 999px; color: #fff; font-size: 14px;
   background: linear-gradient(180deg, #5b9bff 0%, #2f6fe6 55%, #2259c9 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 6px 16px -6px rgba(47, 111, 230, 0.8);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
-.pick-btn svg { width: 18px; height: 18px; flex: none; }
-.pick-btn .pick-arrow { width: 15px; height: 15px; margin-left: 1px; transition: transform 0.2s ease; }
+.pick-btn svg { width: 16px; height: 16px; flex: none; }
+.pick-btn .pick-arrow { width: 13px; height: 13px; margin-left: 1px; transition: transform 0.2s ease; }
 .pick-btn:hover .pick-arrow, .pick-btn:active .pick-arrow { transform: translateX(3px); }
 .pick-btn:active { transform: translateY(1px); }
 .pick-btn::after { /* the sweeping light */
