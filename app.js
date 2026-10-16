@@ -5698,5 +5698,13 @@
     if (token) await enterOwner();
   }
 
+  // While any window is open (the shift picker, the send card, a sheet), the page underneath holds its animations still:
+  // the breathing days, the glows and the drifting grid can't be seen behind the dim and blur, and redrawing them under
+  // the blur every frame made the picker's animations stutter on iPhones (Oct 15).
+  if (window.MutationObserver) {
+    const sync = () => document.documentElement.classList.toggle("overlay-open", !!document.querySelector("dialog[open]"));
+    new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"], childList: true });
+  }
+
   boot();
 })();
