@@ -158,7 +158,7 @@
   <div class="actions">
     <button type="button" class="btn ghost" id="importBtn">Add Schedule</button>
     <button type="button" class="btn ghost" id="settingsBtn">Settings</button>
-    <button type="button" class="btn primary" id="saveBtn" disabled>Saved</button>
+    <button type="button" class="btn primary" id="saveBtn" disabled>No Changes</button>
   </div>
 </nav>
 
@@ -641,6 +641,22 @@ Thu 10/15 2300-0700</pre>
       <button class="btn primary" value="merge">Add My Changes to It</button>
     </div>
   </form>
+</dialog>
+
+<!-- Owner: Review Changes (Oct 15): the unsaved changes as a receipt, each with its own undo, then Save Changes. -->
+<dialog class="sheet receipt-sheet" id="receiptSheet" aria-labelledby="receiptTitle">
+  <div class="receipt">
+    <button type="button" class="x rc-x" aria-label="Close">×</button>
+    <p class="rc-shop">Unsaved Changes</p>
+    <h2 class="rc-title" id="receiptTitle">Your Calendar</h2>
+    <p class="rc-when" id="rcWhen"></p>
+    <div class="rc-rule" aria-hidden="true"></div>
+    <ul class="rc-lines" id="rcLines"></ul>
+    <div class="rc-rule" aria-hidden="true"></div>
+    <p class="rc-total"><span>Total changes</span><b id="rcTotal">0</b></p>
+    <button type="button" class="btn primary wide rc-save" id="rcSave">Save Changes</button>
+    <p class="rc-thanks">Supervisors see your changes a minute or two after you save.</p>
+  </div>
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

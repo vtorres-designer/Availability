@@ -892,7 +892,9 @@
     const keys = new Set([...Object.keys(priv.days), ...Object.keys(saved.priv.days)]);
     const orNull = (x) => (x === undefined ? null : x);
     const days = new Set([...keys].filter((k) => JSON.stringify(orNull(priv.days[k])) !== JSON.stringify(orNull(saved.priv.days[k]))));
-    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null }));
+    // His layout choices for Settings (list or tiles, the sections' order) save quietly: they're kept on this device at
+    // once and go along with his next save, so they never count as changes waiting (Oct 15).
+    const strip = (v) => JSON.stringify(Object.assign({}, v, { days: null, rev: null, secOrder: null, setView: null }));
     return { days, settings: JSON.stringify(pub) !== JSON.stringify(saved.pub) || strip(priv) !== strip(saved.priv), publish: needsPublish };
   }
 
@@ -1569,13 +1571,125 @@
     if (pub.licName && licExpired()) line(h("b", { text: "Your license shows Expired at the top. When you renew, enter the new dates in Settings." }));
 
     const c = changes();
-    const n = c.days.size + (c.settings ? 1 : 0) + (c.publish ? 1 : 0);
-    if (c.publish && !c.days.size && !c.settings) line(h("b", { text: "Tap Save to update what supervisors see." }));
+    const n = receiptLines().length;
+    if (c.publish && !c.days.size && !c.settings) line(h("b", { text: "Tap Review Changes, then Save Changes, to update what supervisors see." }));
     $("#ownerBanner").hidden = !hints.childNodes.length;
     const btn = $("#saveBtn");
     btn.disabled = saving || n === 0;
-    btn.textContent = saving ? "Saving…" : n ? `Save ${n} Change${n === 1 ? "" : "s"}` : "Saved";
+    btn.textContent = saving ? "Saving…" : n ? `Review Changes (${n})` : "No Changes";
+    if ($("#receiptSheet").open) renderReceipt();
     for (const b of document.querySelectorAll(".brushes button")) b.setAttribute("aria-checked", String(b.dataset.brush === brush));
+  }
+
+  // ---------- owner: Review Changes (Oct 15) ----------
+  // Every unsaved change as a line on a receipt, in plain words ("Wed, Oct 21: Shifts changed"), each with a button that
+  // undoes just that change (back to how it was saved). His layout choices aren't on it (see changes).
+  const PUB_LABEL = { name: "Your name", empId: "Employee ID", phone: "Cell number", status: "Status line", led: "Status light color",
+    willing: "Shifts you offer on days off", callHours: "When to call instead of text", weekStart: "Pay period end day",
+    nightStart: "Graveyard start time", feedback: "Feedback email", licName: "License name", licNo: "License number",
+    licIssued: "License issued date", licExpires: "License expiration date", potFrom: "P-OT start times", potMax: "P-OT longest shift" };
+  const PRIV_LABEL = { otAfter: "Overtime limit", pickup: "Usual shift length" };
+  function dayChange(from, to) {
+    if (!to) return "Cleared";
+    const a = from ? workShifts(from) : [], b = workShifts(to), parts = [];
+    if (!same(a, b)) parts.push(!b.length ? (a.length ? "Shift deleted" : "Changed") : a.length ? (b.length > a.length ? "Shift added" : "Shifts changed") : "Shift added");
+    else if (!from || from.s !== to.s) { if (!(to.s === "none" || (!from && to.s === "open" && to.note))) parts.push(to.s === "busy" ? "Marked busy" : to.s === "open" ? "Day off" : "Changed"); }
+    const n0 = (from && from.note) || "", n1 = to.note || "";
+    if (n0 !== n1) parts.push(!n1 ? "Note deleted" : !n0 ? "Note added" : "Note changed");
+    if (!same((from && from.o) || null, to.o || null)) parts.push("Shift choices changed");
+    if (!same((from && from.w) || null, to.w || null)) parts.push("Shifts offered changed");
+    return [...new Set(parts)].join(" · ") || "Changed";
+  }
+  function receiptLines() {
+    const out = [];
+    if (!saved) return out;
+    const c = changes();
+    for (const k of [...c.days].sort()) {
+      const was = saved.priv.days[k];
+      out.push({ label: shortDay(k), what: dayChange(was, priv.days[k]), undo: () => setDay(k, was ? clone(was) : null) });
+    }
+    let settingsSeen = 0;
+    for (const f of Object.keys(PUB_LABEL)) {
+      const fs = f === "potFrom" ? ["potFrom", "potTo"] : [f];
+      if (fs.every((x) => same(pub[x], saved.pub[x]))) continue;
+      settingsSeen++;
+      out.push({ label: "Settings", what: PUB_LABEL[f], undo: () => { for (const x of fs) pub[x] = clone(saved.pub[x]); } });
+    }
+    for (const f of Object.keys(PRIV_LABEL)) {
+      if (same(priv[f], saved.priv[f])) continue;
+      settingsSeen++;
+      out.push({ label: "Settings", what: PRIV_LABEL[f], undo: () => { priv[f] = saved.priv[f]; } });
+    }
+    for (let w = 0; w < 7; w++) {
+      const now = ruleFor(priv.weekly, w), was = ruleFor(saved.priv.weekly, w);
+      if (same(now, was)) continue;
+      settingsSeen++;
+      out.push({ label: `Every ${DOW_LONG[w]}`, what: !was ? "Added" : !now ? "Turned off" : "Changed",
+        undo: () => { priv.weekly = cleanWeekly(priv.weekly.filter((r) => r.d !== w).concat(was ? [clone(was)] : []), priv.pickup); } });
+    }
+    const own = (p) => p.notes.filter((n) => !n.auto);
+    for (const id of new Set([...own(pub), ...own(saved.pub)].map((n) => n.id))) {
+      const now = noteIn(pub, id), was = noteIn(saved.pub, id);
+      if (same(now, was)) continue;
+      settingsSeen++;
+      out.push({ label: "Notes to supervisors", what: !was ? `${noteTitle(now)} added` : !now ? "A note deleted" : `${noteTitle(now)} changed`,
+        undo: () => {
+          const i = pub.notes.findIndex((n) => n.id === id);
+          if (!was) { if (i >= 0) pub.notes.splice(i, 1); }
+          else if (i >= 0) pub.notes[i] = clone(was);
+          else pub.notes.splice(Math.min(Math.max(0, saved.pub.notes.findIndex((n) => n.id === id)), pub.notes.length), 0, clone(was));
+        } });
+    }
+    for (const id of new Set([...pub.uniform.items, ...saved.pub.uniform.items].map((x) => x.id))) {
+      const now = uniformItemIn(pub, id), was = uniformItemIn(saved.pub, id);
+      if (same(now, was)) continue;
+      settingsSeen++;
+      out.push({ label: "My Uniform", what: !was ? `${now.name} added` : !now ? `${was.name} deleted` : `${now.name} changed`,
+        undo: () => {
+          const items = pub.uniform.items, i = items.findIndex((x) => x.id === id);
+          if (!was) { if (i >= 0) items.splice(i, 1); } else if (i >= 0) items[i] = clone(was); else items.push(clone(was));
+        } });
+    }
+    if (priv.uniformCode !== saved.priv.uniformCode || pub.uniform.hash !== saved.pub.uniform.hash) {
+      settingsSeen++;
+      out.push({ label: "My Uniform", what: "Code changed", undo: () => { priv.uniformCode = saved.priv.uniformCode; pub.uniform.hash = saved.pub.uniform.hash; } });
+    }
+    // Anything else in the settings (like the notes' order): one line that puts all of it back.
+    if (c.settings && !settingsSeen) {
+      out.push({ label: "Settings", what: "Other changes", undo: () => {
+        const keep = { secOrder: priv.secOrder, setView: priv.setView, days: priv.days };
+        pub = clone(saved.pub);
+        priv = Object.assign(clone(saved.priv), keep);
+      } });
+    }
+    if (c.publish) out.push({ label: "Supervisors' calendar", what: "Needs updating", undo: null });
+    return out;
+  }
+  function renderReceipt() {
+    const lines = receiptLines();
+    $("#rcWhen").textContent = new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    $("#rcLines").replaceChildren(...lines.map((l) => {
+      const li = h("li", { class: "rc-line" }, h("span", { class: "rc-item" }, h("b", { text: l.label }), h("span", { text: l.what })));
+      if (l.undo) {
+        const del = h("button", { type: "button", class: "rc-del", "aria-label": `Undo: ${l.label}, ${l.what}`, title: "Undo this change" }, "×");
+        del.addEventListener("click", () => {
+          l.undo();
+          if ($("#settingsSheet").open) { fillSettings(true); renderWeekly(); renderNotes(); }
+          afterChange(); // redraws the receipt too (see renderOwnerBits)
+          if (!receiptLines().length) $("#receiptSheet").close("");
+        });
+        li.append(del);
+      }
+      return li;
+    }));
+    if (!lines.length) $("#rcLines").append(h("li", { class: "rc-line rc-empty", text: "No changes." }));
+    $("#rcTotal").textContent = String(lines.length);
+    $("#rcSave").disabled = saving || !lines.length;
+    $("#rcSave").textContent = saving ? "Saving…" : "Save Changes";
+  }
+  function openReceipt() {
+    renderReceipt();
+    showSheet("#receiptSheet");
   }
 
   // ---------- supervisor sheet ----------
@@ -5369,7 +5483,8 @@
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
     $("#importApply").addEventListener("click", applyImport);
-    $("#saveBtn").addEventListener("click", () => (busy ? null : save(false)));
+    $("#saveBtn").addEventListener("click", () => (busy ? null : openReceipt()));
+    $("#rcSave").addEventListener("click", async () => { if (busy || saving) return; if (await save(false)) $("#receiptSheet").close(""); });
     $("#conflictSheet").addEventListener("close", onConflict);
     $("#keySheet").addEventListener("close", onKeyRetry);
     // The preview is a screen of its own: Back (the button or the gesture) returns to editing.
