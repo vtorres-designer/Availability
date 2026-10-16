@@ -1890,3 +1890,4 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 .lic-no dd { font-family: var(--font-mono); letter-spacing: 0.02em; }
 .lic-bad dd { color: #ff9b94; }
 #heroCall { justify-self: start; width: max-content; max-width: min(300px, 100%); } /* narrow, the words wrapping onto more lines (Oct 15) */
+#heroCall #pickDay { justify-self: center; } /* centered in its box (Oct 15) */
