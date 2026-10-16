@@ -1311,8 +1311,8 @@
   function callBoxText() {
     const n = pub.callHours;
     return n > 0
-      ? { lead: `Best for shifts starting within ${hoursText(n)}.`, rest: "Otherwise, a text is best. Pick the day below and I'll show you the best way to reach me." }
-      : { lead: "Texting is the best way to reach me.", rest: "Pick the day below and I'll show you how." };
+      ? { lead: `Call for shifts starting within ${hoursText(n)}.`, rest: "Otherwise, text me: pick a day." }
+      : { lead: "Text me instead.", rest: "Pick a day to start." };
   }
   // His name, letter by letter (each word kept whole), so it can fall into place as the page opens. The heading's
   // label is the plain name for screen readers. Rebuilt only when the name changes.
