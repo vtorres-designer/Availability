@@ -1891,3 +1891,23 @@ html.sec-dragging, html.sec-dragging * { -webkit-user-select: none !important; u
 .lic-bad dd { color: #ff9b94; }
 #heroCall { justify-self: start; width: max-content; max-width: min(300px, 100%); } /* narrow, the words wrapping onto more lines (Oct 15) */
 #heroCall #pickDay { justify-self: center; } /* centered in its box (Oct 15) */
+
+/* Pick a Day (Oct 15): a glossy blue pill like the page's other big buttons, a calendar icon, a light that sweeps
+   across now and then, and an arrow that nudges when it's touched. */
+.pick-btn {
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 9px;
+  min-height: 44px; padding: 10px 16px 10px 15px; border-radius: 999px; color: #fff; font-size: 15px;
+  background: linear-gradient(180deg, #5b9bff 0%, #2f6fe6 55%, #2259c9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 6px 16px -6px rgba(47, 111, 230, 0.8);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.pick-btn svg { width: 18px; height: 18px; flex: none; }
+.pick-btn .pick-arrow { width: 15px; height: 15px; margin-left: 1px; transition: transform 0.2s ease; }
+.pick-btn:hover .pick-arrow, .pick-btn:active .pick-arrow { transform: translateX(3px); }
+.pick-btn:active { transform: translateY(1px); }
+.pick-btn::after { /* the sweeping light */
+  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent); transform: skewX(-18deg);
+}
+@media (prefers-reduced-motion: no-preference) { .pick-btn::after { animation: pick-shine 4.5s ease-in-out 1s infinite; } }
+@keyframes pick-shine { 0%, 70% { left: -40%; } 100% { left: 120%; } }
