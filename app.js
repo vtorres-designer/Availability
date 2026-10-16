@@ -2583,7 +2583,7 @@
     if (!pickEl) {
       pickEl = h("dialog", { class: "pick-float", id: "shiftPick", tabindex: "-1" });
       document.body.append(pickEl);
-      pickEl.addEventListener("click", (e) => { if (e.target === pickEl && pickEl.leave) pickEl.leave(); });
+      pickEl.addEventListener("click", (e) => { if ((e.target === pickEl || e.target.classList.contains("pf-scrim")) && pickEl.leave) pickEl.leave(); });
       pickEl.addEventListener("cancel", (e) => { if (pickEl.leave) { e.preventDefault(); pickEl.leave(); } });
       pickEl.addEventListener("close", () => {
         nav.closed(pickEl);
@@ -2636,7 +2636,6 @@
       // Its shadow on the page below, under the edge (which stays put while the top presses down and back up).
       const shadow = h("span", { class: "pf-shadow", "aria-hidden": "true" });
       if (takes) {
-        btn.style.animationDelay = shadow.style.animationDelay = `${-i * 0.45}s`;
         btn.addEventListener("click", () => toCard(t, slot));
       } else {
         btn.disabled = true;
@@ -2654,7 +2653,10 @@
     const corner = h("button", { type: "button", class: "pf-corner", "aria-label": "Back" }, icon("chev"),
       h("span", { class: "pf-word", "aria-hidden": "true" }, [..."Back"].map((c, i) => h("span", { class: "pf-ch", style: `--i:${i}`, text: c }))));
     corner.addEventListener("click", () => goBack());
-    pickEl.replaceChildren(ghost, col, corner);
+    // The dim and blur over the page, as a layer of its own so it can fade in and out with the day (the window's own
+    // backdrop popped on and off in one frame, Oct 16).
+    const scrim = h("div", { class: "pf-scrim", "aria-hidden": "true" });
+    pickEl.replaceChildren(scrim, ghost, col, corner);
     pickEl.setAttribute("aria-label", `${fmt(k, { weekday: "long", month: "long", day: "numeric" })}: pick a shift`);
     showSheet("#shiftPick");
     // The rainbow's slices: the word's width, and each letter's place in it.
@@ -2936,6 +2938,7 @@
       closing = true;
       if (card) {
         const a = !still && card.animate ? anim(card, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.96)" }], { duration: 180, fill: "forwards" }) : null;
+        if (a) anim(scrim, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" });
         if (a) a.onfinish = () => pickEl.close(""); else pickEl.close("");
         return;
       }
@@ -2946,6 +2949,8 @@
       slots.forEach((s) => anim(s, [{ transform: "none", opacity: 1 }, { transform: fromTile(s), opacity: 0 }], { duration: 220, easing: "ease-in", fill: "forwards" }));
       const back = anim(ghost, [{ transform: "translateY(-12px) scale(1.18)", opacity: 0 }, { transform: "translateY(-12px) scale(1.18)", opacity: 1, offset: 0.5 }, { transform: "none", opacity: 1 }],
         { duration: 380, delay: 120, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
+      // The page comes back as the day settles into it, so nothing is left to snap when the window closes.
+      anim(scrim, [{ opacity: 1 }, { opacity: 0 }], { duration: 340, delay: 160, easing: "ease-in-out", fill: "forwards" });
       if (back) back.onfinish = () => pickEl.close(""); else pickEl.close("");
     };
     if (still || !ghost.animate) {
@@ -2953,13 +2958,14 @@
       return;
     }
     // Up off the page; then it opens into the three, each flying out of it, a beat apart; then the raised ones bob.
+    anim(scrim, [{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
     anim(ghost, [{ transform: "none" }, { transform: "translateY(-12px) scale(1.18)" }], { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
-    anim(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 360, fill: "forwards" });
-    anim(head, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 300, easing: "ease-out", fill: "backwards" });
-    anim(corner, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 250, fill: "backwards" });
+    anim(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 240, fill: "forwards" });
+    anim(head, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 180, easing: "ease-out", fill: "backwards" });
+    anim(corner, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 150, fill: "backwards" });
     slots.forEach((s, i) => {
       const a = anim(s, [{ transform: fromTile(s), opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: "none", opacity: 1 }],
-        { duration: 520, delay: 300 + i * 80, easing: "cubic-bezier(.2,1.25,.35,1)", fill: "backwards" });
+        { duration: 520, delay: 160 + i * 80, easing: "cubic-bezier(.2,1.25,.35,1)", fill: "backwards" });
       const done = () => s.classList.add("bob");
       if (a) a.onfinish = done; else done();
     });
