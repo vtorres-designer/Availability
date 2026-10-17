@@ -1539,12 +1539,12 @@
       const head = h("div", { class: "week-head" }, h("b", { text: weekLabel(ws) }));
       if (asOwner) {
         const hrs = weekHours(ws, priv, pub.weekStart);
-        if (hrs > 0) head.append(h("span", { class: hrs > priv.otAfter ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${hrs > priv.otAfter ? " · overtime" : ""}` }));
+        if (hrs > 0) head.append(h("span", { class: "hrs", text: `${num(hrs)} hrs scheduled` }));
       } else {
         // Supervisors: the week's scheduled hours, the same line he sees in edit mode (an older calendar file may not have them).
-        // Overtime only past his limit (40 hours is not overtime; 40.5 is).
-        const hrs = pubOt && pubOt.hrs && ws in pubOt.hrs ? pubOt.hrs[ws] : null, over = hrs != null && pubOt.after > 0 && hrs > pubOt.after;
-        if (hrs > 0) head.append(h("span", { class: over ? "hrs over" : "hrs", text: `${num(hrs)} hrs scheduled${over ? " · overtime" : ""}` }));
+        // Overtime weeks read the same as any other (his choice, Oct 17: no " · overtime" tag).
+        const hrs = pubOt && pubOt.hrs && ws in pubOt.hrs ? pubOt.hrs[ws] : null;
+        if (hrs > 0) head.append(h("span", { class: "hrs", text: `${num(hrs)} hrs scheduled` }));
       }
       frag.append(h("div", { class: "week" }, head, days));
     });
