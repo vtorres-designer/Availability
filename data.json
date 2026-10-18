@@ -3,11 +3,23 @@
   "name": "Vincent Torres",
   "empId": "10023185",
   "phone": "7206694305",
-  "note": "A night shift is listed under the day it starts. Tue means Tue night into Wed morning.",
-  "noteUntil": "",
+  "notes": [
+    {
+      "id": "n1",
+      "text": "",
+      "until": "",
+      "front": true,
+      "day": false,
+      "form": false,
+      "auto": "night"
+    }
+  ],
   "willing": [
     "overnight"
   ],
+  "status": "Accepting graveyard requests",
+  "led": "green",
+  "nightStart": "22:00",
   "weekStart": 5,
   "feedback": "c237b50f475f334782ed4e44565ebe73",
   "potFrom": "",
@@ -18,10 +30,10 @@
   "licNo": "2026-BFN-0012673",
   "licIssued": "2026-06-16",
   "licExpires": "2027-06-16",
-  "nightAuto": true,
-  "status": "Accepting graveyard requests",
-  "led": "green",
-  "nightStart": "22:00",
+  "uniform": {
+    "hash": "9848037823afb5dbee7a032626c85e6e3744a83bd35c403971759b91158a3dfd",
+    "items": []
+  },
   "days": {
     "2026-10-18": {
       "s": "busy"
@@ -90,9 +102,18 @@
     "shift": 8,
     "left": {
       "2026-10-16": 5,
-      "2026-10-23": 0
-    }
+      "2026-10-23": 0,
+      "2026-10-30": 8,
+      "2026-11-06": 16
+    },
+    "hrs": {
+      "2026-10-16": 35,
+      "2026-10-23": 42,
+      "2026-10-30": 32,
+      "2026-11-06": 24
+    },
+    "after": 40
   },
-  "updated": "2026-10-18T23:13:20.617Z",
-  "rev": "2026-10-18T23:13:20.617Z~gke1"
+  "updated": "2026-10-18T23:14:11.823Z",
+  "rev": "2026-10-18T23:14:11.823Z~br9h"
 }
