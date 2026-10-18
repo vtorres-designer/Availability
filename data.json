@@ -32,7 +32,48 @@
   "licExpires": "2027-06-16",
   "uniform": {
     "hash": "9848037823afb5dbee7a032626c85e6e3744a83bd35c403971759b91158a3dfd",
-    "items": []
+    "items": [
+      {
+        "id": "blackpolo",
+        "name": "Black polo",
+        "cat": "top",
+        "img": "uniform/blackpolo.webp",
+        "img2": "",
+        "tie": false,
+        "blazer": false,
+        "fit": {
+          "x": 0,
+          "y": 0,
+          "s": 1
+        },
+        "box": [
+          0.1517,
+          0.1483,
+          0.6967,
+          0.33
+        ]
+      },
+      {
+        "id": "blackbdu",
+        "name": "Black BDU pants",
+        "cat": "pants",
+        "img": "uniform/blackbdu.webp",
+        "img2": "",
+        "tie": false,
+        "blazer": false,
+        "fit": {
+          "x": 0,
+          "y": 0,
+          "s": 1
+        },
+        "box": [
+          0.26,
+          0.4692,
+          0.48,
+          0.5175
+        ]
+      }
+    ]
   },
   "days": {
     "2026-10-18": {
