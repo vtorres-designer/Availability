@@ -54,10 +54,10 @@
         ]
       },
       {
-        "id": "blackbdu",
+        "id": "blackbdu2",
         "name": "Black BDU pants",
         "cat": "pants",
-        "img": "uniform/blackbdu.webp",
+        "img": "uniform/blackbdu2.webp",
         "img2": "",
         "tie": false,
         "blazer": false,
@@ -74,10 +74,10 @@
         ]
       },
       {
-        "id": "blackdress",
+        "id": "blackdress2",
         "name": "Black dress pants",
         "cat": "pants",
-        "img": "uniform/blackdress.webp",
+        "img": "uniform/blackdress2.webp",
         "img2": "",
         "tie": false,
         "blazer": false,
