@@ -1287,14 +1287,16 @@ dialog:not([open]) { display: none; }
   #daySheet.split #txMsg { min-height: 150px; }
 }
 
-/* My Uniform. The corner button: the header's navy grid in a small floating card (a green shirt, "My Uniform", a green
-   lock and CODE) with a shine now and then. On a phone the page ends far enough under the links that it never covers
-   them; in his preview it sits above the preview's bar. Supervisors' view only, never while he edits. */
+/* My Uniform. The corner button: the header's navy grid in a floating card (a green shirt, "My Uniform", a green lock
+   and CODE) with a shine now and then. It floats in the corner the whole time, from the top of the page to the end (Oct 18:
+   it used to step aside over the days, so on a phone it only showed at the very end), and is big enough to spot on a
+   small phone. The page ends far enough under the links that it never covers them; in his preview it sits above the
+   preview's bar. Supervisors' view only, never while he edits. */
 .ufab {
   position: fixed; right: 16px; bottom: 16px; z-index: 9;
   right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  -webkit-appearance: none; appearance: none; overflow: hidden; margin: 0; padding: 8px 14px 8px 9px; border-radius: 16px; cursor: pointer;
-  display: grid; grid-template-columns: auto auto; gap: 1px 8px; align-items: center; justify-items: start; color: #fff; text-align: left;
+  -webkit-appearance: none; appearance: none; overflow: hidden; margin: 0; padding: 11px 20px 11px 11px; border-radius: 20px; cursor: pointer;
+  display: grid; grid-template-columns: auto auto; gap: 3px 11px; align-items: center; justify-items: start; color: #fff; text-align: left;
   background:
     linear-gradient(rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 12px 12px,
     linear-gradient(90deg, rgba(120, 180, 255, 0.08) 1px, transparent 1px) 0 0 / 12px 12px,
@@ -1302,24 +1304,20 @@ dialog:not([open]) { display: none; }
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 14px 26px -6px rgba(8, 24, 49, 0.5), 0 6px 10px -4px rgba(8, 24, 49, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-.ufab .u-ic { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--led); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
-.ufab .u-ic svg { width: 21px; height: 21px; }
-.ufab b { font: 700 16px/1 var(--font-display); }
-.ufab .u-lock { display: inline-flex; align-items: center; font: 600 9.5px/1.2 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--led); }
-.ufab .u-lock svg { width: 9px; height: 9px; margin-right: 3px; }
+.ufab .u-ic { grid-row: span 2; width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: var(--led); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
+.ufab .u-ic svg { width: 29px; height: 29px; }
+.ufab b { font: 700 22px/1 var(--font-display); }
+.ufab .u-lock { display: inline-flex; align-items: center; font: 600 12px/1.2 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--led); }
+.ufab .u-lock svg { width: 12px; height: 12px; margin-right: 4px; }
 /* A band of light that crosses the button (and the code screen's header) now and then. */
 .ufab::after, .u-hero::after {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; pointer-events: none;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.25), transparent); transform: translateX(-120%) skewX(-20deg);
 }
-body.u-fab .page { padding-bottom: 84px; }
+body.u-fab .page { padding-bottom: 104px; }
 body.previewing .ufab { bottom: calc(var(--bar-h, 56px) + 16px); }
-/* Where it would sit on a day or a footer link (and take its tap), it steps aside until they scroll on (app.js). A
-   focused link or day is scrolled clear of it. */
-.ufab { transition: opacity 0.2s, visibility 0.2s; }
-.ufab.tuck { opacity: 0; visibility: hidden; }
-html.fab-room { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
-@media (prefers-reduced-motion: reduce) { .ufab { transition: none; } }
+/* A day or link reached from the keyboard is scrolled clear of it. */
+html.fab-room { scroll-padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
 
 /* Its screens: a view of their own over the whole window; the page underneath doesn't scroll while it's open. */
 .uni {

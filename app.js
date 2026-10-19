@@ -3303,11 +3303,11 @@
     for (const s of [".page", "#toolbar", "#previewBar", "#uniformBtn"]) $(s).removeAttribute("inert");
     for (const s of [".page", "#uniformBtn"]) $(s).removeAttribute("aria-hidden");
     if (window.pageYOffset !== uni.pageY) window.scrollTo(0, uni.pageY);
-    // Focus goes back to the button, or, while it's stepped aside (or hidden), to the calendar, so it never drops to
+    // Focus goes back to the button, or, while it is hidden, to the calendar, so it never drops to
     // the page's start.
     fabDodge();
     const fab = $("#uniformBtn"), cal = $(".page > .cal");
-    const back = !fab.hidden && !fab.classList.contains("tuck") ? fab : cal;
+    const back = !fab.hidden ? fab : cal;
     if (back === cal) cal.setAttribute("tabindex", "-1");
     try { back.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
   }
@@ -3372,32 +3372,14 @@
     if (owner && preview) document.body.style.setProperty("--bar-h", `${$("#previewBar").offsetHeight}px`);
     fabCheck();
   }
-  // The button floats over the page. Where it would sit on a day or a footer link (and take its tap) or on the employee
-  // ID, it steps aside until they've scrolled on; at the page's end there's room for it under the links. Only the part
-  // of a day that can be seen counts: a calendar that scrolls by itself (laptops) hides the rest of its weeks, and those
-  // never put the button away. It checks again as that calendar scrolls, and as a box in the header opens or closes.
+  // The button floats in the corner the whole time (Oct 18: it used to step aside wherever it sat on a day or a footer
+  // link, so on a phone it only showed at the page's very end). At the page's end there's room for it under the links.
   let fabFrame = 0;
   // The last thing done was a key (not a tap, a click or a touch).
   let byKeys = false;
   document.addEventListener("keydown", () => { byKeys = true; }, true);
   for (const t of ["pointerdown", "mousedown", "touchstart"]) document.addEventListener(t, () => { byKeys = false; }, { capture: true, passive: true });
-  function fabDodge() {
-    fabFrame = 0;
-    const fab = $("#uniformBtn");
-    if (fab.hidden) return;
-    const r = fab.getBoundingClientRect(), cal = $(".page > .cal");
-    let top = -Infinity, bottom = Infinity;
-    if (cal.scrollHeight > cal.clientHeight + 1) { const c = cal.getBoundingClientRect(); top = c.top + cal.clientTop; bottom = top + cal.clientHeight; }
-    const under = (el) => {
-      const b = el.getBoundingClientRect(), inCal = el.classList.contains("day");
-      const t = inCal ? Math.max(b.top, top) : b.top, btm = inCal ? Math.min(b.bottom, bottom) : b.bottom;
-      return b.width > 0 && btm > t && b.left < r.right && b.right > r.left && t < r.bottom && btm > r.top;
-    };
-    // Never while it has the keyboard's focus: stepping aside would drop the focus to the page. Focus the page gave it
-    // back after a tap or a Back gesture doesn't keep it there (a finger's scroll never moves the focus).
-    const kept = fab === document.activeElement && byKeys;
-    fab.classList.toggle("tuck", !kept && Array.prototype.some.call(document.querySelectorAll("#weeks .day, .foot .linkish, .foot .empid"), under));
-  }
+  function fabDodge() { fabFrame = 0; }
   function fabCheck() { if (!fabFrame) fabFrame = requestAnimationFrame(fabDodge); }
 
   // ---------- credentials PDF ----------
@@ -5665,8 +5647,8 @@
     // Escape closes it, as it closes a window.
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !uniEl.hidden && !document.querySelector("dialog[open]")) closeUniform(); });
     window.addEventListener("hashchange", () => { routeUniform(); });
-    // From the keyboard, a footer link brings the page's end into view, where the corner button has room under the links:
-    // so the next Tab reaches it (stepped aside, it can't take the focus). A click there doesn't move the page.
+    // From the keyboard, a footer link brings the page's end into view, where the corner button has room under the links,
+    // so the links aren't hidden under it. A click there doesn't move the page.
     let tabAt = 0;
     document.addEventListener("keydown", (e) => { if (e.key === "Tab") tabAt = Date.now(); }, true);
     $(".page > .foot").addEventListener("focusin", () => {
