@@ -34,10 +34,10 @@
     "hash": "9848037823afb5dbee7a032626c85e6e3744a83bd35c403971759b91158a3dfd",
     "items": [
       {
-        "id": "blackpolo",
+        "id": "blackpolo2",
         "name": "Black polo",
         "cat": "top",
-        "img": "uniform/blackpolo.webp",
+        "img": "uniform/blackpolo2.webp",
         "img2": "",
         "tie": false,
         "blazer": false,
@@ -71,6 +71,26 @@
           0.4692,
           0.48,
           0.5175
+        ]
+      },
+      {
+        "id": "blackdress",
+        "name": "Black dress pants",
+        "cat": "pants",
+        "img": "uniform/blackdress.webp",
+        "img2": "",
+        "tie": false,
+        "blazer": false,
+        "fit": {
+          "x": 0,
+          "y": 0,
+          "s": 1
+        },
+        "box": [
+          0.265,
+          0.4683,
+          0.47,
+          0.4958
         ]
       }
     ]
