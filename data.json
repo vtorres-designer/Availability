@@ -54,10 +54,10 @@
         ]
       },
       {
-        "id": "blueshirt",
+        "id": "blueshirt2",
         "name": "Light blue dress shirt",
         "cat": "top",
-        "img": "uniform/blueshirt.webp",
+        "img": "uniform/blueshirt2.webp",
         "img2": "",
         "tie": false,
         "blazer": false,
