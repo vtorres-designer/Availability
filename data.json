@@ -74,6 +74,26 @@
         ]
       },
       {
+        "id": "grayshirt",
+        "name": "Gray dress shirt",
+        "cat": "top",
+        "img": "uniform/grayshirt.webp",
+        "img2": "",
+        "tie": false,
+        "blazer": false,
+        "fit": {
+          "x": 0,
+          "y": 0,
+          "s": 1
+        },
+        "box": [
+          0.13,
+          0.1475,
+          0.74,
+          0.3525
+        ]
+      },
+      {
         "id": "blackbdu2",
         "name": "Black BDU pants",
         "cat": "pants",
