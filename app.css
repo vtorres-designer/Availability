@@ -593,21 +593,39 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .pv-warn { color: var(--muted); font-size: 13px; }
 .pv-warn.strong { color: var(--err, var(--busy)); font-weight: 700; }
 .pv-err { box-shadow: inset 0 0 0 2px var(--busy); }
-/* Kept Your Edits (Oct 20): days he changed by hand that a pasted schedule would change. His day and the pasted one, one
-   above the other, and a switch to take the pasted one instead (off until he turns it on). */
-.pv-kept { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-line, var(--line)); }
-.pv-kept .muted { margin: 0; }
-.kept-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.kept-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--bg); font-size: 14px; }
-.kept-text { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
-.kept-text i { font-style: normal; font-weight: 700; }
-.kept-text small { color: var(--muted); font-size: 12px; }
-.kept-row .kept-lisa { color: var(--muted); }
-.kept-row.taking .kept-yours { color: var(--muted); text-decoration: line-through; }
-.kept-row.taking .kept-lisa { color: var(--ink); }
-.kept-take { position: relative; display: grid; justify-items: center; gap: 4px; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
-.kept-take .switch-in { top: auto; bottom: 0; margin: 0; }
-.kept-tag { color: var(--accent); font-weight: 700; }
+/* Review Schedule (Oct 20): every day a pasted schedule covers. A change shows where the day is now and where it would
+   be, a label for where the current day came from, and X / check buttons; a day that stays the same is a green row. */
+.rv-sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.rv-sec-head[hidden] { display: none; }
+.rv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rv-list:empty { display: none; }
+.rv-row { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.rv-row.rv-taked { box-shadow: inset 0 0 0 2px var(--open); }
+.rv-row.rv-keepd { box-shadow: inset 0 0 0 2px var(--muted); }
+.rv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rv-src { flex: none; font: 700 11px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; }
+.rv-src.lisa { background: var(--note-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--note-line); }
+.rv-src.manual { background: var(--ot); color: var(--ot-ink); }
+.rv-line { margin: 0; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; font-size: 14px; overflow-wrap: anywhere; }
+.rv-line i { font-style: normal; font-weight: 700; color: var(--muted); }
+.rv-to span { font-weight: 700; }
+.rv-taked .rv-from span, .rv-keepd .rv-to span { text-decoration: line-through; color: var(--muted); font-weight: 400; }
+.rv-when { margin: 0; font-size: 12px; color: var(--muted); }
+.rv-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
+.rv-btn {
+  -webkit-appearance: none; appearance: none; border: 0; min-height: 46px; border-radius: 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 16px/1 var(--font-body);
+  background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line);
+}
+.rv-btn .rv-ic { font-size: 18px; line-height: 1; }
+.rv-keep[aria-pressed="true"] { background: var(--busy); color: var(--busy-ink); box-shadow: none; }
+.rv-take[aria-pressed="true"] { background: var(--open); color: var(--open-ink); box-shadow: none; }
+.rv-said { margin: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.rv-same { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; font-size: 14px; background: rgba(31, 170, 90, 0.14); box-shadow: inset 0 0 0 1px rgba(31, 170, 90, 0.35); }
+.rv-check { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--open); color: var(--open-ink); font-weight: 700; font-size: 13px; }
+.rv-same-text { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
+.rv-foot { position: sticky; bottom: 0; display: grid; gap: 6px; padding: 10px 0 2px; background: var(--surface); box-shadow: 0 -12px 12px -6px var(--surface); }
+.rv-foot .muted { margin: 0; text-align: center; }
 .pv-x {
   flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 1px;
   display: grid; place-items: center; font-weight: 700; font-size: 12px;

@@ -513,8 +513,8 @@
     if (hand) out.hand = hand;
     return out;
   }
-  // When he last changed the day by hand (Edit Day or a tap on the calendar), as an ISO time; "" if he hasn't (Oct 20).
-  // Add Schedule leaves those days as he left them unless he says otherwise. Private: the public file never carries it.
+  // When he last changed the day himself in Edit Day, as an ISO time; "" if he hasn't (Oct 20). Add Schedule's review
+  // labels a change on such a day "Manual Change". Private: the public file never carries it.
   function cleanHand(v) { return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z$/.test(v) ? v : ""; }
   // The shifts he works on a day (none unless it's a work day).
   const workShifts = (rec) => (rec && rec.s === "work" ? [{ start: rec.start, end: rec.end, hours: rec.hours }].concat(rec.more || []) : []);
@@ -1229,15 +1229,15 @@
     if (note && !(base && base.note) && (cur.s !== "work" || (base && base.s === "work"))) keep.note = note;
     return cleanPrivRec(Object.assign({}, base || { s: "none" }, keep), priv.pickup);
   }
-  // Hand edits (Oct 20). A day he changes himself is marked with when; a day that ends up just as it was (as saved, as it
-  // was when Edit Day opened, or as it is now) keeps that record, mark or no mark, so changing something and changing it
-  // back is no change at all.
+  // Hand edits (Oct 20). A day he changes himself in Edit Day is marked with when. A day that ends up just as it was (as
+  // saved, as it was when Edit Day opened, or as it is now) keeps that record, mark or no mark, so changing something and
+  // changing it back is no change at all.
   const bareDay = (rec) => { if (!rec) return null; const o = Object.assign({}, rec); delete o.hand; return o; };
   const sameDay = (a, b) => same(bareDay(a), bareDay(b));
   function markHand(k, rec, opened) {
     if (!rec) return null;
     for (const old of [saved && saved.priv.days[k], opened, priv.days[k]]) if (old && sameDay(old, rec)) return clone(old);
-    return Object.assign(bareDay(rec), { hand: new Date().toISOString() });
+    return Object.assign(bareDay(rec), { hand: new Date().toISOString().replace(/\.\d+Z$/, "Z") });
   }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
@@ -1249,11 +1249,9 @@
       toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to Edit.`, 5000);
       return;
     }
-    const off = !!(cur && cur.s === brush); // a second tap clears it, and its hand-edit mark with it
-    if (brush === "work") setDayKeep(k, off ? null : workRec(null, null, priv.pickup));
-    else if (brush === "busy") setDayKeep(k, off ? null : { s: "busy" });
-    else if (brush === "open") setDayKeep(k, off ? null : { s: "open" });
-    if (!off && priv.days[k]) priv.days[k] = markHand(k, priv.days[k]);
+    if (brush === "work") setDayKeep(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
+    else if (brush === "busy") setDayKeep(k, cur && cur.s === "busy" ? null : { s: "busy" });
+    else if (brush === "open") setDayKeep(k, cur && cur.s === "open" ? null : { s: "open" });
     afterChange();
   }
 
@@ -3800,9 +3798,6 @@
 
   // ---------- owner: import ----------
   let importResult = null;
-  // Days he changed by hand that he switched to the pasted schedule's version ("Use LISA's"); off for every day until he
-  // switches it on, and cleared each time a new schedule comes in (Oct 20).
-  let importTake = new Set();
 
   function describeKeys(item) {
     if (item.filtered) return item.keys.map(shortDay).join(", ");
@@ -3819,12 +3814,13 @@
     if (rec.s === "open") return `Available${rec.w ? ` (${rec.w.map((x) => SHIFT_LABEL[x]).join(", ")})` : ""}`;
     return "Clear (back to gray)";
   }
-  // A day as it is on his calendar, for the Kept Your Edits list.
+  // A day as his calendar has it (or would have it), for Review Schedule.
   function describeDay(rec) {
     if (!rec) return "Nothing (gray)";
     const picks = rec.o ? " · your shift choices" : "";
     if (rec.s === "none") return `No shift${rec.note ? ` · ${rec.note}` : ""}${picks}`;
-    return describeRec(rec) + (rec.s === "open" && rec.note ? ` · ${rec.note}` : "") + picks;
+    const weekly = rec.weekly ? " (every week)" : "";
+    return describeRec(rec) + (rec.s === "open" && rec.note ? ` · ${rec.note}` : "") + picks + weekly;
   }
   const handWhen = (iso) => { try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; } };
   // What Add Schedule writes on day k for a pasted line (null: the day ends up with nothing on it).
@@ -3847,24 +3843,13 @@
       }
     }
     if (gaps.length > 200) gaps = [];
-    // Days he changed by hand stay as they are (Oct 20): the list shows them beside the pasted version, and only the ones he
-    // switches to "Use LISA's" change. One where the paste already says what he has isn't listed, and nothing changes.
-    const apply = new Map(), kept = [], matched = [];
-    for (const [k, rec] of final) {
-      const cur = priv.days[k];
-      if (!(cur && cur.hand)) { apply.set(k, rec); continue; }
-      const next = importRec(k, rec);
-      if (sameDay(cur, next)) { matched.push(k); continue; }
-      kept.push({ k, cur, next });
-      if (importTake.has(k)) apply.set(k, rec);
-    }
-    const replaced = [...apply.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
+    const replaced = [...final.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
     // Every-week days the paste would turn green: worth a second look, since they're usually worked.
-    const freed = [...apply.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
+    const freed = [...final.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
     const workLines = new Map();
     for (const it of result.items) if (it.rec.s === "work") for (const k of it.keys) workLines.set(k, (workLines.get(k) || 0) + 1);
     const doubled = [...workLines.entries()].filter(([, n]) => n > 1).map(([k]) => k).sort();
-    return { final, apply, kept, matched, gaps, replaced, doubled, freed };
+    return { final, gaps, replaced, doubled, freed };
   }
 
   function renderImport() {
@@ -3882,16 +3867,13 @@
       return;
     }
     const rows = [];
-    const keptKeys = new Set(plan.kept.filter((x) => !importTake.has(x.k)).map((x) => x.k));
     for (const it of items) {
-      const ownKept = it.keys.filter((k) => keptKeys.has(k));
       rows.push({ line: it.line, el: h("li", { class: "pv-item" },
         h("span", { class: `dot ${dotFor(it.rec.s)}` }),
         h("span", { class: "pv-text" },
           h("b", { text: describeKeys(it) }),
           h("span", { text: it.rec.s === "clear" && it.keys.some((k) => ruleOn(k, priv)) ? "Clear (back to your every-week setting where you have one, gray elsewhere)" : describeRec(it.rec) }),
           it.warn ? h("span", { class: "pv-warn strong", text: it.warn }) : null,
-          ownKept.length ? h("span", { class: "pv-warn kept-tag", text: `Kept your edit${ownKept.length === 1 ? "" : "s"}${it.keys.length > 1 ? ` on ${ownKept.map(shortDay).join(", ")}` : ""}` }) : null,
           it.ignored ? h("span", { class: "pv-warn", text: `Ignored: "${it.ignored}"` }) : null)) });
     }
     for (const er of errors) {
@@ -3900,10 +3882,8 @@
         h("span", { class: "pv-text" }, h("b", { text: `Line ${er.line}: ${er.text}` }), h("span", { text: er.msg }))) });
     }
     rows.sort((a, b) => a.line - b.line);
-    const n = plan.apply.size, keptN = keptKeys.size;
+    const n = plan.final.size;
     const summary = [`${n} day${n === 1 ? "" : "s"} ready`];
-    if (keptN) summary.push(`${keptN} of your edits kept`);
-    if (plan.matched.length) summary.push(`${plan.matched.length} of your edits already match${plan.matched.length === 1 ? "es" : ""}`);
     if (plan.replaced) summary.push(`${plan.replaced} already marked will change`);
     if (errors.length) summary.push(`${errors.length} line${errors.length === 1 ? "" : "s"} skipped (fix or delete ${errors.length === 1 ? "it" : "them"})`);
     box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }));
@@ -3913,7 +3893,6 @@
     if (plan.freed.length) {
       box.append(h("p", { class: "pv-sum warn", text: `${plan.freed.map(shortDay).join(", ")} ${plan.freed.length === 1 ? "is an every-week day" : "are every-week days"} in Settings. Adding ${plan.freed.length === 1 ? "it" : "them"} as available changes only ${plan.freed.length === 1 ? "that date" : "those dates"}; the weekly setting stays on.` }));
     }
-    if (plan.kept.length) box.append(keptList(plan.kept));
     box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
     // Filling gaps waits until every line reads cleanly, so a skipped line's days are never turned green.
@@ -3932,55 +3911,100 @@
     $("#importApply").textContent = total ? `Add ${total} Day${total === 1 ? "" : "s"} to Calendar` : "Add to Calendar";
   }
 
-  // Days he changed by hand that the paste would change: his day and the pasted one side by side, each with a switch
-  // that's off until he turns it on (then that day takes the pasted version, and loses its hand-edit mark).
-  function keptList(kept) {
-    const rowsK = kept.map(({ k, cur, next }) => {
-      const id = `take-${k}`;
-      const input = h("input", { type: "checkbox", class: "switch-in", id, role: "switch", "aria-label": `Use LISA's for ${shortDay(k)}` });
-      input.checked = importTake.has(k);
-      input.addEventListener("change", () => {
-        if (input.checked) importTake.add(k); else importTake.delete(k);
-        renderImport();
-        const again = document.getElementById(id);
-        if (again) try { again.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
-      });
-      const when = handWhen(cur.hand);
-      return h("li", { class: `kept-row${input.checked ? " taking" : ""}` },
-        h("span", { class: "kept-text" },
-          h("b", { text: shortDay(k) }),
-          h("span", { class: "kept-yours" }, h("i", { text: "Yours: " }), describeDay(cur), when ? h("small", { text: ` · edited ${when}` }) : null),
-          h("span", { class: "kept-lisa" }, h("i", { text: "LISA: " }), describeDay(next))),
-        h("label", { class: "kept-take", for: id }, h("span", { text: "Use LISA's" }), input, h("span", { class: "switch", "aria-hidden": "true" })));
-    });
-    return h("div", { class: "pv-kept" },
-      h("p", { class: "pv-sum", text: "Kept your edits" }),
-      h("p", { class: "muted small", text: "You changed these days yourself, so they stay as you left them. Switch on Use LISA's for any day that should take the new schedule instead." }),
-      h("ul", { class: "kept-list" }, rowsK));
+  // ---------- owner: Review Schedule (Oct 20) ----------
+  // Add to Calendar opens a review of every day the schedule covers, in a window of its own. A day the schedule leaves
+  // as his calendar has it is green with a check. Every other day shows the change from what it is to what it would be,
+  // labeled where his current day came from (Manual Change: he set it himself in Edit Day; LISA Change: the schedule
+  // moved it, or adds a day), with X (keep it as it is) and a check (make the change). Nothing is answered for him.
+  // Once every change has an answer, Save puts the checked ones on the calendar and saves straight to the live site.
+  let review = null;
+  function reviewEntries() {
+    const plan = planImport(importResult);
+    const gapOpen = plan.gaps.length > 0 && !importResult.errors.length;
+    const out = [];
+    const entry = (k, next) => {
+      const cur = priv.days[k] || null, shown = dayRec(k, priv);
+      // A date that follows its every-week setting and would be written just as that setting has it isn't a change.
+      const sameAsWeekly = !cur && shown && shown.weekly && next && sameDay(Object.assign({}, shown, { weekly: undefined }), next);
+      out.push({ k, cur, shown, next, same: sameDay(cur, next) || !!sameAsWeekly, manual: !!(cur && cur.hand) });
+    };
+    for (const [k, rec] of plan.final) entry(k, importRec(k, rec));
+    if (gapOpen) for (const k of plan.gaps) entry(k, keptRec(k, { s: "open" }));
+    return out.sort((a, b) => (a.k < b.k ? -1 : 1));
   }
-
   function applyImport() {
     if (!importResult) return;
-    const plan = planImport(importResult);
-    for (const [k, rec] of plan.apply) setDay(k, importRec(k, rec));
-    const keptN = plan.kept.filter((x) => !importTake.has(x.k)).length;
-    const gapOpen = plan.gaps.length > 0 && !importResult.errors.length;
-    if (gapOpen) for (const k of plan.gaps) setDayKeep(k, { s: "open" });
-    const total = plan.apply.size + (gapOpen ? plan.gaps.length : 0);
-    importTake = new Set();
-    // Lines that couldn't be read stay in the box so they can be fixed.
+    review = { entries: reviewEntries(), answers: new Map() };
+    renderReview();
+    showSheet("#reviewSheet");
+  }
+  function renderReview() {
+    if (!review) return;
+    const changes = review.entries.filter((e) => !e.same), sames = review.entries.filter((e) => e.same);
+    const left = changes.filter((e) => !review.answers.has(e.k)).length;
+    const taking = changes.filter((e) => review.answers.get(e.k) === "take").length;
+    const answer = (e, a) => {
+      review.answers.set(e.k, a);
+      renderReview();
+      const again = document.getElementById(`rv-${a}-${e.k}`);
+      if (again) try { again.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+    };
+    $("#rvSum").textContent = !changes.length
+      ? `All ${sames.length} day${sames.length === 1 ? " matches" : "s match"} your calendar. Nothing to change.`
+      : `${changes.length} change${changes.length === 1 ? "" : "s"} · ${sames.length} the same${left ? ` · ${left} left to answer` : " · all answered"}`;
+    $("#rvChangesHead").hidden = !changes.length;
+    $("#rvAll").hidden = !left;
+    $("#rvChanges").replaceChildren(...changes.map((e) => {
+      const a = review.answers.get(e.k), when = e.manual ? handWhen(e.cur.hand) : "";
+      const btn = (kind, label, icon) => {
+        const b = h("button", { type: "button", class: `rv-btn rv-${kind}`, id: `rv-${kind}-${e.k}`, "aria-pressed": String(a === kind),
+          "aria-label": `${label}: ${shortDay(e.k)}` }, h("span", { class: "rv-ic", "aria-hidden": "true", text: icon }), h("span", { text: label }));
+        b.addEventListener("click", () => answer(e, kind));
+        return b;
+      };
+      return h("li", { class: `rv-row${a ? ` rv-${a}d` : ""}` },
+        h("div", { class: "rv-head" }, h("b", { text: shortDay(e.k) }),
+          h("span", { class: `rv-src ${e.manual ? "manual" : "lisa"}`, text: e.manual ? "Manual Change" : "LISA Change" })),
+        h("p", { class: "rv-line rv-from" }, h("i", { text: "From" }), h("span", { text: describeDay(e.shown) })),
+        h("p", { class: "rv-line rv-to" }, h("i", { text: "To" }), h("span", { text: describeDay(e.next) })),
+        e.manual && when ? h("p", { class: "rv-when", text: `You changed this day yourself on ${when}.` }) : null,
+        h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")),
+        a ? h("p", { class: "rv-said", text: a === "take" ? "This day will change." : "This day stays as it is." }) : null);
+    }));
+    $("#rvSameHead").hidden = !sames.length;
+    $("#rvSame").replaceChildren(...sames.map((e) => h("li", { class: "rv-same" },
+      h("span", { class: "rv-check", "aria-hidden": "true", text: "✓" }),
+      h("span", { class: "rv-same-text" }, h("b", { text: shortDay(e.k) }), h("span", { text: describeDay(e.shown) })))));
+    const btn = $("#rvSave");
+    btn.disabled = left > 0;
+    btn.textContent = left ? "Save" : taking ? `Save ${taking} Change${taking === 1 ? "" : "s"}` : "Done (Nothing to Change)";
+    const others = changes.length && !left && taking && hasOtherChanges();
+    $("#rvHint").textContent = left ? `Answer ${left === changes.length ? "every change" : `the ${left} change${left === 1 ? "" : "s"} left`} with X or the check to save.`
+      : taking ? `Saves to your live calendar. Supervisors see it a minute or two later.${others ? " Your other unsaved changes are saved with it." : ""}` : "Nothing on your calendar changes.";
+  }
+  // Unsaved changes he made before opening the review (they'd go out with this save too).
+  function hasOtherChanges() { const c = changes(); return c.days.size > 0 || c.settings; }
+  async function saveReview() {
+    if (!review) return;
+    const changesNow = review.entries.filter((e) => !e.same);
+    if (changesNow.some((e) => !review.answers.has(e.k)) || busy || saving) return;
+    const take = changesNow.filter((e) => review.answers.get(e.k) === "take");
+    for (const e of take) setDay(e.k, e.next);
+    // Lines that couldn't be read stay in Add Schedule so they can be fixed; the rest of the box is done with.
     const lines = $("#importText").value.split(/\r\n|\r|\n/);
     const leftover = [...new Set(importResult.errors.map((er) => er.line))].map((n) => lines[n - 1]).join("\n");
     $("#importText").value = leftover;
     if (leftover) store.set(LS.importText, leftover); else store.del(LS.importText);
     store.del(LS.schedAt);
-    $("#importSheet").close();
+    review = null;
+    $("#reviewSheet").close("");
+    $("#importSheet").close("");
     afterChange();
-    toast(`Added ${total} day${total === 1 ? "" : "s"}.${keptN ? ` Kept your edits on ${keptN} day${keptN === 1 ? "" : "s"}.` : ""}${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""} Check them, then tap Save.`, 5000);
+    if (!take.length) { toast(`Nothing changed.${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""}`, 4200); return; }
+    if (await save(false)) toast(`Saved ${take.length} change${take.length === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""}`, 5000);
   }
 
   function openImport() {
-    importTake = new Set();
     $("#importText").value = store.get(LS.importText) || "";
     renderImport();
     showSheet("#importSheet");
@@ -4023,7 +4047,6 @@
     let joined = text;
     if (prev && recent) joined = prev.indexOf(text) >= 0 ? prev : text.indexOf(prev) >= 0 ? text : prev + "\n" + text;
     store.set(LS.schedAt, String(Date.now()));
-    importTake = new Set();
     $("#importText").value = joined;
     renderImport();
     showSheet("#importSheet");
@@ -4034,7 +4057,6 @@
     let text = "";
     try { text = await navigator.clipboard.readText(); } catch (e) { text = ""; }
     if (!text.trim()) { toast("Nothing to paste. Copy your schedule first, or tap in the box and use Paste.", 5000); return; }
-    importTake = new Set();
     $("#importText").value = text;
     renderImport();
   }
@@ -5695,6 +5717,13 @@
     $("#importPaste").hidden = !(navigator.clipboard && navigator.clipboard.readText);
     $("#importPaste").addEventListener("click", pasteSchedule);
     $("#importApply").addEventListener("click", applyImport);
+    $("#rvSave").addEventListener("click", saveReview);
+    $("#rvClose").addEventListener("click", () => $("#reviewSheet").close(""));
+    $("#rvAll").addEventListener("click", () => {
+      if (!review) return;
+      for (const e of review.entries) if (!e.same && !review.answers.has(e.k)) review.answers.set(e.k, "take");
+      renderReview();
+    });
     $("#saveBtn").addEventListener("click", () => (busy ? null : openReceipt()));
     $("#rcSave").addEventListener("click", async () => { if (busy || saving) return; if (await save(false)) $("#receiptSheet").close(""); });
     $("#conflictSheet").addEventListener("close", onConflict);

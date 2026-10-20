@@ -328,6 +328,29 @@ Thu 10/15 2300-0700</pre>
   </form>
 </dialog>
 
+<!-- Review Schedule (Oct 20): Add to Calendar opens it over Add Schedule. Every day the schedule covers: the same ones
+     green with a check, every change with X (keep) and a check (change). Save unlocks once every change is answered. -->
+<dialog class="sheet" id="reviewSheet" aria-labelledby="reviewTitle">
+  <div class="sheet-in review-in">
+    <div class="sheet-head">
+      <div>
+        <p class="eyebrow">Add Schedule</p>
+        <h2 id="reviewTitle">Review Schedule</h2>
+      </div>
+      <button type="button" class="x" id="rvClose" aria-label="Close">×</button>
+    </div>
+    <p class="pv-sum" id="rvSum" aria-live="polite"></p>
+    <div class="rv-sec-head" id="rvChangesHead"><span class="label">Changes</span><button type="button" class="linkish" id="rvAll">Approve All</button></div>
+    <ul class="rv-list" id="rvChanges"></ul>
+    <span class="label" id="rvSameHead">Same as your calendar</span>
+    <ul class="rv-list" id="rvSame"></ul>
+    <div class="rv-foot">
+      <button type="button" class="btn primary wide" id="rvSave" disabled>Save</button>
+      <p class="muted small" id="rvHint"></p>
+    </div>
+  </div>
+</dialog>
+
 <!-- Owner: settings -->
 <dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
   <form method="dialog" class="sheet-in" id="settingsForm" novalidate autocomplete="off">
