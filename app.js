@@ -83,7 +83,7 @@
   const SHIFT_LABEL = { overnight: "Graveyard", swing: "Swing", morning: "Morning" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d4.", draftPrefix3: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", uploads: "sa.uploads" };
+  const LS = { token: "sa.token", savedSignal: "sa.saved", draftPrefix: "sa.d4.", draftPrefix3: "sa.d3.", draft2: "sa.draft2", oldDraft: "sa.draft", who: "sa.who", site: "sa.site", addr: "sa.addr", brush: "sa.brush", importText: "sa.import", schedAt: "sa.scheduleAt", pay: "sa.pay", fbContact: "sa.fbContact", lastWeekly: "sa.weekly", uploads: "sa.uploads" };
   const PRIVATE_VAR = "AVAILABILITY_PRIVATE";
   const VAR_LIMIT = 47 * 1024; // GitHub allows 48 KB per variable
   const PUBLIC_TAG = { open: "Open", pot: "P-OT", ot: "OT", busy: "Busy", unset: "" };
@@ -3895,6 +3895,7 @@
     const leftover = [...new Set(importResult.errors.map((er) => er.line))].map((n) => lines[n - 1]).join("\n");
     $("#importText").value = leftover;
     if (leftover) store.set(LS.importText, leftover); else store.del(LS.importText);
+    store.del(LS.schedAt);
     $("#importSheet").close();
     afterChange();
     toast(`Added ${total} day${total === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""} Check them, then tap Save.`, 5000);
@@ -3920,6 +3921,7 @@
     try { text = decodeURIComponent(text); } catch (e) { /* as it is */ }
     text = text.replace(/\+/g, " ").trim(); // some encoders write a space as +
     if (text) session.set(SCHED_LINK, text);
+    else setTimeout(() => toast("Nothing came with the link. Copy the schedule text first, then run the shortcut again.", 6000), 1600); // the shortcut run with an empty clipboard
     try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) { /* ignore */ }
   }
   function routeSchedule() {
@@ -3935,10 +3937,17 @@
     if (standIn) { showSheet("#keySheet"); return; }
     session.del(SCHED_LINK);
     for (const s of ["#daySheet", "#settingsSheet"]) if ($(s).open) $(s).close("");
-    $("#importText").value = text;
+    // A long schedule comes as two or three texts a few seconds apart, each opening the page: they're joined, in order,
+    // rather than the last one replacing the others. Only what a link brought in the last ten minutes is kept with it
+    // (the box's own text is stored by renderImport); a text that is already part of the other is not added twice.
+    const prev = store.get(LS.importText) || "", recent = Date.now() - Number(store.get(LS.schedAt) || 0) < 10 * 60 * 1000;
+    let joined = text;
+    if (prev && recent) joined = prev.indexOf(text) >= 0 ? prev : text.indexOf(prev) >= 0 ? text : prev + "\n" + text;
+    store.set(LS.schedAt, String(Date.now()));
+    $("#importText").value = joined;
     renderImport();
     showSheet("#importSheet");
-    toast("Your schedule is in. Check the list, then tap Add.", 4200);
+    toast(joined === text ? "Your schedule is in. Check the list, then tap Add." : "Added to what the earlier text brought. Check the list, then tap Add.", 4200);
   }
   // The Paste button: reads what he copied (iPhone shows its own Paste bubble the first time) into the box.
   async function pasteSchedule() {
@@ -5574,7 +5583,7 @@
     $("#setNoteText").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
     $("#signOut").addEventListener("click", () => {
       leaving = true;
-      for (const k of [LS.token, ...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.brush, LS.lastWeekly, LS.uploads]) store.del(k);
+      for (const k of [LS.token, ...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.schedAt, LS.brush, LS.lastWeekly, LS.uploads]) store.del(k);
       // And My Uniform's code, if he opened it in his preview in this tab: the next person here is asked for it.
       for (const k of [UNI_KEY, UNI_LINK]) session.del(k);
       nav.leave(() => location.reload());
@@ -5582,7 +5591,7 @@
     $("#settingsBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openSettings()));
     $("#importBtn").addEventListener("click", () => (busy ? toast("One moment, loading your calendar…") : standIn ? showSheet("#keySheet") : openImport()));
     $("#unlockDiscard").addEventListener("click", () => {
-      for (const k of [...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.lastWeekly]) store.del(k);
+      for (const k of [...draftKeys(), LS.draft2, LS.oldDraft, LS.importText, LS.schedAt, LS.lastWeekly]) store.del(k);
       $("#unlockDraft").hidden = true;
       toast("Discarded");
     });

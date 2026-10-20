@@ -577,13 +577,16 @@
   const NESTED_MSG = "This note has quotes inside it. Use single quotes inside a note, like \"Sgt said '1500-2300'\".";
 
   // A schedule that arrives as ONE long line (a text from Claude's number loses its line breaks on the way to the
-  // phone) is cut before each "Fri 10/23"-style day. Only a paste with no line breaks at all is touched, and only
-  // where a day name + date follows a space outside quotes and does not continue a range or a list ("Mon 10/6 to
-  // Fri 10/10 off", "Mon 10/6 and Tue 10/7 off" stay whole). Anything with line breaks parses exactly as before.
+  // phone) is cut before each "Fri 10/23"-style day. Each line of the paste is looked at on its own (a long schedule
+  // comes as two or three such texts, pasted or joined one under the other, since v84), and only where a day name +
+  // date follows a space outside quotes and does not continue a range or a list ("Mon 10/6 to Fri 10/10 off",
+  // "Mon 10/6 and Tue 10/7 off" stay whole). A line with nothing to cut parses exactly as before.
   const DAY_TOKEN = new RegExp("^" + DOW + "\\b\\.?,?\\s*\\d{1,2}[/.-]\\d{1,2}(?![/.\\d])", "i");
   const LIST_TAIL = new RegExp("(?:" + RANGE_SEP + "|\\band\\b|\\bor\\b|\\bplus\\b|[,&/+;])\\s*$", "i");
   function unflatten(text) {
-    if (/[\r\n\f\v\u2028\u2029]/.test(text)) return text;
+    return text.split(/(\r\n|\r|\n|\f|\v|\u2028|\u2029)/).map((seg) => (/^[\r\n\f\v\u2028\u2029]/.test(seg) ? seg : unflattenLine(seg))).join("");
+  }
+  function unflattenLine(text) {
     let out = "", cur = "", inQuote = false, cuts = 0;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];

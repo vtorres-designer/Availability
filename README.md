@@ -257,7 +257,7 @@ The Admin Login window only shows a link to GitHub's token page and a box for th
 
 ## Adding your schedule
 
-Tap **Add Schedule** and type one line per day, for every day you can see in LISA. Two shortcuts (since v83): the **Paste** link above the box pastes what you copied, and the phone shortcut **Schedule to Availability** opens this page with the copied schedule already in the box (it rides in the address after `#schedule=`, a part the web server never receives; the page takes it off the address at once and only you, signed in, see the box). A schedule texted as one long line is cut at each day name by itself.
+Tap **Add Schedule** and type one line per day, for every day you can see in LISA. Two shortcuts (since v83): the **Paste** link above the box pastes what you copied, and the phone shortcut **Schedule to Availability** (run by a Message automation when a schedule text arrives, or by hand after Copy) opens this page with the schedule already in the box (it rides in the address after `#schedule=`, a part the web server never receives; the page takes it off the address at once and only you, signed in, see the box). A schedule texted as one long line is cut at each day name by itself, and a schedule that came as two or three texts a few minutes apart is joined in the box (v84).
 
 
 ```
