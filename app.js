@@ -3906,6 +3906,49 @@
     showSheet("#importSheet");
   }
 
+  // ---------- owner: a schedule handed over in the address (Oct 20) ----------
+  // His phone's "Schedule to Availability" shortcut opens the site as .../#schedule=<the text, URL-encoded>: the schedule
+  // rides in the fragment, which never leaves the phone (GitHub's servers don't see it), and it goes straight into Add
+  // Schedule with the preview drawn, so all that's left is Add and Save. The fragment is taken off the address at once and
+  // kept for this tab's session, so a refresh or the sign-in that may come first doesn't lose it; nothing is ever saved
+  // from it. A visitor's page (no token) only sees a short note to sign in.
+  const SCHED_LINK = "sa.scheduleLink";
+  const isScheduleLink = (hash) => /^#schedule=/i.test(hash);
+  function takeScheduleLink() {
+    if (!isScheduleLink(location.hash)) return;
+    let text = location.hash.slice(10);
+    try { text = decodeURIComponent(text); } catch (e) { /* as it is */ }
+    text = text.replace(/\+/g, " ").trim(); // some encoders write a space as +
+    if (text) session.set(SCHED_LINK, text);
+    try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) { /* ignore */ }
+  }
+  function routeSchedule() {
+    takeScheduleLink();
+    const text = session.get(SCHED_LINK);
+    if (!text) return;
+    if (!owner) {
+      // Boot comes back for it once a saved token has signed in (enterOwner); without one, he has to sign in first.
+      if (!token && !busy) toast("Your schedule is ready to add. Tap Admin Login first.", 5000);
+      return;
+    }
+    if (busy) return;
+    if (standIn) { showSheet("#keySheet"); return; }
+    session.del(SCHED_LINK);
+    for (const s of ["#daySheet", "#settingsSheet"]) if ($(s).open) $(s).close("");
+    $("#importText").value = text;
+    renderImport();
+    showSheet("#importSheet");
+    toast("Your schedule is in. Check the list, then tap Add.", 4200);
+  }
+  // The Paste button: reads what he copied (iPhone shows its own Paste bubble the first time) into the box.
+  async function pasteSchedule() {
+    let text = "";
+    try { text = await navigator.clipboard.readText(); } catch (e) { text = ""; }
+    if (!text.trim()) { toast("Nothing to paste. Copy your schedule first, or tap in the box and use Paste.", 5000); return; }
+    $("#importText").value = text;
+    renderImport();
+  }
+
   // ---------- owner: settings ----------
   function otExplain() {
     const end = DOW_LONG[(pub.weekStart + 6) % 7];
@@ -5103,6 +5146,7 @@
       $("#unlockSheet").close();
       await enterOwner();
       if (owner && privAccess) toast("Connected. You can edit now.");
+      routeSchedule();
     } catch (x) {
       err.hidden = false;
       err.textContent = x.status === 401
@@ -5558,6 +5602,8 @@
     });
     let importTimer = 0;
     $("#importText").addEventListener("input", () => { clearTimeout(importTimer); importTimer = setTimeout(renderImport, 200); });
+    $("#importPaste").hidden = !(navigator.clipboard && navigator.clipboard.readText);
+    $("#importPaste").addEventListener("click", pasteSchedule);
     $("#importApply").addEventListener("click", applyImport);
     $("#saveBtn").addEventListener("click", () => (busy ? null : openReceipt()));
     $("#rcSave").addEventListener("click", async () => { if (busy || saving) return; if (await save(false)) $("#receiptSheet").close(""); });
@@ -5646,7 +5692,7 @@
     }
     // Escape closes it, as it closes a window.
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !uniEl.hidden && !document.querySelector("dialog[open]")) closeUniform(); });
-    window.addEventListener("hashchange", () => { routeUniform(); });
+    window.addEventListener("hashchange", () => { routeUniform(); routeSchedule(); });
     // From the keyboard, a footer link brings the page's end into view, where the corner button has room under the links,
     // so the links aren't hidden under it. A click there doesn't move the page.
     let tabAt = 0;
@@ -5757,6 +5803,7 @@
   const bootAt = performance.now();
   async function boot() {
     wire();
+    takeScheduleLink();
     takeUniformLink();
     checkCred();
     const slow = setTimeout(() => reveal(false), 1500);
@@ -5793,6 +5840,7 @@
     setTimeout(() => { loadQr().catch(() => { /* fetched again when a code is asked for */ }); }, 5000);
     restoreUniformCode().then(routeUniform).catch(() => { /* the button still opens it */ });
     if (token) await enterOwner();
+    routeSchedule();
   }
 
   // While any window is open (the shift picker, the send card, a sheet), the page underneath holds its animations still:
