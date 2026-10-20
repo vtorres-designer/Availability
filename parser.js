@@ -579,7 +579,7 @@
   /** Parse pasted schedule text. `today` is "YYYY-MM-DD". Later lines win over earlier ones. */
   function parse(text, today) {
     const items = [], errors = [];
-    String(text || "").split(/\r\n|\r|\n/).forEach((line, i) => {
+    String(text || "").split(/\r\n|\r|\n|\u2028|\u2029/).forEach((line, i) => {
       if (nestedQuotes(line)) { errors.push({ line: i + 1, text: line.trim(), msg: NESTED_MSG, keys: [] }); return; }
       for (const part of splitEntries(line)) {
         const r = parseLine(part, today);
