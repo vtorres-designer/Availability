@@ -576,10 +576,30 @@
   }
   const NESTED_MSG = "This note has quotes inside it. Use single quotes inside a note, like \"Sgt said '1500-2300'\".";
 
+  // A schedule that arrives as ONE long line (a text from Claude's number loses its line breaks on the way to the
+  // phone) is cut before each "Fri 10/23"-style day. Only a paste with no line breaks at all is touched, and only
+  // where a day name + date follows a space outside quotes and does not continue a range or a list ("Mon 10/6 to
+  // Fri 10/10 off", "Mon 10/6 and Tue 10/7 off" stay whole). Anything with line breaks parses exactly as before.
+  const DAY_TOKEN = new RegExp("^" + DOW + "\\b\\.?,?\\s*\\d{1,2}[/.-]\\d{1,2}(?![/.\\d])", "i");
+  const LIST_TAIL = new RegExp("(?:" + RANGE_SEP + "|\\band\\b|\\bor\\b|\\bplus\\b|[,&/+;])\\s*$", "i");
+  function unflatten(text) {
+    if (/[\r\n\f\v\u2028\u2029]/.test(text)) return text;
+    let out = "", cur = "", inQuote = false, cuts = 0;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (QUOTE.test(ch)) inQuote = !inQuote;
+      if (!inQuote && /\s/.test(ch) && cur.trim() && DAY_TOKEN.test(text.slice(i + 1)) && !LIST_TAIL.test(cur)) {
+        out += cur + "\n"; cur = ""; cuts++; continue;
+      }
+      cur += ch;
+    }
+    return cuts ? out + cur : text;
+  }
+
   /** Parse pasted schedule text. `today` is "YYYY-MM-DD". Later lines win over earlier ones. */
   function parse(text, today) {
     const items = [], errors = [];
-    String(text || "").split(/\r\n|\r|\n|\u2028|\u2029/).forEach((line, i) => {
+    unflatten(String(text || "")).split(/\r\n|\r|\n|\f|\v|\u2028|\u2029/).forEach((line, i) => {
       if (nestedQuotes(line)) { errors.push({ line: i + 1, text: line.trim(), msg: NESTED_MSG, keys: [] }); return; }
       for (const part of splitEntries(line)) {
         const r = parseLine(part, today);
