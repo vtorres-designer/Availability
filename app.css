@@ -604,8 +604,17 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .rv-row.rv-keepd { box-shadow: inset 0 0 0 2px var(--muted); }
 .rv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .rv-src { flex: none; font: 700 11px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; }
-.rv-src.lisa { background: var(--note-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--note-line); }
-.rv-src.manual { background: var(--ot); color: var(--ot-ink); }
+.rv-src.lisa, .rv-src.manual { background: var(--busy); color: var(--busy-ink); } /* both red, his choice (Oct 20) */
+.rv-see { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 4px 0; }
+.rv-chev { font-size: 12px; }
+.rv-look { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.rv-col { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 10px; border-radius: 10px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.rv-col-h { font: 700 11px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.rv-tile { width: 56px; min-height: 56px; pointer-events: none; }
+.rv-facts { margin: 0; display: grid; gap: 2px; font-size: 13px; overflow-wrap: anywhere; }
+.rv-facts dt { margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.rv-facts dt:first-child { margin-top: 0; }
+.rv-facts dd { margin: 0; }
 .rv-line { margin: 0; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; font-size: 14px; overflow-wrap: anywhere; }
 .rv-line i { font-style: normal; font-weight: 700; color: var(--muted); }
 .rv-to span { font-weight: 700; }

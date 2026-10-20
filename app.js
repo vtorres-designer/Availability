@@ -3932,9 +3932,36 @@
     if (gapOpen) for (const k of plan.gaps) entry(k, keptRec(k, { s: "open" }));
     return out.sort((a, b) => (a.k < b.k ? -1 : 1));
   }
+  // The day as his calendar would show it with rec on it (null: nothing): its tile, what supervisors see, its shifts,
+  // the shifts they can request, its note and the week's hours. Worked out on the calendar itself, then put back.
+  function lookAt(k, rec) {
+    const had = Object.prototype.hasOwnProperty.call(priv.days, k), was = priv.days[k];
+    if (rec) priv.days[k] = rec; else delete priv.days[k];
+    try {
+      const info = ownerInfo(k), r = dayRec(k, priv);
+      return { kind: info.kind, booked: info.booked, rec: r, offer: r ? offerOf(r, pub) : [] };
+    } finally { if (had) priv.days[k] = was; else delete priv.days[k]; }
+  }
+  function lookCol(k, title, L) {
+    const see = L.kind === "work" ? "Not available (working)" : L.kind === "busy" ? "Not available" : L.kind === "unset" ? "Nothing set (gray)" : publicStatusText(L.kind);
+    const shifts = workShifts(L.rec);
+    const facts = [
+      ["Supervisors see", see],
+      [shifts.length > 1 ? "Shifts" : "Shift", shifts.length ? shifts.map((x) => (x.start ? `${fmtTime(x.start)} – ${fmtTime(x.end)} (${num(x.hours)} hrs)` : `${num(x.hours)} hrs`)).join(", ") : "None"],
+      ["They can request", L.offer.length ? L.offer.map((t) => SHIFT_LABEL[t]).join(", ") : "Nothing"],
+      L.rec && L.rec.note ? ["Note", L.rec.note] : null,
+      L.rec && L.rec.weekly ? ["Every week", "From Settings"] : null,
+      ["Week", `${num(L.booked)} hrs scheduled`],
+    ].filter(Boolean);
+    return h("div", { class: "rv-col" },
+      h("span", { class: "rv-col-h", text: title }),
+      h("span", { class: `day ${L.kind}${L.kind === "busy" ? " hatch" : ""} rv-tile`, "aria-hidden": "true" },
+        h("span", { class: "mon" }), h("span", { class: "num", text: dateOf(k).getDate() }), h("span", { class: "tag", text: OWNER_TAG[L.kind] || "" })),
+      h("dl", { class: "rv-facts" }, facts.map(([dt, dd]) => [h("dt", { text: dt }), h("dd", { text: dd })])));
+  }
   function applyImport() {
     if (!importResult) return;
-    review = { entries: reviewEntries(), answers: new Map() };
+    review = { entries: reviewEntries(), answers: new Map(), open: new Set() };
     renderReview();
     showSheet("#reviewSheet");
   }
@@ -3954,6 +3981,19 @@
       : `${changes.length} change${changes.length === 1 ? "" : "s"} · ${sames.length} the same${left ? ` · ${left} left to answer` : " · all answered"}`;
     $("#rvChangesHead").hidden = !changes.length;
     $("#rvAll").hidden = !left;
+    // See This Day: the day on his calendar now beside what it would be, opened and closed in the card.
+    const seeBtn = (e) => {
+      const on = review.open.has(e.k);
+      const b = h("button", { type: "button", class: "linkish rv-see", id: `rv-see-${e.k}`, "aria-expanded": String(on), "aria-controls": `rv-look-${e.k}` },
+        on ? "Hide the Day" : "See This Day", h("span", { class: "rv-chev", "aria-hidden": "true", text: on ? "▴" : "▾" }));
+      b.addEventListener("click", () => {
+        if (on) review.open.delete(e.k); else review.open.add(e.k);
+        renderReview();
+        const again = document.getElementById(`rv-see-${e.k}`);
+        if (again) try { again.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+      });
+      return b;
+    };
     $("#rvChanges").replaceChildren(...changes.map((e) => {
       const a = review.answers.get(e.k), when = e.manual ? handWhen(e.cur.hand) : "";
       const btn = (kind, label, icon) => {
@@ -3968,6 +4008,8 @@
         h("p", { class: "rv-line rv-from" }, h("i", { text: "From" }), h("span", { text: describeDay(e.shown) })),
         h("p", { class: "rv-line rv-to" }, h("i", { text: "To" }), h("span", { text: describeDay(e.next) })),
         e.manual && when ? h("p", { class: "rv-when", text: `You changed this day yourself on ${when}.` }) : null,
+        seeBtn(e),
+        review.open.has(e.k) ? h("div", { class: "rv-look", id: `rv-look-${e.k}` }, lookCol(e.k, "Now", lookAt(e.k, e.cur)), lookCol(e.k, "If changed", lookAt(e.k, e.next))) : null,
         h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")),
         a ? h("p", { class: "rv-said", text: a === "take" ? "This day will change." : "This day stays as it is." }) : null);
     }));
