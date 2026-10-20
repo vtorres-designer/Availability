@@ -509,8 +509,13 @@
     const o = cleanPicks(rec.o);
     if (o) out.o = o;
     else if (out.s === "none" && !out.note) return null; // nothing on it
+    const hand = cleanHand(rec.hand);
+    if (hand) out.hand = hand;
     return out;
   }
+  // When he last changed the day by hand (Edit Day or a tap on the calendar), as an ISO time; "" if he hasn't (Oct 20).
+  // Add Schedule leaves those days as he left them unless he says otherwise. Private: the public file never carries it.
+  function cleanHand(v) { return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z$/.test(v) ? v : ""; }
   // The shifts he works on a day (none unless it's a work day).
   const workShifts = (rec) => (rec && rec.s === "work" ? [{ start: rec.start, end: rec.end, hours: rec.hours }].concat(rec.more || []) : []);
   // The shifts supervisors can request on a day: Add Schedule's answer (a day off offers his usual shifts, a work or
@@ -1208,10 +1213,12 @@
   // A new schedule entry for a day keeps what he added in Edit Day: his per-shift choices (they override whatever the
   // schedule says) and his own note, unless the new entry brings a note of its own (Oct 15 audit: pasting the schedule
   // again used to wipe a note he'd typed).
-  function setDayKeep(k, rec) {
+  function setDayKeep(k, rec) { setDay(k, keptRec(k, rec)); }
+  // What setDayKeep writes on day k for a new entry (null: nothing). A new entry never carries the hand-edit mark.
+  function keptRec(k, rec) {
     const cur = priv.days[k];
     const o = cur && cur.o, note = cur && cur.note;
-    if (!o && !note) { setDay(k, rec); return; }
+    if (!o && !note) return rec;
     // Cleared back to nothing: an every-week day goes back to its weekly shift, still with his choices (a bare "none"
     // would have hidden the weekly hours).
     let base = rec;
@@ -1220,7 +1227,17 @@
     const keep = { o };
     // A work day's note is usually the site from an earlier paste: it only stays while the day is still a work day.
     if (note && !(base && base.note) && (cur.s !== "work" || (base && base.s === "work"))) keep.note = note;
-    setDay(k, cleanPrivRec(Object.assign({}, base || { s: "none" }, keep), priv.pickup));
+    return cleanPrivRec(Object.assign({}, base || { s: "none" }, keep), priv.pickup);
+  }
+  // Hand edits (Oct 20). A day he changes himself is marked with when; a day that ends up just as it was (as saved, as it
+  // was when Edit Day opened, or as it is now) keeps that record, mark or no mark, so changing something and changing it
+  // back is no change at all.
+  const bareDay = (rec) => { if (!rec) return null; const o = Object.assign({}, rec); delete o.hand; return o; };
+  const sameDay = (a, b) => same(bareDay(a), bareDay(b));
+  function markHand(k, rec, opened) {
+    if (!rec) return null;
+    for (const old of [saved && saved.priv.days[k], opened, priv.days[k]]) if (old && sameDay(old, rec)) return clone(old);
+    return Object.assign(bareDay(rec), { hand: new Date().toISOString() });
   }
   const workRec = (start, end, hours, note) => cleanPrivRec({ s: "work", start, end, hours, note }, priv.pickup);
 
@@ -1232,9 +1249,11 @@
       toast(`Every ${DOW_LONG[rule.d]} is already marked ${rule.s === "work" ? "Working" : "Busy"} in Settings. To change only this date, pick Tap to Edit.`, 5000);
       return;
     }
-    if (brush === "work") setDayKeep(k, cur && cur.s === "work" ? null : workRec(null, null, priv.pickup));
-    else if (brush === "busy") setDayKeep(k, cur && cur.s === "busy" ? null : { s: "busy" });
-    else if (brush === "open") setDayKeep(k, cur && cur.s === "open" ? null : { s: "open" });
+    const off = !!(cur && cur.s === brush); // a second tap clears it, and its hand-edit mark with it
+    if (brush === "work") setDayKeep(k, off ? null : workRec(null, null, priv.pickup));
+    else if (brush === "busy") setDayKeep(k, off ? null : { s: "busy" });
+    else if (brush === "open") setDayKeep(k, off ? null : { s: "open" });
+    if (!off && priv.days[k]) priv.days[k] = markHand(k, priv.days[k]);
     afterChange();
   }
 
@@ -3768,7 +3787,7 @@
   }
   function onEditChange() {
     if (!editKey) return;
-    setDay(editKey, editRecord());
+    setDay(editKey, markHand(editKey, editRecord(), editWas));
     refreshEdit();
     afterChange();
   }
@@ -3781,6 +3800,9 @@
 
   // ---------- owner: import ----------
   let importResult = null;
+  // Days he changed by hand that he switched to the pasted schedule's version ("Use LISA's"); off for every day until he
+  // switches it on, and cleared each time a new schedule comes in (Oct 20).
+  let importTake = new Set();
 
   function describeKeys(item) {
     if (item.filtered) return item.keys.map(shortDay).join(", ");
@@ -3797,6 +3819,19 @@
     if (rec.s === "open") return `Available${rec.w ? ` (${rec.w.map((x) => SHIFT_LABEL[x]).join(", ")})` : ""}`;
     return "Clear (back to gray)";
   }
+  // A day as it is on his calendar, for the Kept Your Edits list.
+  function describeDay(rec) {
+    if (!rec) return "Nothing (gray)";
+    const picks = rec.o ? " · your shift choices" : "";
+    if (rec.s === "none") return `No shift${rec.note ? ` · ${rec.note}` : ""}${picks}`;
+    return describeRec(rec) + (rec.s === "open" && rec.note ? ` · ${rec.note}` : "") + picks;
+  }
+  const handWhen = (iso) => { try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; } };
+  // What Add Schedule writes on day k for a pasted line (null: the day ends up with nothing on it).
+  function importRec(k, rec) {
+    const r = rec.s === "clear" ? null : cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup);
+    return keptRec(k, r);
+  }
   const dotFor = (s) => ({ work: "busy", busy: "busy hatch", open: "open", clear: "none" }[s]);
 
   // Final per-day result of the pasted text (later lines win), plus gray days inside the pasted span.
@@ -3812,13 +3847,24 @@
       }
     }
     if (gaps.length > 200) gaps = [];
-    const replaced = [...final.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
+    // Days he changed by hand stay as they are (Oct 20): the list shows them beside the pasted version, and only the ones he
+    // switches to "Use LISA's" change. One where the paste already says what he has isn't listed, and nothing changes.
+    const apply = new Map(), kept = [], matched = [];
+    for (const [k, rec] of final) {
+      const cur = priv.days[k];
+      if (!(cur && cur.hand)) { apply.set(k, rec); continue; }
+      const next = importRec(k, rec);
+      if (sameDay(cur, next)) { matched.push(k); continue; }
+      kept.push({ k, cur, next });
+      if (importTake.has(k)) apply.set(k, rec);
+    }
+    const replaced = [...apply.entries()].filter(([k, rec]) => { const cur = dayRec(k, priv); return cur && rec.s !== "clear" && cur.s !== rec.s; }).length;
     // Every-week days the paste would turn green: worth a second look, since they're usually worked.
-    const freed = [...final.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
+    const freed = [...apply.entries()].filter(([k, rec]) => rec.s === "open" && !priv.days[k] && ruleOn(k, priv)).map(([k]) => k).sort();
     const workLines = new Map();
     for (const it of result.items) if (it.rec.s === "work") for (const k of it.keys) workLines.set(k, (workLines.get(k) || 0) + 1);
     const doubled = [...workLines.entries()].filter(([, n]) => n > 1).map(([k]) => k).sort();
-    return { final, gaps, replaced, doubled, freed };
+    return { final, apply, kept, matched, gaps, replaced, doubled, freed };
   }
 
   function renderImport() {
@@ -3836,13 +3882,16 @@
       return;
     }
     const rows = [];
+    const keptKeys = new Set(plan.kept.filter((x) => !importTake.has(x.k)).map((x) => x.k));
     for (const it of items) {
+      const ownKept = it.keys.filter((k) => keptKeys.has(k));
       rows.push({ line: it.line, el: h("li", { class: "pv-item" },
         h("span", { class: `dot ${dotFor(it.rec.s)}` }),
         h("span", { class: "pv-text" },
           h("b", { text: describeKeys(it) }),
           h("span", { text: it.rec.s === "clear" && it.keys.some((k) => ruleOn(k, priv)) ? "Clear (back to your every-week setting where you have one, gray elsewhere)" : describeRec(it.rec) }),
           it.warn ? h("span", { class: "pv-warn strong", text: it.warn }) : null,
+          ownKept.length ? h("span", { class: "pv-warn kept-tag", text: `Kept your edit${ownKept.length === 1 ? "" : "s"}${it.keys.length > 1 ? ` on ${ownKept.map(shortDay).join(", ")}` : ""}` }) : null,
           it.ignored ? h("span", { class: "pv-warn", text: `Ignored: "${it.ignored}"` }) : null)) });
     }
     for (const er of errors) {
@@ -3851,8 +3900,10 @@
         h("span", { class: "pv-text" }, h("b", { text: `Line ${er.line}: ${er.text}` }), h("span", { text: er.msg }))) });
     }
     rows.sort((a, b) => a.line - b.line);
-    const n = plan.final.size;
+    const n = plan.apply.size, keptN = keptKeys.size;
     const summary = [`${n} day${n === 1 ? "" : "s"} ready`];
+    if (keptN) summary.push(`${keptN} of your edits kept`);
+    if (plan.matched.length) summary.push(`${plan.matched.length} of your edits already match${plan.matched.length === 1 ? "es" : ""}`);
     if (plan.replaced) summary.push(`${plan.replaced} already marked will change`);
     if (errors.length) summary.push(`${errors.length} line${errors.length === 1 ? "" : "s"} skipped (fix or delete ${errors.length === 1 ? "it" : "them"})`);
     box.append(h("p", { class: errors.length ? "pv-sum warn" : "pv-sum", text: summary.join(" · ") }));
@@ -3862,6 +3913,7 @@
     if (plan.freed.length) {
       box.append(h("p", { class: "pv-sum warn", text: `${plan.freed.map(shortDay).join(", ")} ${plan.freed.length === 1 ? "is an every-week day" : "are every-week days"} in Settings. Adding ${plan.freed.length === 1 ? "it" : "them"} as available changes only ${plan.freed.length === 1 ? "that date" : "those dates"}; the weekly setting stays on.` }));
     }
+    if (plan.kept.length) box.append(keptList(plan.kept));
     box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
     // Filling gaps waits until every line reads cleanly, so a skipped line's days are never turned green.
@@ -3880,16 +3932,42 @@
     $("#importApply").textContent = total ? `Add ${total} Day${total === 1 ? "" : "s"} to Calendar` : "Add to Calendar";
   }
 
+  // Days he changed by hand that the paste would change: his day and the pasted one side by side, each with a switch
+  // that's off until he turns it on (then that day takes the pasted version, and loses its hand-edit mark).
+  function keptList(kept) {
+    const rowsK = kept.map(({ k, cur, next }) => {
+      const id = `take-${k}`;
+      const input = h("input", { type: "checkbox", class: "switch-in", id, role: "switch", "aria-label": `Use LISA's for ${shortDay(k)}` });
+      input.checked = importTake.has(k);
+      input.addEventListener("change", () => {
+        if (input.checked) importTake.add(k); else importTake.delete(k);
+        renderImport();
+        const again = document.getElementById(id);
+        if (again) try { again.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
+      });
+      const when = handWhen(cur.hand);
+      return h("li", { class: `kept-row${input.checked ? " taking" : ""}` },
+        h("span", { class: "kept-text" },
+          h("b", { text: shortDay(k) }),
+          h("span", { class: "kept-yours" }, h("i", { text: "Yours: " }), describeDay(cur), when ? h("small", { text: ` · edited ${when}` }) : null),
+          h("span", { class: "kept-lisa" }, h("i", { text: "LISA: " }), describeDay(next))),
+        h("label", { class: "kept-take", for: id }, h("span", { text: "Use LISA's" }), input, h("span", { class: "switch", "aria-hidden": "true" })));
+    });
+    return h("div", { class: "pv-kept" },
+      h("p", { class: "pv-sum", text: "Kept your edits" }),
+      h("p", { class: "muted small", text: "You changed these days yourself, so they stay as you left them. Switch on Use LISA's for any day that should take the new schedule instead." }),
+      h("ul", { class: "kept-list" }, rowsK));
+  }
+
   function applyImport() {
     if (!importResult) return;
     const plan = planImport(importResult);
-    for (const [k, rec] of plan.final) {
-      if (rec.s === "clear") setDayKeep(k, null);
-      else setDayKeep(k, cleanPrivRec(Object.assign({}, rec, rec.s === "work" && rec.hours == null ? { hours: priv.pickup } : {}), priv.pickup));
-    }
+    for (const [k, rec] of plan.apply) setDay(k, importRec(k, rec));
+    const keptN = plan.kept.filter((x) => !importTake.has(x.k)).length;
     const gapOpen = plan.gaps.length > 0 && !importResult.errors.length;
     if (gapOpen) for (const k of plan.gaps) setDayKeep(k, { s: "open" });
-    const total = plan.final.size + (gapOpen ? plan.gaps.length : 0);
+    const total = plan.apply.size + (gapOpen ? plan.gaps.length : 0);
+    importTake = new Set();
     // Lines that couldn't be read stay in the box so they can be fixed.
     const lines = $("#importText").value.split(/\r\n|\r|\n/);
     const leftover = [...new Set(importResult.errors.map((er) => er.line))].map((n) => lines[n - 1]).join("\n");
@@ -3898,10 +3976,11 @@
     store.del(LS.schedAt);
     $("#importSheet").close();
     afterChange();
-    toast(`Added ${total} day${total === 1 ? "" : "s"}.${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""} Check them, then tap Save.`, 5000);
+    toast(`Added ${total} day${total === 1 ? "" : "s"}.${keptN ? ` Kept your edits on ${keptN} day${keptN === 1 ? "" : "s"}.` : ""}${leftover ? " Lines that couldn't be read are still in Add Schedule." : ""} Check them, then tap Save.`, 5000);
   }
 
   function openImport() {
+    importTake = new Set();
     $("#importText").value = store.get(LS.importText) || "";
     renderImport();
     showSheet("#importSheet");
@@ -3944,6 +4023,7 @@
     let joined = text;
     if (prev && recent) joined = prev.indexOf(text) >= 0 ? prev : text.indexOf(prev) >= 0 ? text : prev + "\n" + text;
     store.set(LS.schedAt, String(Date.now()));
+    importTake = new Set();
     $("#importText").value = joined;
     renderImport();
     showSheet("#importSheet");
@@ -3954,6 +4034,7 @@
     let text = "";
     try { text = await navigator.clipboard.readText(); } catch (e) { text = ""; }
     if (!text.trim()) { toast("Nothing to paste. Copy your schedule first, or tap in the box and use Paste.", 5000); return; }
+    importTake = new Set();
     $("#importText").value = text;
     renderImport();
   }
