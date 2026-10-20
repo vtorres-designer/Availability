@@ -340,13 +340,32 @@ Thu 10/15 2300-0700</pre>
       <button type="button" class="x" id="rvClose" aria-label="Close">×</button>
     </div>
     <p class="pv-sum" id="rvSum" aria-live="polite"></p>
-    <span class="label rv-miss-head" id="rvMissHead">Missing from the schedule</span>
-    <p class="muted small rv-miss-why" id="rvMissWhy"></p>
-    <ul class="rv-list" id="rvMiss"></ul>
-    <div class="rv-sec-head" id="rvChangesHead"><span class="label">Changes</span><button type="button" class="linkish" id="rvAll">Approve All</button></div>
-    <ul class="rv-list" id="rvChanges"></ul>
-    <span class="label" id="rvSameHead">Same as your calendar</span>
-    <ul class="rv-list" id="rvSame"></ul>
+    <section class="rv-fold" id="rvMissFold" hidden>
+      <button type="button" class="fold-head rv-fold-head" aria-expanded="false" aria-controls="rvMissFoldBody">
+        <span class="rv-fold-ic miss" aria-hidden="true">!</span><span class="fold-name">Missing from the Schedule<span class="rv-count"></span></span><i class="fold-chev" aria-hidden="true"></i>
+      </button>
+      <div class="rv-fold-body" id="rvMissFoldBody" hidden>
+        <p class="muted small rv-miss-why" id="rvMissWhy"></p>
+        <ul class="rv-list" id="rvMiss"></ul>
+      </div>
+    </section>
+    <section class="rv-fold" id="rvChangeFold" hidden>
+      <button type="button" class="fold-head rv-fold-head" aria-expanded="false" aria-controls="rvChangeFoldBody">
+        <span class="rv-fold-ic change" aria-hidden="true">⇄</span><span class="fold-name">Changes<span class="rv-count"></span></span><i class="fold-chev" aria-hidden="true"></i>
+      </button>
+      <div class="rv-fold-body" id="rvChangeFoldBody" hidden>
+        <div class="rv-sec-head"><button type="button" class="linkish" id="rvAll">Approve All</button></div>
+        <ul class="rv-list" id="rvChanges"></ul>
+      </div>
+    </section>
+    <section class="rv-fold" id="rvSameFold" hidden>
+      <button type="button" class="fold-head rv-fold-head" aria-expanded="false" aria-controls="rvSameFoldBody">
+        <span class="rv-fold-ic same" aria-hidden="true">✓</span><span class="fold-name">Same as Your Calendar<span class="rv-count"></span></span><i class="fold-chev" aria-hidden="true"></i>
+      </button>
+      <div class="rv-fold-body" id="rvSameFoldBody" hidden>
+        <ul class="rv-list" id="rvSame"></ul>
+      </div>
+    </section>
     <div class="rv-foot">
       <button type="button" class="btn primary wide" id="rvSave" disabled>Save</button>
       <p class="muted small" id="rvHint"></p>

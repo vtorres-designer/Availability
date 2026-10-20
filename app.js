@@ -3988,7 +3988,8 @@
   function applyImport() {
     if (!importResult) return;
     const data = reviewEntries();
-    review = { entries: data.entries, missing: data.missing, from: data.from, answers: new Map(), open: new Set() };
+    // The changes panel starts open (it's what has to be answered); the other two open on a tap.
+    review = { entries: data.entries, missing: data.missing, from: data.from, answers: new Map(), open: new Set(), folds: new Set(["rvChangeFold"]) };
     renderReview();
     showSheet("#reviewSheet");
   }
@@ -4007,9 +4008,20 @@
     $("#rvSum").textContent = !changes.length
       ? `All ${sames.length} day${sames.length === 1 ? " matches" : "s match"} your calendar.${missN ? ` ${missN} missing.` : ""} Nothing to change.`
       : `${changes.length} change${changes.length === 1 ? "" : "s"} · ${sames.length} the same${missN ? ` · ${missN} missing` : ""}${left ? ` · ${left} left to answer` : " · all answered"}`;
-    // Days missing from the schedule: flagged at the top, never changed.
-    $("#rvMissHead").hidden = !missN;
-    $("#rvMissWhy").hidden = !missN;
+    // The three panels (Oct 20), like Settings' sections: a title tile with a count that opens to its list. One with
+    // nothing in it isn't shown.
+    const fold = (id, n, count) => {
+      const sec = $(`#${id}`), open = review.folds.has(id);
+      sec.hidden = !n;
+      sec.classList.toggle("open", open);
+      sec.querySelector(".fold-head").setAttribute("aria-expanded", String(open));
+      sec.querySelector(".rv-fold-body").hidden = !open;
+      sec.querySelector(".rv-count").textContent = count;
+    };
+    fold("rvMissFold", missN, String(missN));
+    fold("rvChangeFold", changes.length, left ? `${left} left` : String(changes.length));
+    fold("rvSameFold", sames.length, String(sames.length));
+    // Days missing from the schedule: flagged, never changed.
     if (missN) {
       const last = review.entries.length ? review.entries[review.entries.length - 1].k : review.from;
       $("#rvMissWhy").textContent = `The schedule runs ${shortDay(review.from)} to ${shortDay(last)} but doesn't mention ${missN === 1 ? "this day" : "these days"}, so ${missN === 1 ? "it stays" : "they stay"} as ${missN === 1 ? "it is" : "they are"} on your calendar. Check LISA if one should be there.`;
@@ -4018,7 +4030,6 @@
       h("span", { class: "rv-flag", "aria-hidden": "true", text: "!" }),
       h("span", { class: "rv-same-text" }, h("b", { text: shortDay(m.k) }),
         h("span", { text: `${m.skipped ? "Its line couldn't be read." : "Not in the schedule."} Your calendar keeps: ${describeDay(m.shown)}` })))));
-    $("#rvChangesHead").hidden = !changes.length;
     $("#rvAll").hidden = !left;
     // See This Day: the day on his calendar now beside what it would be, opened and closed in the card.
     const seeBtn = (e) => {
@@ -4052,7 +4063,6 @@
         review.open.has(e.k) ? h("div", { class: "rv-look", id: `rv-look-${e.k}` }, lookCol(e.k, "Now", lookAt(e.k, e.cur)), lookCol(e.k, "If changed", lookAt(e.k, e.next))) : null,
         h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")));
     }));
-    $("#rvSameHead").hidden = !sames.length;
     $("#rvSame").replaceChildren(...sames.map((e) => h("li", { class: "rv-same" },
       h("span", { class: "rv-check", "aria-hidden": "true", text: "✓" }),
       h("span", { class: "rv-same-text" }, h("b", { text: shortDay(e.k) }), h("span", { text: describeDay(e.shown) })))));
@@ -5800,6 +5810,15 @@
     $("#importApply").addEventListener("click", applyImport);
     $("#rvSave").addEventListener("click", saveReview);
     $("#rvClose").addEventListener("click", () => $("#reviewSheet").close(""));
+    for (const id of ["rvMissFold", "rvChangeFold", "rvSameFold"]) {
+      const head = document.querySelector(`#${id} .fold-head`);
+      head.addEventListener("click", () => {
+        if (!review) return;
+        if (review.folds.has(id)) review.folds.delete(id); else review.folds.add(id);
+        renderReview();
+        try { head.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
+      });
+    }
     $("#rvAll").addEventListener("click", () => {
       if (!review) return;
       for (const e of review.entries) if (!e.same && !review.answers.has(e.k)) review.answers.set(e.k, "take");

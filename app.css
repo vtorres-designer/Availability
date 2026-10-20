@@ -595,8 +595,22 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .pv-err { box-shadow: inset 0 0 0 2px var(--busy); }
 /* Review Schedule (Oct 20): every day a pasted schedule covers. A change shows where the day is now and where it would
    be, a label for where the current day came from, and X / check buttons; a day that stays the same is a green row. */
-.rv-sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.rv-sec-head[hidden] { display: none; }
+.rv-sec-head { display: flex; justify-content: flex-end; }
+/* Its three panels open and close like Settings' sections: the same glossy title tile (.fold-head), a colored icon on the
+   left and a count beside the name; open, the panel frames its list. */
+.rv-fold { display: grid; gap: 0; border-radius: 14px; }
+.rv-fold[hidden] { display: none; }
+.rv-fold.open { gap: 10px; padding: 0 12px 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.035); }
+.rv-fold.open > .fold-head { margin: 0 -12px; width: calc(100% + 24px); }
+.rv-fold.open .fold-chev { transform: rotate(-135deg) translateY(-1px); }
+.rv-fold-head { font-size: 18px; }
+.rv-fold-body { display: grid; gap: 8px; }
+.rv-fold-body[hidden] { display: none; }
+.rv-fold-ic { position: absolute; left: 14px; top: 50%; margin-top: -13px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; z-index: 1; font: 800 14px/1 var(--font-body); }
+.rv-fold-ic.miss { background: var(--ot); color: var(--ot-ink); }
+.rv-fold-ic.change { background: var(--busy); color: var(--busy-ink); }
+.rv-fold-ic.same { background: var(--open); color: var(--open-ink); }
+.rv-count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; margin-left: 8px; padding: 0 7px; border-radius: 999px; vertical-align: 2px; background: rgba(255, 255, 255, 0.16); font: 700 12px/1 var(--font-body); text-shadow: none; }
 .rv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .rv-list:empty { display: none; }
 .rv-row { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
@@ -604,7 +618,8 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .rv-row.rv-keepd { box-shadow: inset 0 0 0 2px var(--muted); }
 .rv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .rv-src { flex: none; font: 700 11px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; }
-.rv-src.lisa, .rv-src.manual { background: var(--busy); color: var(--busy-ink); } /* both red, his choice (Oct 20) */
+/* A plain label with red letters (Oct 20: a solid red label clashed with the red buttons and bubbles near it). */
+.rv-src.lisa, .rv-src.manual { background: var(--surface); color: var(--err, var(--busy)); box-shadow: inset 0 0 0 1px var(--line); }
 .rv-see { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 4px 0; }
 .rv-chev { font-size: 12px; }
 .rv-look { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
@@ -647,14 +662,13 @@ body.previewing { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 .rv-chip small { font-size: 12px; font-weight: 600; opacity: 0.95; }
 .rv-chip.plain { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
 /* Days the schedule skips: flagged in amber, never changed. */
-.rv-miss-head[hidden], .rv-miss-why[hidden] { display: none; }
-.rv-miss-why { margin: -4px 0 0; }
+.rv-miss-why { margin: 0; }
 .rv-miss { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; font-size: 14px; background: rgba(232, 179, 31, 0.14); box-shadow: inset 0 0 0 1px rgba(232, 179, 31, 0.6); }
 .rv-flag { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--ot); color: var(--ot-ink); font-weight: 800; font-size: 13px; }
 .rv-same { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; font-size: 14px; background: rgba(31, 170, 90, 0.14); box-shadow: inset 0 0 0 1px rgba(31, 170, 90, 0.35); }
 .rv-check { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--open); color: var(--open-ink); font-weight: 700; font-size: 13px; }
 .rv-same-text { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
-.rv-foot { position: sticky; bottom: 0; display: grid; gap: 6px; padding: 10px 0 2px; background: var(--surface); box-shadow: 0 -12px 12px -6px var(--surface); }
+.rv-foot { position: sticky; bottom: 0; z-index: 3; display: grid; gap: 6px; padding: 10px 0 2px; background: var(--surface); box-shadow: 0 -12px 12px -6px var(--surface); }
 .rv-foot .muted { margin: 0; text-align: center; }
 .pv-x {
   flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 1px;
