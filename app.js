@@ -3699,6 +3699,8 @@
   // note for the day, and for each shift type two boxes that override the schedule for supervisors: Available (they can
   // request it that day) or Unavailable (they can't). Neither box: the schedule decides.
   let editRows = [], editWas = null, editSeq = 0;
+  // Whether the day was a work day when Edit Day opened (its note is then the site, usually from Add Schedule).
+  let editWasWork = false;
   const hhmmOf = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
   const clockState = (t) => {
     if (!t) return { v: "", ap: null };
@@ -3728,6 +3730,9 @@
     del.addEventListener("click", () => {
       editRows = editRows.filter((x) => x !== row);
       row.el.remove();
+      // The last shift on a work day deleted: its site note goes with it (his choice, Oct 20); the box empties where he
+      // can see it. A busy or open day's own note is never touched.
+      if (!editRows.length && editWasWork) $("#workNote").value = "";
       onEditChange({ target: del });
     });
     row.el = h("div", { class: "shift-row" }, h("div", { class: "clocks" }, row.start.el, row.end.el), h("div", { class: "shift-foot" }, hrs, del));
@@ -3776,6 +3781,7 @@
   function fillEdit() {
     const k = editKey, rec = dayRec(k, priv);
     editWas = priv.days[k] ? clone(priv.days[k]) : null;
+    editWasWork = !!rec && rec.s === "work";
     editRows = workShifts(rec).map((x) => shiftRow(x));
     $("#shiftRows").replaceChildren(...editRows.map((r) => r.el));
     $("#workNote").value = rec && rec.note ? rec.note : "";
