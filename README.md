@@ -293,7 +293,7 @@ The box shows a preview of what it read. Lines it can't read are listed with the
 
 **Add to Calendar** opens **Review Schedule**, a window of its own over the box. Nothing on your calendar changes until you save there. It has three panels that open and close like Settings' sections:
 
-- **Changes** (open first): every day where the schedule differs from your calendar. Each one shows only what would change, as bubbles: the day itself (`Open → Work 10 PM – 6 AM`) when its color or times change, and the note, paid hours or shifts supervisors can request when that's what differs. A label says where your current day came from: **Manual Change** (you changed it yourself in Edit Day, with the date and time you did) or **LISA Change** (the schedule moved it, or it's a new day). **See This Day** opens the day as it is now beside the day if changed: its tile, what supervisors see, the shift, the shifts they can request, the note and the week's hours. Answer each with **Deny** (keep it as it is) or **Change**; **Approve All** answers the rest with Change.
+- **Changes** (open first): every day where the schedule differs from your calendar. Each one shows only what would change, as bubbles: the day itself (`Open → Work 10 PM – 6 AM`) when its color or times change, and the note, paid hours or shifts supervisors can request when that's what differs. A note that would go away always shows too: when LISA cancels a shift, the card reads `Work 11 PM – 7 AM → Open` and, under it, `Note: 1660 Lincoln → No note` (since v86). A label says where your current day came from: **Manual Change** (you changed it yourself in Edit Day, with the date and time you did) or **LISA Change** (the schedule moved it, or it's a new day). **See This Day** opens the day as it is now beside the day if changed: its tile, what supervisors see, the shift, the shifts they can request, the note and the week's hours. Answer each with **Deny** (keep it as it is) or **Change**; **Approve All** answers the rest with Change.
 - **Missing from the Schedule:** days between the schedule's first and last date that it doesn't mention (or whose line couldn't be read). They're flagged and stay exactly as they are on your calendar. A LISA schedule names every day, so a missing day is worth a look in LISA. (Before v85, days in between turned Available.)
 - **Same as Your Calendar:** days the schedule leaves as they are, in green with a check.
 
@@ -303,7 +303,7 @@ The box shows a preview of what it read. Lines it can't read are listed with the
 
 ## Editing single days
 
-Tap a day to open **Edit Day**. You can set start and end times, paid hours, a private note, or which shifts supervisors can request. Since v85, a day you change here is remembered as a manual change, so a pasted schedule asks before replacing it (see Review Schedule).
+Tap a day to open **Edit Day**. You can set start and end times, paid hours, a private note, or which shifts supervisors can request. Since v85, a day you change here is remembered as a manual change, so a pasted schedule asks before replacing it (see Review Schedule). Since v86, **Delete Shift** on a work day's last shift deletes its site note too: the note box empties as you tap, and the day becomes a day off with no note. Deleting one of two shifts leaves the note, a note you type after deleting stays as the day off's note, and a busy day's own note is never touched.
 
 **See What Supervisors See** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
 
