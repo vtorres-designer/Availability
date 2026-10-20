@@ -3895,18 +3895,12 @@
     }
     box.append(h("ul", { class: "pv-list" }, rows.map((r) => r.el)));
 
-    // Filling gaps waits until every line reads cleanly, so a skipped line's days are never turned green.
-    // Days between his dates that the list skips are days off, so they turn available (Oct 15). That waits until every
-    // line reads cleanly, so a skipped line's days are never turned green.
+    // Days between his dates that the list skips (Oct 20): a schedule should name every day, so the review flags them and
+    // leaves them as they are. (They used to turn available, Oct 15.)
     $("#gapBox").hidden = true;
-    const gapOpen = plan.gaps.length > 0 && !errors.length;
-    if (plan.gaps.length) {
-      const one = plan.gaps.length === 1;
-      box.append(h("p", { class: "muted small", text: errors.length
-        ? "Fix the skipped lines to fill in the days between your dates."
-        : `${plan.gaps.length} day${one ? "" : "s"} between your dates ${one ? "isn't" : "aren't"} in your list, so ${one ? "it" : "they"}'ll show as available.` }));
-    }
-    const total = n + (gapOpen ? plan.gaps.length : 0);
+    const missN = missingDays(plan).length;
+    if (missN) box.append(h("p", { class: "muted small", text: `${missN} day${missN === 1 ? "" : "s"} between your dates ${missN === 1 ? "isn't" : "aren't"} in your list. The review will flag ${missN === 1 ? "it" : "them"}.` }));
+    const total = n;
     $("#importApply").disabled = total === 0;
     $("#importApply").textContent = total ? `Add ${total} Day${total === 1 ? "" : "s"} to Calendar` : "Add to Calendar";
   }
@@ -3918,9 +3912,20 @@
   // moved it, or adds a day), with X (keep it as it is) and a check (make the change). Nothing is answered for him.
   // Once every change has an answer, Save puts the checked ones on the calendar and saves straight to the live site.
   let review = null;
+  // The days from the schedule's first date to its last that no line names (a line that couldn't be read counts as not
+  // naming its days). At most 200, like the gaps above.
+  function missingDays(plan) {
+    const keys = [...plan.final.keys()].sort(), out = [];
+    const skipped = new Set(importResult.errors.flatMap((er) => er.keys || []));
+    if (keys.length > 1) {
+      for (let k = keys[0]; k <= keys[keys.length - 1] && out.length < 200; k = addDays(k, 1)) {
+        if (!plan.final.has(k)) out.push({ k, shown: dayRec(k, priv), skipped: skipped.has(k) });
+      }
+    }
+    return out;
+  }
   function reviewEntries() {
     const plan = planImport(importResult);
-    const gapOpen = plan.gaps.length > 0 && !importResult.errors.length;
     const out = [];
     const entry = (k, next) => {
       const cur = priv.days[k] || null, shown = dayRec(k, priv);
@@ -3929,8 +3934,29 @@
       out.push({ k, cur, shown, next, same: sameDay(cur, next) || !!sameAsWeekly, manual: !!(cur && cur.hand) });
     };
     for (const [k, rec] of plan.final) entry(k, importRec(k, rec));
-    if (gapOpen) for (const k of plan.gaps) entry(k, keptRec(k, { s: "open" }));
-    return out.sort((a, b) => (a.k < b.k ? -1 : 1));
+    return { entries: out.sort((a, b) => (a.k < b.k ? -1 : 1)), missing: missingDays(plan), from: [...plan.final.keys()].sort()[0] };
+  }
+  // What else changes on a day, when the two bubbles above don't show it: the note (Oct 24 traded with someone keeps its
+  // shift but not its note), or else the shifts supervisors can request. Each as its own pair of plain bubbles.
+  function changeRows(e) {
+    const pair = (a, b, label) => h("p", { class: "rv-chips rv-more", "aria-label": `${label}: ${a} now, ${b} if changed.` },
+      h("span", { class: "rv-chip plain", text: a }), h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" }), h("span", { class: "rv-chip plain", text: b }));
+    const now = lookAt(e.k, e.cur), then = lookAt(e.k, e.next), rows = [];
+    const n0 = (now.rec && now.rec.note) || "", n1 = (then.rec && then.rec.note) || "";
+    if (n0 !== n1) rows.push(pair(n0 ? `Note: ${n0}` : "No note", n1 ? `Note: ${n1}` : "No note", "Note"));
+    const chip = (L) => { const sh = workShifts(L.rec); return `${L.kind}|${sh.map((x) => `${x.start}-${x.end}-${x.hours}`).join(",")}`; };
+    if (!rows.length && chip(now) === chip(then)) {
+      const can = (L) => (L.offer.length ? `Can request: ${L.offer.map((t) => SHIFT_LABEL[t]).join(", ")}` : "Can request: nothing");
+      rows.push(pair(can(now), can(then), "Shifts supervisors can request"));
+    }
+    return rows;
+  }
+  // A day in a word or two, as a bubble colored like its tile: "Open", "Work · 10 PM – 6 AM", "Busy".
+  function dayChip(k, rec) {
+    const L = lookAt(k, rec), shifts = workShifts(L.rec);
+    const nb = (t) => t.replace(/ /g, " "); // a time never breaks in the middle
+    const time = L.kind === "work" && shifts[0] && shifts[0].start ? `${nb(fmtTime(shifts[0].start))} – ${nb(fmtTime(shifts[0].end))}${shifts.length > 1 ? ` +${shifts.length - 1}` : ""}` : "";
+    return h("span", { class: `rv-chip ${L.kind}` }, h("b", { text: OWNER_TAG[L.kind] || "Nothing set" }), time ? h("small", { text: time }) : null);
   }
   // The day as his calendar would show it with rec on it (null: nothing): its tile, what supervisors see, its shifts,
   // the shifts they can request, its note and the week's hours. Worked out on the calendar itself, then put back.
@@ -3961,7 +3987,8 @@
   }
   function applyImport() {
     if (!importResult) return;
-    review = { entries: reviewEntries(), answers: new Map(), open: new Set() };
+    const data = reviewEntries();
+    review = { entries: data.entries, missing: data.missing, from: data.from, answers: new Map(), open: new Set() };
     renderReview();
     showSheet("#reviewSheet");
   }
@@ -3976,9 +4003,21 @@
       const again = document.getElementById(`rv-${a}-${e.k}`);
       if (again) try { again.focus({ preventScroll: true }); } catch (x) { /* old browser */ }
     };
+    const missN = review.missing.length;
     $("#rvSum").textContent = !changes.length
-      ? `All ${sames.length} day${sames.length === 1 ? " matches" : "s match"} your calendar. Nothing to change.`
-      : `${changes.length} change${changes.length === 1 ? "" : "s"} · ${sames.length} the same${left ? ` · ${left} left to answer` : " · all answered"}`;
+      ? `All ${sames.length} day${sames.length === 1 ? " matches" : "s match"} your calendar.${missN ? ` ${missN} missing.` : ""} Nothing to change.`
+      : `${changes.length} change${changes.length === 1 ? "" : "s"} · ${sames.length} the same${missN ? ` · ${missN} missing` : ""}${left ? ` · ${left} left to answer` : " · all answered"}`;
+    // Days missing from the schedule: flagged at the top, never changed.
+    $("#rvMissHead").hidden = !missN;
+    $("#rvMissWhy").hidden = !missN;
+    if (missN) {
+      const last = review.entries.length ? review.entries[review.entries.length - 1].k : review.from;
+      $("#rvMissWhy").textContent = `The schedule runs ${shortDay(review.from)} to ${shortDay(last)} but doesn't mention ${missN === 1 ? "this day" : "these days"}, so ${missN === 1 ? "it stays" : "they stay"} as ${missN === 1 ? "it is" : "they are"} on your calendar. Check LISA if one should be there.`;
+    }
+    $("#rvMiss").replaceChildren(...review.missing.map((m) => h("li", { class: "rv-miss" },
+      h("span", { class: "rv-flag", "aria-hidden": "true", text: "!" }),
+      h("span", { class: "rv-same-text" }, h("b", { text: shortDay(m.k) }),
+        h("span", { text: `${m.skipped ? "Its line couldn't be read." : "Not in the schedule."} Your calendar keeps: ${describeDay(m.shown)}` })))));
     $("#rvChangesHead").hidden = !changes.length;
     $("#rvAll").hidden = !left;
     // See This Day: the day on his calendar now beside what it would be, opened and closed in the card.
@@ -4005,13 +4044,13 @@
       return h("li", { class: `rv-row${a ? ` rv-${a}d` : ""}` },
         h("div", { class: "rv-head" }, h("b", { text: shortDay(e.k) }),
           h("span", { class: `rv-src ${e.manual ? "manual" : "lisa"}`, text: e.manual ? "Manual Change" : "LISA Change" })),
-        h("p", { class: "rv-line rv-from" }, h("i", { text: "From" }), h("span", { text: describeDay(e.shown) })),
-        h("p", { class: "rv-line rv-to" }, h("i", { text: "To" }), h("span", { text: describeDay(e.next) })),
         e.manual && when ? h("p", { class: "rv-when", text: `You changed this day yourself on ${when}.` }) : null,
+        h("p", { class: "rv-chips", "aria-label": `Now ${describeDay(e.shown)}. If changed: ${describeDay(e.next)}.` },
+          dayChip(e.k, e.cur), h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" }), dayChip(e.k, e.next)),
+        ...changeRows(e),
         seeBtn(e),
         review.open.has(e.k) ? h("div", { class: "rv-look", id: `rv-look-${e.k}` }, lookCol(e.k, "Now", lookAt(e.k, e.cur)), lookCol(e.k, "If changed", lookAt(e.k, e.next))) : null,
-        h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")),
-        a ? h("p", { class: "rv-said", text: a === "take" ? "This day will change." : "This day stays as it is." }) : null);
+        h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")));
     }));
     $("#rvSameHead").hidden = !sames.length;
     $("#rvSame").replaceChildren(...sames.map((e) => h("li", { class: "rv-same" },
