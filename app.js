@@ -3909,7 +3909,7 @@
   // Add to Calendar opens a review of every day the schedule covers, in a window of its own. A day the schedule leaves
   // as his calendar has it is green with a check. Every other day shows the change from what it is to what it would be,
   // labeled where his current day came from (Manual Change: he set it himself in Edit Day; LISA Change: the schedule
-  // moved it, or adds a day), with X (keep it as it is) and a check (make the change). Nothing is answered for him.
+  // moved it, or adds a day), with Deny (X: keep it as it is) and Change (a check). Nothing is answered for him.
   // Once every change has an answer, Save puts the checked ones on the calendar and saves straight to the live site.
   let review = null;
   // The days from the schedule's first date to its last that no line names (a line that couldn't be read counts as not
@@ -3936,26 +3936,34 @@
     for (const [k, rec] of plan.final) entry(k, importRec(k, rec));
     return { entries: out.sort((a, b) => (a.k < b.k ? -1 : 1)), missing: missingDays(plan), from: [...plan.final.keys()].sort()[0] };
   }
-  // What else changes on a day, when the two bubbles above don't show it: the note (Oct 24 traded with someone keeps its
-  // shift but not its note), or else the shifts supervisors can request. Each as its own pair of plain bubbles.
-  function changeRows(e) {
-    const pair = (a, b, label) => h("p", { class: "rv-chips rv-more", "aria-label": `${label}: ${a} now, ${b} if changed.` },
-      h("span", { class: "rv-chip plain", text: a }), h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" }), h("span", { class: "rv-chip plain", text: b }));
-    const now = lookAt(e.k, e.cur), then = lookAt(e.k, e.next), rows = [];
-    const n0 = (now.rec && now.rec.note) || "", n1 = (then.rec && then.rec.note) || "";
-    if (n0 !== n1) rows.push(pair(n0 ? `Note: ${n0}` : "No note", n1 ? `Note: ${n1}` : "No note", "Note"));
-    const chip = (L) => { const sh = workShifts(L.rec); return `${L.kind}|${sh.map((x) => `${x.start}-${x.end}-${x.hours}`).join(",")}`; };
-    if (!rows.length && chip(now) === chip(then)) {
-      const can = (L) => (L.offer.length ? `Can request: ${L.offer.map((t) => SHIFT_LABEL[t]).join(", ")}` : "Can request: nothing");
-      rows.push(pair(can(now), can(then), "Shifts supervisors can request"));
-    }
-    return rows;
+  // What a change actually changes, as pairs of bubbles (now -> if changed), and nothing else (Oct 20: a day whose shift
+  // stays the same showed "Work 11 PM - 7 AM -> Work 11 PM - 7 AM", which isn't a change). The day pair only when the day
+  // itself changes (its color or its shift's times); then its paid hours, its note and the shifts supervisors can request,
+  // each only when that differs. A change none of those show (rare) still gets the day pair, so a card is never empty.
+  function changePairs(e) {
+    const now = lookAt(e.k, e.cur), then = lookAt(e.k, e.next), out = [];
+    const arrow = () => h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" });
+    const plain = (a, b, label) => h("p", { class: "rv-chips rv-more", "aria-label": `${label}: ${a} now, ${b} if changed.` },
+      h("span", { class: "rv-chip plain", text: a }), arrow(), h("span", { class: "rv-chip plain", text: b }));
+    const dayPair = () => h("p", { class: "rv-chips", "aria-label": `Now ${describeDay(e.shown)}. If changed: ${describeDay(e.next)}.` },
+      dayChip(now), arrow(), dayChip(then));
+    const shiftKey = (L) => `${L.kind}|${workShifts(L.rec).map((x) => `${x.start}-${x.end}`).join(",")}`;
+    const hours = (L) => (L.kind === "work" ? `${num(workShifts(L.rec).reduce((t, x) => t + x.hours, 0))} paid hrs` : "");
+    const note = (L) => (L.rec && L.rec.note) || "";
+    const can = (L) => (L.offer.length ? `Can request: ${L.offer.map((t) => SHIFT_LABEL[t]).join(", ")}` : "Can request: nothing");
+    const dayChanges = shiftKey(now) !== shiftKey(then);
+    if (dayChanges) out.push(dayPair());
+    if (!dayChanges && hours(now) !== hours(then)) out.push(plain(hours(now), hours(then), "Paid hours"));
+    if (note(now) !== note(then)) out.push(plain(note(now) ? `Note: ${note(now)}` : "No note", note(then) ? `Note: ${note(then)}` : "No note", "Note"));
+    if (!dayChanges && can(now) !== can(then)) out.push(plain(can(now), can(then), "Shifts supervisors can request"));
+    if (!out.length) out.push(dayPair());
+    return out;
   }
-  // A day in a word or two, as a bubble colored like its tile: "Open", "Work · 10 PM – 6 AM", "Busy".
-  function dayChip(k, rec) {
-    const L = lookAt(k, rec), shifts = workShifts(L.rec);
-    const nb = (t) => t.replace(/ /g, " "); // a time never breaks in the middle
-    const time = L.kind === "work" && shifts[0] && shifts[0].start ? `${nb(fmtTime(shifts[0].start))} – ${nb(fmtTime(shifts[0].end))}${shifts.length > 1 ? ` +${shifts.length - 1}` : ""}` : "";
+  // A day in a word or two, as a bubble colored like its tile: "Open", "Work" over "10 PM - 6 AM", "Busy".
+  function dayChip(L) {
+    const shifts = workShifts(L.rec);
+    const nb = (t) => t.replace(/ /g, "\u00a0"); // a time never breaks in the middle
+    const time = L.kind === "work" && shifts[0] && shifts[0].start ? `${nb(fmtTime(shifts[0].start))}\u00a0– ${nb(fmtTime(shifts[0].end))}${shifts.length > 1 ? ` +${shifts.length - 1}` : ""}` : "";
     return h("span", { class: `rv-chip ${L.kind}` }, h("b", { text: OWNER_TAG[L.kind] || "Nothing set" }), time ? h("small", { text: time }) : null);
   }
   // The day as his calendar would show it with rec on it (null: nothing): its tile, what supervisors see, its shifts,
@@ -4056,12 +4064,10 @@
         h("div", { class: "rv-head" }, h("b", { text: shortDay(e.k) }),
           h("span", { class: `rv-src ${e.manual ? "manual" : "lisa"}`, text: e.manual ? "Manual Change" : "LISA Change" })),
         e.manual && when ? h("p", { class: "rv-when", text: `You changed this day yourself on ${when}.` }) : null,
-        h("p", { class: "rv-chips", "aria-label": `Now ${describeDay(e.shown)}. If changed: ${describeDay(e.next)}.` },
-          dayChip(e.k, e.cur), h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" }), dayChip(e.k, e.next)),
-        ...changeRows(e),
+        ...changePairs(e),
         seeBtn(e),
         review.open.has(e.k) ? h("div", { class: "rv-look", id: `rv-look-${e.k}` }, lookCol(e.k, "Now", lookAt(e.k, e.cur)), lookCol(e.k, "If changed", lookAt(e.k, e.next))) : null,
-        h("div", { class: "rv-btns" }, btn("keep", "Keep", "✕"), btn("take", "Change", "✓")));
+        h("div", { class: "rv-btns" }, btn("keep", "Deny", "✕"), btn("take", "Change", "✓")));
     }));
     $("#rvSame").replaceChildren(...sames.map((e) => h("li", { class: "rv-same" },
       h("span", { class: "rv-check", "aria-hidden": "true", text: "✓" }),
@@ -4070,7 +4076,7 @@
     btn.disabled = left > 0;
     btn.textContent = left ? "Save" : taking ? `Save ${taking} Change${taking === 1 ? "" : "s"}` : "Done (Nothing to Change)";
     const others = changes.length && !left && taking && hasOtherChanges();
-    $("#rvHint").textContent = left ? `Answer ${left === changes.length ? "every change" : `the ${left} change${left === 1 ? "" : "s"} left`} with X or the check to save.`
+    $("#rvHint").textContent = left ? `Answer ${left === changes.length ? "every change" : `the ${left} change${left === 1 ? "" : "s"} left`} with Deny or Change to save.`
       : taking ? `Saves to your live calendar. Supervisors see it a minute or two later.${others ? " Your other unsaved changes are saved with it." : ""}` : "Nothing on your calendar changes.";
   }
   // Unsaved changes he made before opening the review (they'd go out with this save too).
