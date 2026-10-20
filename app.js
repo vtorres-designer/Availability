@@ -3946,6 +3946,8 @@
   // stays the same showed "Work 11 PM - 7 AM -> Work 11 PM - 7 AM", which isn't a change). The day pair only when the day
   // itself changes (its color or its shift's times); then its paid hours, its note and the shifts supervisors can request,
   // each only when that differs. A change none of those show (rare) still gets the day pair, so a card is never empty.
+  // The note pair shows even beside the day pair: a cancelled shift takes its site note with it ("Note: 1660 Lincoln ->
+  // No note"), and that's a change he answers too (his rule, Oct 20).
   function changePairs(e) {
     const now = lookAt(e.k, e.cur), then = lookAt(e.k, e.next), out = [];
     const arrow = () => h("span", { class: "rv-arrow", "aria-hidden": "true", text: "→" });
