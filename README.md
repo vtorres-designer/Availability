@@ -287,13 +287,23 @@ Thu 10/15 2300-0700
 - **Anything else** on the line, like the site name, is saved as a private note.
 - If two lines cover the same day, the lower one wins.
 
-The site shows a preview before anything changes. Lines it can't read are listed with the reason, and they stay in the box after you add the rest, so you can fix them. If your list leaves gray days in between, you can choose to mark them Available. Days from a line that couldn't be read are never filled in. Tap **Add to Calendar**, check the days, then tap **Save**.
+The box shows a preview of what it read. Lines it can't read are listed with the reason, and they stay in the box after you save the rest, so you can fix them.
+
+### Review Schedule (since v85)
+
+**Add to Calendar** opens **Review Schedule**, a window of its own over the box. Nothing on your calendar changes until you save there. It has three panels that open and close like Settings' sections:
+
+- **Changes** (open first): every day where the schedule differs from your calendar. Each one shows only what would change, as bubbles: the day itself (`Open → Work 10 PM – 6 AM`) when its color or times change, and the note, paid hours or shifts supervisors can request when that's what differs. A label says where your current day came from: **Manual Change** (you changed it yourself in Edit Day, with the date and time you did) or **LISA Change** (the schedule moved it, or it's a new day). **See This Day** opens the day as it is now beside the day if changed: its tile, what supervisors see, the shift, the shifts they can request, the note and the week's hours. Answer each with **Deny** (keep it as it is) or **Change**; **Approve All** answers the rest with Change.
+- **Missing from the Schedule:** days between the schedule's first and last date that it doesn't mention (or whose line couldn't be read). They're flagged and stay exactly as they are on your calendar. A LISA schedule names every day, so a missing day is worth a look in LISA. (Before v85, days in between turned Available.)
+- **Same as Your Calendar:** days the schedule leaves as they are, in green with a check.
+
+**Save** unlocks once every change is answered. It puts the changes you approved on your calendar and saves to your live site in one tap (any other unsaved changes go with it); supervisors see it a minute or two later. Closing the window changes nothing.
+
+**Manual changes are remembered.** Changing a day in Edit Day marks it, privately, with the date and time (the public file never carries the mark). Changing something and changing it back leaves no mark. The mark goes away when you approve a schedule's change for that day. Days you changed before v85 have no mark, so they show as LISA Change. An older copy of the page left open in another tab drops the marks when it saves: close old tabs after an update.
 
 ## Editing single days
 
-Pick what a tap does in the toolbar:
-- **Working**, **Busy** or **Available**: tap a day to mark it. Tap it again to turn it back to gray.
-- **Tap to Edit**: opens the day. You can set start and end times, paid hours, a private note, or which shifts you'd take.
+Tap a day to open **Edit Day**. You can set start and end times, paid hours, a private note, or which shifts supervisors can request. Since v85, a day you change here is remembered as a manual change, so a pasted schedule asks before replacing it (see Review Schedule).
 
 **See What Supervisors See** previews the public page. **Save** publishes your changes, and supervisors see them within a minute or two.
 
