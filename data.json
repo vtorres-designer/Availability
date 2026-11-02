@@ -23,7 +23,9 @@
     }
   ],
   "willing": [
-    "overnight"
+    "overnight",
+    "swing",
+    "morning"
   ],
   "status": "Accepting graveyard requests",
   "led": "green",
@@ -263,6 +265,6 @@
     },
     "after": 40
   },
-  "updated": "2026-11-02T20:42:53.221Z",
-  "rev": "2026-11-02T20:42:53.221Z~nc6w"
+  "updated": "2026-11-02T20:43:19.902Z",
+  "rev": "2026-11-02T20:43:19.902Z~05je"
 }
